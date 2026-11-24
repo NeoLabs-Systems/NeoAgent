@@ -21,6 +21,7 @@ internal object DevicePermissions {
     private val BY_KIND = mapOf(
         "calendar" to arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR),
         "contacts" to arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS),
+        "alarms" to emptyArray(),
     )
 
     fun of(kinds: Collection<String>) = kinds.flatMap { BY_KIND[it].orEmpty().toList() }.toTypedArray()
@@ -51,8 +52,13 @@ internal object DeviceSyncChannel {
                 "grantedKinds" -> result.success(DevicePermissions.granted(context))
                 "requestPermissions" -> {
                     val kinds = (call.argument<List<String>>("kinds")).orEmpty()
-                    pendingPermissions = result
-                    permissionLauncher.launch(DevicePermissions.of(kinds))
+                    val permissions = DevicePermissions.of(kinds)
+                    if (permissions.isEmpty()) {
+                        result.success(DevicePermissions.granted(context))
+                    } else {
+                        pendingPermissions = result
+                        permissionLauncher.launch(permissions)
+                    }
                 }
                 "openSettings" -> {
                     activity.startActivity(

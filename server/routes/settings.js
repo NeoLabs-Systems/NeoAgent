@@ -421,8 +421,7 @@ router.get('/token-usage/summary', (req, res) => {
     FROM agent_model_usage
     WHERE user_id = ? AND agent_id = ?
   `).get(userId, agentId);
-  const cacheEligibleTokens = Number(normalizedUsage?.inputTokens || 0)
-    + Number(normalizedUsage?.cachedReadTokens || 0);
+  const cacheEligibleTokens = Number(normalizedUsage?.inputTokens || 0);
 
   res.json({
     totals: {
@@ -457,7 +456,7 @@ router.get('/token-usage/summary', (req, res) => {
       pricedCallCount: Number(normalizedUsage?.pricedCallCount || 0),
       callCount: Number(normalizedUsage?.callCount || 0),
       cacheHitRatio: cacheEligibleTokens > 0
-        ? Number(normalizedUsage?.cachedReadTokens || 0) / cacheEligibleTokens
+        ? Math.min(1, Number(normalizedUsage?.cachedReadTokens || 0) / cacheEligibleTokens)
         : 0,
     },
   });

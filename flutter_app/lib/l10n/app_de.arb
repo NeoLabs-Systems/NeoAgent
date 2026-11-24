@@ -204,15 +204,6 @@
     }
   },
   "agentCalls": "Agentenanrufe",
-  "agentCommunication": "Agentenkommunikation",
-  "agentCommunicationArg1": "Agentenkommunikation: {arg1}.",
-  "@agentCommunicationArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
   "agentModeEditsTheWorkspaceSend": "Agentenmodus bearbeitet den Workspace · ⌘↵ senden · ⌘N neue Sitzung",
   "agentPausesAndAsksYouBefore": "Der Agent pausiert und fragt Sie vor der Ausführung.",
   "agentProfile": "Agentenprofil",
@@ -2007,20 +1998,9 @@
   "callAgent": "Agent anrufen",
   "callUser": "Benutzer anrufen",
   "calledByName": "Beim Namen genannt",
-  "canDelegateTasksToOtherAgents": "Kann Aufgaben an andere Agenten delegieren",
-  "canDelegateToArg1": "Kann an {arg1} delegieren",
-  "@canDelegateToArg1": {
-    "placeholders": {
-      "arg1": {
-        "type": "Object?"
-      }
-    }
-  },
-  "canReceiveDelegatedTasks": "Kann delegierte Aufgaben empfangen",
   "cancel": "Abbrechen",
   "cancelTask": "Aufgabe abbrechen",
   "cannotPreview": "Vorschau nicht möglich",
-  "cannotReceiveDelegatedTasks": "kann keine delegierten Aufgaben empfangen",
   "cannotRunYet": "noch nicht laufen.",
   "capturedThePage": "Seite erfasst",
   "category": "Kategorie",
@@ -2324,6 +2304,17 @@
   "couldNotDisconnectBitwarden": "Bitwarden konnte nicht getrennt werden.",
   "couldNotDisconnectHomeAssistant": "Home Assistant konnte nicht getrennt werden.",
   "couldNotDisconnectNeorecall": "NeoRecall konnte nicht getrennt werden.",
+  "neocloudSetup": "NeoCloud-Einrichtung",
+  "connectYourNeocloudServer": "Verbinde deinen NeoCloud-Server. Auf der Anmeldeseite von NeoCloud legst du fest, was NeoAgent mit deinen Dateien tun darf und ob es Dokumente zur Unterschrift senden darf.",
+  "useANeocloudUrlTheNeoagent": "Verwende eine NeoCloud-URL, die der NeoAgent-Server erreichen kann. Die PUBLIC_URL von NeoAgent muss für den OAuth-Callback auch von diesem Browser aus erreichbar sein.",
+  "connectedNeocloudUser": "Verbundener NeoCloud-Benutzer",
+  "neocloudServerUrl": "NeoCloud-Server-URL",
+  "neocloudServerUrlIsRequired": "Die NeoCloud-Server-URL ist erforderlich.",
+  "couldNotSaveNeocloudSetup": "NeoCloud-Einrichtung konnte nicht gespeichert werden.",
+  "disconnectNeocloud": "NeoCloud trennen?",
+  "thisRemovesTheNeocloudServerUrl": "Dadurch werden die NeoCloud-Server-URL und alle verbundenen NeoCloud-Konten für diesen Agenten entfernt.",
+  "couldNotDisconnectNeocloud": "NeoCloud konnte nicht getrennt werden.",
+  "neocloudUrlHelperText": "Lokale URLs und URLs im privaten Netzwerk funktionieren, wenn der NeoAgent-Server sie erreichen kann. Dateien in verschlüsselten Tresoren sind für NeoAgent nie zugänglich.",
   "couldNotDisconnectNextcloud": "Nextcloud konnte nicht getrennt werden.",
   "couldNotDisconnectTrello": "Trello konnte nicht getrennt werden.",
   "couldNotExportYourDataArg1": "Ihre Daten konnten nicht exportiert werden: {arg1}",
@@ -2378,7 +2369,6 @@
   "createLink": "Link erstellen",
   "createOrModifyFilesInYour": "Dateien in Ihrem Workspace erstellen oder ändern.",
   "createPassword": "Passwort erstellen",
-  "createSpecialistBotsWithSeparateMemory": "Erstellen Sie Spezialisten-Bots mit eigenem Gedächtnis, eigenen Einstellungen, Werkzeugen und Kontenzuweisungen.",
   "createTheFirstAccount": "Erstes Konto erstellen",
   "createUpdateOrDeleteSkills": "Skills erstellen, aktualisieren oder löschen.",
   "creatingYourSkill": "Ihr Skill wird erstellt…",
@@ -3017,7 +3007,6 @@
       }
     }
   },
-  "handlesDirectTasksItself": "Erledigt direkte Aufgaben selbst",
   "handsFreeTalkFreelyInterruptAnytime": "Freihändig (frei sprechen, jederzeit unterbrechen)",
   "headerName": "Header-Name",
   "headlinesOnTheTopicsYouCare": "Schlagzeilen zu Ihren Themen, gefiltert auf das Wesentliche.",
@@ -3977,7 +3966,7 @@
   "officialIntegration": "Offizielle Integration",
   "officialIntegrationDidNotReturnA": "Die offizielle Integration hat keine Verbindungs-URL zurückgegeben.",
   "on": "An",
-  "onASignedInAndroidDevice": "Öffnen Sie auf einem angemeldeten Android-Gerät Einstellungen › Anmeldung & Sicherheit, scannen Sie diesen Code und bestätigen Sie die Anmeldung.",
+  "onASignedInAndroidDevice": "Öffnen Sie auf einem angemeldeten Telefon Einstellungen › Anmeldung & Sicherheit, tippen Sie auf Anmelde-QR scannen und bestätigen Sie die Anmeldung.",
   "onByDefaultForNewGroups": "Standardmäßig an für neue Gruppen",
   "onDemand": "Bei Bedarf",
   "onForArg1OfArg2Groups": "Aktiv für {arg1} von {arg2} Gruppen",
@@ -4004,7 +3993,7 @@
   "onlyNeededIfYouWantTo": "Nur nötig, wenn Sie die ausgehende Nutzlast umformen möchten.",
   "onlyTheyCanChangeIt": "Nur diese Person kann das ändern.",
   "open": "Öffnen",
-  "openAccountSettingsOnASigned": "Öffnen Sie Einstellungen › Anmeldung & Sicherheit auf einem angemeldeten Android-Gerät, scannen Sie diesen Code und bestätigen Sie die Anmeldung.",
+  "openAccountSettingsOnASigned": "Öffnen Sie auf einem angemeldeten Telefon Einstellungen › Anmeldung & Sicherheit, tippen Sie auf Anmelde-QR scannen, scannen Sie diesen Code und bestätigen Sie die Anmeldung.",
   "openComputer": "Computer öffnen",
   "openDashboard": "Dashboard öffnen",
   "openFolder": "Ordner öffnen…",
@@ -4430,7 +4419,6 @@
   "restart": "Neu starten",
   "restartToFinishTheUpdate": " Neu starten, um die Aktualisierung abzuschließen.",
   "restoringThePreviousNeoagentRuntime": "Vorherige NeoAgent-Laufzeit wird wiederhergestellt",
-  "restrictDelegationTargets": "Delegierungsziele einschränken",
   "result": "Ergebnis",
   "resultDelivery": "Ergebniszustellung",
   "resultOneClickAddsOneYou": "Ergebnis. Ein Klick fügt eine hinzu; Sie können sie später bearbeiten.",
@@ -5151,7 +5139,6 @@
   "thesePeopleInOneGroup": "Diese Personen, in einer Gruppe",
   "theseSwitchesNeverYourChatsMemories": "diese Schalter, nie Ihre Chats, Erinnerungen oder Dateien.",
   "thisAccountWillUnlockNeoagentOn": "Dies ist das erste Konto auf diesem Server. Es verwaltet auch die Servereinstellungen und den Zugriff.",
-  "thisAgentCanDelegateToAny": "Dieser Agent kann an jeden geeigneten empfangenden Agenten delegieren.",
   "thisAgentIsUsingAServer": "Dieser Agent verwendet einen serverseitig verwalteten Trello-API-Schlüssel. Sie müssen unten nur ein Kontotoken autorisieren.",
   "thisBuildIsNotAllowedTo": "Dieser Build darf nicht mit diesem NeoAgent-Deployment kommunizieren.",
   "thisCodeBelongsToADifferent": "Dieser Code gehört zu einem anderen NeoAgent-Server: {arg1}",
@@ -5371,7 +5358,6 @@
   "turnTaking": "Rederecht",
   "turnTakingModel": "Rederecht-Modell",
   "turnTakingOff": "Gesprächswechsel aus",
-  "turnThisOffToKeepThis": "Ausschalten, um diesen Agenten vollständig von anderen Agenten zu trennen.",
   "turnedOffByArg1": "Ausgeschaltet von {arg1}",
   "@turnedOffByArg1": {
     "placeholders": {
@@ -5536,7 +5522,6 @@
   },
   "useTheServerOnThisComputer": "Server auf diesem Computer verwenden",
   "useTheseForContextIfA": "Nutzen Sie diese als Kontext. Wenn eine lokale URI vom Server aus nicht direkt erreichbar ist, bitten Sie mich, die Datei über einen zugänglichen Workspace bereitzustellen.",
-  "useThisForOrchestratorAgentsLeave": "Für Orchestrierungs-Agenten verwenden. Für isolierte Arbeitsbots, die Direktnachrichten selbst erledigen sollen, ausgeschaltet lassen.",
   "useTlsFromTheStartOf": "TLS vom Verbindungsbeginn an nutzen, meist auf Port 465.",
   "useYourOwnApiKeyFor": "Verwenden Sie Ihren eigenen API-Schlüssel für einen Anbieter oder verbinden Sie einen eigenen ",
   "usedByEveryAccountOnThis": "Wird von jedem Konto auf diesem Server genutzt, das keinen eigenen Schlüssel ",
@@ -5921,8 +5906,6 @@
   "pasteAReplacementToken": "Ersatz-Token einfügen",
   "replaceAccount": "Konto ersetzen",
   "addAccount": "Konto hinzufügen",
-  "canDelegateToAnyReceivingAgent": "Kann an jeden empfangenden Agenten delegieren",
-  "canReceiveDelegatedTasks2": "kann delegierte Aufgaben empfangen",
   "noSyncYet": "Noch keine Synchronisierung",
   "noNewData": "Keine neuen Daten",
   "syncOnceToSeedYourBackend": "Synchronisieren Sie einmal, um Ihr Backend zu befüllen.",
@@ -7272,10 +7255,8 @@
   "agentNameRequired": "Geben Sie diesem Agenten einen Namen.",
   "agentIdentifier": "Agentenkennung",
   "agentIdentifierHint": "Wird verwendet, um diesen Agenten anzusprechen. Aus dem Namen vorgeschlagen; Sie können die Kennung ändern.",
-  "agentIdentifierInvalid": "Verwenden Sie 1–48 Kleinbuchstaben (a–z), Ziffern, Bindestriche oder Unterstriche.",
   "uxAdvancedSettings": "Erweiterte Einstellungen",
   "uxSelected": "Ausgewählt",
-  "uxSelectedDelegationTargets": "Nur ausgewählte Agenten können Aufgaben von diesem Agenten empfangen.",
   "uxFieldRequired": "Geben Sie {field} ein.",
   "uxTaskInstructions": "Was soll der Agent tun?",
   "uxTaskEnabledHint": "Wenn aktiviert, läuft diese Aufgabe bei ihrem Auslöser. Ausschalten, um sie zu speichern, ohne sie automatisch auszuführen.",
@@ -7298,8 +7279,6 @@
   "uxMemoryDocuments": "Dokumente",
   "uxOpenChat": "Chat öffnen",
   "uxModelSkipHint": "Sie können sich zuerst umsehen. Chat und Aufgaben benötigen jedoch ein Modell, bevor sie funktionieren.",
-  "taskDeliveryBlockedBadge": "Keine Zustellung",
-  "taskDeliveryBlockedDetail": "Dieses Ziel ist über das geteilte Konto nicht erreichbar, daher kommen keine Ergebnisse an. Wählen Sie Ihren eigenen Chat oder den Standardkanal.",
   "taskDeliverySharedTitle": "Geteilte Konten erreichen nur Sie",
   "taskDeliverySharedDetail": "{platforms} nutzt das geteilte Konto dieses Servers, daher können Ergebnisse dort nur an Ihren eigenen Chat gehen.",
   "adminUpdatesHint": "NeoAgent aktualisiert sich selbst von GitHub. Chats, Einstellungen und Konten bleiben erhalten.",
@@ -7325,5 +7304,225 @@
   "adminUpdateDoneTitle": "Auf {version} aktualisiert",
   "adminUpdateDoneReloading": "Die App wird neu geladen, um die neue Version zu laden …",
   "adminUpdateReload": "Neu laden",
-  "adminUpdateFailedTitle": "Das Update wurde nicht abgeschlossen"
+  "adminUpdateFailedTitle": "Das Update wurde nicht abgeschlossen",
+  "approvalReview": "Ansehen",
+  "approvalExpired": "Diese Anfrage ist abgelaufen, es wurde nichts ausgeführt.",
+  "requestTookTooLong": "Das hat zu lange gedauert und wurde abgebrochen. Bitte versuche es noch einmal.",
+  "usageLimitReached": "Ich habe mein Nutzungslimit erreicht und kann gerade nicht antworten.",
+  "agentsPageIntro": "Jeder Agent ist ein dauerhafter Spezialist mit eigenem Chat und Gedächtnis. Agenten geben sich im Hintergrund Arbeit weiter, die Kontrolle behältst du.",
+  "agentsResponsibleFor": "Zuständig für",
+  "agentsSetUpBy": "Eingerichtet von {name}",
+  "@agentsSetUpBy": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsSetUpByWithReason": "Eingerichtet von {name}: {reason}",
+  "@agentsSetUpByWithReason": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      },
+      "reason": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsChat": "Chatten",
+  "agentsCreationTitle": "Neue Agenten",
+  "agentsCreationLabel": "Wenn ein Agent einen weiteren Agenten einrichten möchte",
+  "agentsCreationNever": "Nie",
+  "agentsCreationAsk": "Mich fragen",
+  "agentsCreationAllow": "Erlauben",
+  "agentsCreationNeverHint": "Nur du fügst Agenten hinzu.",
+  "agentsCreationAskHint": "Du gibst jeden neuen Agenten vorher frei. Empfohlen.",
+  "agentsCreationAllowHint": "Agenten dürfen einen Spezialisten einrichten, wenn eine dauerhafte Aufgabe einen braucht. Du kannst ihn jederzeit ändern oder archivieren.",
+  "agentsCreationCategory": "Neue Agenten einrichten",
+  "agentsCreationCategoryHint": "Ein Agent legt einen weiteren dauerhaften Agenten in deinem Konto an.",
+  "agentTasksTitle": "Arbeit zwischen Agenten",
+  "agentTasksDescription": "Was deine Agenten einander übergeben haben, Offenes zuerst.",
+  "agentTasksEmpty": "Noch nichts übergeben",
+  "agentTasksEmptyHint": "Wenn ein Agent Arbeit an einen Spezialisten weitergibt, erscheint sie hier.",
+  "agentTaskAsked": "{requester} hat {owner} beauftragt",
+  "@agentTaskAsked": {
+    "placeholders": {
+      "requester": {
+        "type": "Object?"
+      },
+      "owner": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskHandedOver": "{requester} hat an {owner} übergeben",
+  "@agentTaskHandedOver": {
+    "placeholders": {
+      "requester": {
+        "type": "Object?"
+      },
+      "owner": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskQueued": "Wartet auf Start",
+  "agentTaskWorking": "In Arbeit",
+  "agentTaskWaiting": "Wartet",
+  "agentTaskNeedsAnswer": "Braucht eine Antwort",
+  "agentTaskDone": "Erledigt",
+  "agentTaskFailed": "Fehlgeschlagen",
+  "agentTaskCancelled": "Gestoppt",
+  "agentTaskStop": "Stoppen",
+  "agentTaskShowResult": "Ergebnis anzeigen",
+  "agentTaskHideResult": "Ergebnis ausblenden",
+  "agentTaskFrom": "Aufgabe von {name}",
+  "@agentTaskFrom": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentTaskTakenOverFrom": "Übernommen von {name}",
+  "@agentTaskTakenOverFrom": {
+    "placeholders": {
+      "name": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsPermissionsTitle": "Was dieser Agent darf",
+  "agentsPermissionsHint": "Immer nur strenger als die Werkzeugrechte deines Kontos.",
+  "agentsPermissionAsAccount": "Wie Konto",
+  "agentsPermissionAskFirst": "Erst fragen",
+  "agentsPermissionNotAllowed": "Nicht erlaubt",
+  "agentsNotAllowedList": "Nicht erlaubt: {list}",
+  "@agentsNotAllowedList": {
+    "placeholders": {
+      "list": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsAsksFirstList": "Fragt vorher: {list}",
+  "@agentsAsksFirstList": {
+    "placeholders": {
+      "list": {
+        "type": "Object?"
+      }
+    }
+  },
+  "agentsWorkingWithOthers": "Zusammenarbeit mit anderen Agenten",
+  "agentsCanHandOff": "Kann Arbeit an andere Agenten abgeben",
+  "agentsCanHandOffHint": "Er entscheidet selbst, wann ein anderer Agent besser passt.",
+  "agentsOnlyTheseAgents": "Nur an Agenten, die ich auswähle",
+  "agentsCanTakeWork": "Andere Agenten können ihm Arbeit geben",
+  "agentsCanTakeWorkHint": "Ausschalten, damit dieser Agent nur für sich arbeitet.",
+  "agentsResponsibilityHint": "Worum sich dieser Agent kümmert. Andere Agenten entscheiden danach, was sie ihm geben.",
+  "agentsDescriptionHint": "Optional. Eine Zeile dazu, was er gut kann.",
+  "skillsInstalled": "Installiert",
+  "skillsDiscover": "Entdecken",
+  "skillsOnSkillsSh": "Auf skills.sh",
+  "skillsBuiltinLibraries": "Mitgelieferte Bibliotheken",
+  "skillsBuiltinReinstall": "Aktualisieren",
+  "skillsSearchHint": "Fähigkeiten oder skills.sh durchsuchen",
+  "skillsNoneInstalled": "Noch keine Fähigkeiten installiert. Hol dir eine von skills.sh unten, lade ein Zip mit Fähigkeiten hoch oder schreib deine eigene.",
+  "skillsShelfPopular": "Beliebt",
+  "skillsShelfTrending": "Im Trend",
+  "skillsTopicDocuments": "Dokumente",
+  "skillsTopicBrowser": "Browser",
+  "skillsTopicResearch": "Recherche",
+  "skillsTopicWriting": "Schreiben",
+  "skillsTopicDesign": "Design",
+  "skillsTopicCoding": "Programmieren",
+  "skillsTopicData": "Daten",
+  "skillsTopicMarketing": "Marketing",
+  "skillsGet": "Holen",
+  "skillsOfficial": "Offiziell",
+  "skillOriginBuiltIn": "Integriert",
+  "skillOriginLearned": "Gelernt",
+  "skillOriginYours": "Eigene",
+  "skillDiscardTitle": "Änderungen verwerfen?",
+  "skillDiscardBody": "Deine Änderungen an {name} sind nicht gespeichert.",
+  "skillBuiltInEditHint": "Integrierte Fähigkeit. Beim Speichern einer Änderung bekommst du eine eigene Kopie; alle anderen behalten das Original.",
+  "skillBuiltInDeleteBody": "{name} wird aus deinen Fähigkeiten entfernt. Andere Personen auf dieser Instanz behalten sie.",
+  "skillLibraryUpload": "Fähigkeiten-Bibliothek hochladen",
+  "skillLibraryUploadSubtitle": "Ein Zip mit Fähigkeiten-Ordnern, jeder mit einer SKILL.md",
+  "skillLibraryUploadHint": "Packe einen Ordner mit Fähigkeiten als Zip, etwa einen .claude/skills-Ordner oder ein ganzes Repository. Jeder Ordner mit einer SKILL.md wird zu einer Fähigkeit, die Dateien daneben kommen mit. Erneutes Hochladen ersetzt die Bibliothek.",
+  "skillLibraryChooseZip": "Zip-Datei auswählen",
+  "skillLibraryChangeFile": "Ändern",
+  "skillLibraryName": "Name der Bibliothek",
+  "skillLibraryNameHelp": "Leer lassen, um den Dateinamen zu verwenden.",
+  "skillLibraryUnreadable": "Diese Datei konnte nicht gelesen werden. Wähle sie erneut aus.",
+  "skillLibraryInstalledCount": "{count, plural, =0{Keine Fähigkeiten installiert} =1{1 Fähigkeit installiert} other{{count} Fähigkeiten installiert}}",
+  "skillLibraryInstalledInto": "{count, plural, =0{Keine Fähigkeiten in {library} installiert} =1{1 Fähigkeit in {library} installiert} other{{count} Fähigkeiten in {library} installiert}}",
+  "skillLibraryRemovedTitle": "Entfernt, nicht mehr im Zip",
+  "skillLibrarySkippedTitle": "Übersprungen",
+  "skillLibrarySkillCount": "{count, plural, =1{1 Fähigkeit} other{{count} Fähigkeiten}}",
+  "skillLibraryOffCount": "{count} aus",
+  "skillLibraryDelete": "Bibliothek löschen",
+  "skillLibraryDeleteBody": "{count, plural, =1{Die eine Fähigkeit aus {library} wird entfernt.} other{Alle {count} Fähigkeiten aus {library} werden entfernt.}}",
+  "bitwardenVault": "Tresor",
+  "bitwardenLock": "Sperren",
+  "integrationConfigured": "Eingerichtet",
+  "showMore": "Mehr anzeigen",
+  "showLess": "Weniger anzeigen",
+  "adminExtraModels": "Zusätzliche Modelle",
+  "adminExtraModelsIntro": "Diese Modelle sind für alle ausgeschaltet. Hake die an, die {username} trotzdem nutzen darf. Läufe damit zählen weiter zu den Limits dieses Kontos.",
+  "adminExtraModelsEmpty": "Kein Modell ist für alle ausgeschaltet, es gibt also nichts zusätzlich freizugeben.",
+  "adminExtraModelsSearch": "Modelle suchen",
+  "adminExtraModelsCount": "{count, plural, =1{1 zusätzliches Modell} other{{count} zusätzliche Modelle}}",
+  "adminExtraModelsSaved": "Zusätzliche Modelle für {username} gespeichert",
+  "auditModelsChanged": "{actor} hat geändert, welche zusätzlichen Modelle {subject} nutzen kann",
+  "modelAdminGranted": "Freigegeben",
+  "modelAdminGrantedHint": "Ein Admin hat dir dieses Modell freigegeben. Für alle anderen ist es ausgeschaltet.",
+  "sharedWebPages": "Geteilte Webseiten",
+  "sharedWebPagesDescription": "Web-Apps, die der Agent auf seinem Computer betreibt, unter einem öffentlichen Link auf diesem Server. Wer den Link hat, kann sie öffnen, solange Computer und App laufen. Besucher sehen einen Hinweis, dass ein Nutzer und nicht NeoAgent die Seite erstellt hat.",
+  "allowWebPageSharing": "Agent darf Webseiten teilen",
+  "allowWebPageSharingDescription": "Ist das aus, kann der Agent keine Seiten teilen und alle geteilten Links funktionieren nicht mehr. Vor dem Teilen fragt der Agent dich, außer deine Sicherheitseinstellungen erlauben es.",
+  "noSharedWebPages": "Gerade ist nichts geteilt.",
+  "stopSharing": "Nicht mehr teilen",
+  "sharedWebPageStopped": "{name} wird nicht mehr geteilt",
+  "sharedWebPagePortArg1": "Port {port}",
+  "sharedWebPagesOffline": "Dein Computer ist aus, daher zeigen geteilte Links eine Offline-Seite, bis er wieder läuft.",
+  "sharedWebPagesUnsupported": "Dieser Server führt Tools direkt auf seiner eigenen Maschine aus, daher gibt es keinen Computer, von dem Seiten geteilt werden können.",
+  "adminWebSharing": "Agenten dürfen Webseiten teilen",
+  "adminWebSharingDescription": "Agenten können Web-Apps von ihren Computern unter einem öffentlichen Link auf diesem Server veröffentlichen. Ist das aus, sieht niemand die Option, das Tool fehlt und alle geteilten Links funktionieren nicht mehr. Gilt sofort.",
+  "pairPhone": "Telefon koppeln",
+  "pairPhoneDescription": "Zeigt einen QR-Code an, mit dem sich die NeoAgent-App auf einem Telefon bei diesem Konto anmeldet, ohne Serveradresse oder Passwort einzugeben.",
+  "pairTitle": "Telefon koppeln",
+  "pairInstructions": "Öffnen Sie die NeoAgent-App auf Ihrem Telefon, tippen Sie auf dem Anmeldebildschirm auf „QR-Code scannen“ und richten Sie die Kamera auf diesen Code.",
+  "pairQrSemantics": "QR-Code zum Koppeln eines Telefons",
+  "pairWaiting": "Warten auf das Telefon",
+  "pairExpiresIn": "Läuft ab in {time}",
+  "pairExpired": "Code abgelaufen",
+  "pairNewCode": "Neuer Code",
+  "pairPairedWith": "Gekoppelt mit {device} ✓",
+  "pairUnknownDevice": "Ihrem Telefon",
+  "pairCantScan": "Scannen nicht möglich? Öffnen Sie diesen Link auf dem Telefon:",
+  "pairLandingTitle": "Mit der NeoAgent-App koppeln",
+  "pairLandingPhoneBody": "Dieser Link meldet die NeoAgent-App auf diesem Telefon an. Installieren Sie die App, falls noch nicht geschehen, und öffnen Sie den Link darin. Der Code gilt fünf Minuten.",
+  "pairLandingOpenApp": "In der NeoAgent-App öffnen",
+  "pairLandingGetApp": "App herunterladen",
+  "pairLandingComputerBody": "Dieser Link ist für Ihr Telefon gedacht. Öffnen Sie ihn dort oder scannen Sie den QR-Code mit der NeoAgent-App.",
+  "pairLandingInvalid": "Dieser Kopplungslink ist unvollständig. Zeigen Sie unter Einstellungen › Anmeldung & Sicherheit › Telefon koppeln einen neuen Code an.",
+  "pairLandingOpenNeoagent": "NeoAgent öffnen",
+  "signInScanQr": "QR-Code scannen",
+  "signInScanQrHint": "Öffnen Sie auf einem angemeldeten Computer Einstellungen › Anmeldung & Sicherheit › Telefon koppeln.",
+  "scanTitle": "QR-Code scannen",
+  "scanPrimeTitle": "Mit der Kamera scannen",
+  "scanPrimeBody": "NeoAgent nutzt die Kamera nur, um den QR-Code zu lesen. Nichts wird aufgezeichnet oder hochgeladen.",
+  "scanPrimeAllow": "Kamera erlauben",
+  "scanPairingHint": "Richten Sie die Kamera auf den QR-Code unter Einstellungen › Anmeldung & Sicherheit › Telefon koppeln",
+  "scanWrongPairingCode": "Das ist kein NeoAgent-Kopplungscode",
+  "scanTorchOn": "Licht einschalten",
+  "scanTorchOff": "Licht ausschalten",
+  "scanDeniedTitle": "Kamerazugriff ist aus",
+  "scanDeniedBodyIos": "Erlauben Sie NeoAgent in den Einstellungen, die Kamera zu verwenden, oder melden Sie sich stattdessen mit Ihrem Passwort an.",
+  "scanDeniedBodyAndroid": "Erlauben Sie die Kamera, wenn Sie gefragt werden, oder aktivieren Sie sie unter Einstellungen › Apps › NeoAgent › Berechtigungen. Sie können sich auch mit Ihrem Passwort anmelden.",
+  "scanOpenSettings": "Einstellungen öffnen",
+  "scanFailedTitle": "Die Kamera ist nicht gestartet",
+  "scanFailedBody": "Schließen Sie andere Apps, die die Kamera verwenden, und versuchen Sie es erneut."
 }

@@ -3,18 +3,41 @@
 const { randomUUID } = require('crypto');
 const db = require('../../db/database');
 const { getCategoryForTool } = require('./tool_categories');
+const { describeApproval } = require('./approval_copy');
 
 const APPROVAL_TIMEOUT_MS = 30_000;
+// Someone answering from a chat may not have it open the moment it arrives.
+const CHAT_APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
+
+function describeSafely(input) {
+  try {
+    return describeApproval(input);
+  } catch (err) {
+    console.warn('[ApprovalGate] Failed to describe an approval:', err.message);
+    return null;
+  }
+}
 const SESSION_GRANT_TTL_MS = 12 * 60 * 60 * 1000;
 
 class ApprovalGateService {
-  constructor({ io }) {
+  constructor({ io, toolPolicyService = null }) {
     this._io = io;
+    this._toolPolicyService = toolPolicyService;
+    /** Offers approvals in the chat a run came from, when there is one. */
+    this._chatDelivery = null;
     /** @type {Map<string, { resolve: Function, timer: NodeJS.Timeout, userId: number|string, runId: string|null, toolName: string, toolArgs: object, payload: object }>} */
     this._pending = new Map();
     /** @type {Set<string>} key = `${userId}:${runId}:${toolName}` */
     this._sessionGrants = new Set();
     this._loadSessionGrants();
+  }
+
+  setChatDelivery(delivery) {
+    this._chatDelivery = delivery;
+  }
+
+  isPending(approvalId) {
+    return this._pending.has(approvalId);
   }
 
   hasSessionGrant(userId, runId, toolName) {
@@ -100,6 +123,7 @@ class ApprovalGateService {
       clearTimeout(entry.timer);
       this._pending.delete(approvalId);
       this._updatePendingApprovalStatus(approvalId, 'expired', 'once');
+      this._chatDelivery?.withdraw(approvalId);
       this._io.to(`user:${entry.userId}`).emit('tool:approval_resolved', {
         approvalId,
         decision: 'expired',
@@ -116,14 +140,35 @@ class ApprovalGateService {
    * @param {object} [options]
    * @param {string|null} [options.reason] why this call needs the owner, when
    *   the run's trust (not the category policy) asked for approval
+   * @param {string|null} [options.agentId] the agent the run belongs to
+   * @param {object|null} [options.trust] the run's trust record, which names
+   *   the chat it came from
    */
-  requestApproval(userId, runId, toolName, toolArgs, { reason = null } = {}) {
+  requestApproval(userId, runId, toolName, toolArgs, {
+    reason = null, reasonKey = null, reasonParams = null, agentId = null, trust = null,
+  } = {}) {
     const approvalId = randomUUID();
-    const expiresAt = new Date(Date.now() + APPROVAL_TIMEOUT_MS).toISOString();
+    const inChat = this._chatDelivery?.canOffer({ userId, agentId, trust }) === true;
+    const timeoutMs = inChat ? CHAT_APPROVAL_TIMEOUT_MS : APPROVAL_TIMEOUT_MS;
+    const expiresAt = new Date(Date.now() + timeoutMs).toISOString();
     const category = getCategoryForTool(toolName, toolArgs) ?? 'unknown';
     this._persistPendingApproval(approvalId, userId, runId, toolName, toolArgs, category, expiresAt);
 
-    const payload = { approvalId, runId, toolName, toolArgs, category, expiresAt, reason };
+    const copy = describeSafely({
+      userId, agentId, toolName, toolArgs, category, reason, reasonKey, reasonParams: reasonParams || {},
+    });
+    const payload = {
+      approvalId,
+      runId,
+      toolName,
+      toolArgs,
+      category,
+      expiresAt,
+      reason: copy?.reason || reason,
+      title: copy?.title || null,
+      action: copy?.action || null,
+      detail: copy?.detail || null,
+    };
     this._io.to(`user:${userId}`).emit('tool:approval_required', payload);
 
     return new Promise((resolve) => {
@@ -131,13 +176,15 @@ class ApprovalGateService {
         if (this._pending.has(approvalId)) {
           this._pending.delete(approvalId);
           this._updatePendingApprovalStatus(approvalId, 'timeout', 'once');
+          this._chatDelivery?.withdraw(approvalId, { timedOut: true });
           this._io.to(`user:${userId}`).emit('tool:approval_resolved', {
             approvalId, decision: 'timeout',
           });
           this._logDecision(userId, runId, toolName, toolArgs, 'timeout', 'once');
           resolve('timeout');
         }
-      }, APPROVAL_TIMEOUT_MS);
+      }, timeoutMs);
+      timer.unref?.();
 
       this._pending.set(approvalId, {
         resolve,
@@ -150,6 +197,11 @@ class ApprovalGateService {
         escalated: Boolean(reason),
         payload,
       });
+      if (inChat) {
+        void this._chatDelivery.offer({
+          approvalId, userId, agentId, trust, category, toolName, toolArgs: toolArgs ?? {}, reason, reasonKey, reasonParams: reasonParams || {}, timeoutMs,
+        });
+      }
     });
   }
 
@@ -206,10 +258,31 @@ class ApprovalGateService {
     return { runId, toolName, toolArgs };
   }
 
+  /**
+   * A decision from the owner, wherever it was made. 'always' also saves the
+   * category policy.
+   * @returns the decided call, or null when nothing was pending
+   */
+  decide(approvalId, userId, decision, scope) {
+    const resolved = this.resolve(approvalId, userId, decision, scope);
+    if (resolved && decision === 'approved' && scope === 'always') {
+      const category = getCategoryForTool(resolved.toolName, resolved.toolArgs);
+      if (category) {
+        try {
+          this._toolPolicyService?.setPolicy(userId, category, 'allow');
+        } catch (err) {
+          console.warn('[Security] Failed to save always-allow policy:', err.message);
+        }
+      }
+    }
+    return resolved;
+  }
+
   _settle(approvalId, entry, decision, scope) {
     clearTimeout(entry.timer);
     this._pending.delete(approvalId);
     this._updatePendingApprovalStatus(approvalId, decision, scope);
+    this._chatDelivery?.withdraw(approvalId);
     const logScope = scope === 'always' ? 'session' : scope;
     this._logDecision(entry.userId, entry.runId, entry.toolName, entry.toolArgs, decision, logScope);
     this._io.to(`user:${entry.userId}`).emit('tool:approval_resolved', { approvalId, decision });

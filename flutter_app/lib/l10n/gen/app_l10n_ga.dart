@@ -471,14 +471,6 @@ class AppL10nGa extends AppL10n {
   String get agentCalls => 'Glaonna Gníomhaire';
 
   @override
-  String get agentCommunication => 'Cumarsáid gníomhaire';
-
-  @override
-  String agentCommunicationArg1(Object? arg1) {
-    return 'Cumarsáid gníomhaire: $arg1.';
-  }
-
-  @override
   String get agentModeEditsTheWorkspaceSend =>
       'Déanann mód an ghníomhaire eagarthóireacht ar an spás oibre · ⌘↵ seol · ⌘N seisiún nua';
 
@@ -1891,19 +1883,6 @@ class AppL10nGa extends AppL10n {
   String get calledByName => 'Glaoite de réir ainm';
 
   @override
-  String get canDelegateTasksToOtherAgents =>
-      'Is féidir leis tascanna a tharmligean chuig gníomhairí eile';
-
-  @override
-  String canDelegateToArg1(Object? arg1) {
-    return 'Is féidir é a tharmligean chuig $arg1';
-  }
-
-  @override
-  String get canReceiveDelegatedTasks =>
-      'Is féidir tascanna tarmligthe a fháil';
-
-  @override
   String get cancel => 'Cealaigh';
 
   @override
@@ -1911,10 +1890,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get cannotPreview => 'Ní féidir réamhamharc a dhéanamh';
-
-  @override
-  String get cannotReceiveDelegatedTasks =>
-      'ní féidir tascanna tarmligthe a fháil';
 
   @override
   String get cannotRunYet => 'ní féidir rith go fóill.';
@@ -2508,6 +2483,46 @@ class AppL10nGa extends AppL10n {
       'Níorbh fhéidir NeoRecall a dhínascadh.';
 
   @override
+  String get neocloudSetup => 'Socrú NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Ceangail do fhreastalaí NeoCloud. Ar leathanach síniú isteach NeoCloud roghnaíonn tú cad is féidir le NeoAgent a dhéanamh le do chomhaid agus an féidir leis doiciméid a sheoladh lena síniú.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Úsáid URL NeoCloud ar féidir le freastalaí NeoAgent é a bhaint amach. Ní mór PUBLIC_URL NeoAgent a bheith inrochtana ón mbrabhsálaí seo freisin don aisghlao OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Úsáideoir NeoCloud ceangailte';
+
+  @override
+  String get neocloudServerUrl => 'URL fhreastalaí NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'Tá URL fhreastalaí NeoCloud riachtanach.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Níorbh fhéidir socrú NeoCloud a shábháil.';
+
+  @override
+  String get disconnectNeocloud => 'Dícheangail NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Baineann sé seo URL fhreastalaí NeoCloud agus gach cuntas NeoCloud ceangailte don ghníomhaire seo.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'Níorbh fhéidir NeoCloud a dhícheangal.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Tacaítear le URLanna áitiúla agus líonra phríobháidigh nuair is féidir le freastalaí NeoAgent iad a bhaint amach. Ní nochtar comhaid i gcrinnte criptithe do NeoAgent riamh.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Níorbh fhéidir Nextcloud a dhícheangal.';
 
@@ -2628,10 +2643,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get createPassword => 'Cruthaigh pasfhocal';
-
-  @override
-  String get createSpecialistBotsWithSeparateMemory =>
-      'Cruthaigh róbónna speisialta le cuimhne ar leith, socruithe, uirlisí agus tascanna cuntais.';
 
   @override
   String get createTheFirstAccount => 'Cruthaigh an chéad chuntas';
@@ -3764,10 +3775,6 @@ class AppL10nGa extends AppL10n {
   }
 
   @override
-  String get handlesDirectTasksItself =>
-      'Láimhseálann sé tascanna díreacha féin';
-
-  @override
   String get handsFreeTalkFreelyInterruptAnytime =>
       'Saor ó lámha (labhairt faoi shaoirse, cuir isteach am ar bith)';
 
@@ -4177,6 +4184,12 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get keepTaskRunning => 'Coinnigh an tasc ar siúl';
+
+  @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
 
   @override
   String get keepTheVaultAvailable => 'Coinnigh an cruinneachán ar fáil';
@@ -5437,6 +5450,9 @@ class AppL10nGa extends AppL10n {
   String get notNow => 'Ní anois';
 
   @override
+  String get dontAskAgain => 'Don\'t ask again';
+
+  @override
   String get notNow2 => 'Ní Anois';
 
   @override
@@ -5519,7 +5535,7 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Ar ghléas Android sínithe isteach, oscail Socruithe › Sínigh isteach & slándáil, scanadh an cód seo, agus ceadaigh an logáil isteach.';
+      'Ar fhón atá sínithe isteach, oscail Socruithe › Síniú isteach & slándáil, tapáil Scan logáil isteach QR agus ceadaigh an logáil isteach.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5581,7 +5597,7 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Socruithe Oscailte › Sínigh isteach & slándáil ar ghléas Android sínithe isteach, scanadh an cód seo, agus ceadaigh an logáil isteach.';
+      'Ar fhón atá sínithe isteach, oscail Socruithe › Síniú isteach & slándáil, tapáil Scan logáil isteach QR, scan an cód seo agus ceadaigh an logáil isteach.';
 
   @override
   String get openComputer => 'Oscail ríomhaire';
@@ -6391,10 +6407,6 @@ class AppL10nGa extends AppL10n {
   @override
   String get restoringThePreviousNeoagentRuntime =>
       'An t-am rite NeoAgent roimhe seo a athchóiriú';
-
-  @override
-  String get restrictDelegationTargets =>
-      'Srian a chur ar spriocanna tarmligin';
 
   @override
   String get result => 'Toradh';
@@ -7902,10 +7914,6 @@ class AppL10nGa extends AppL10n {
       'Díghlasálfaidh an cuntas seo NeoAgent ar an meaisín seo.';
 
   @override
-  String get thisAgentCanDelegateToAny =>
-      'Is féidir leis an ngníomhaire seo a tharmligean chuig aon ghníomhaire fála incháilithe.';
-
-  @override
   String get thisAgentIsUsingAServer =>
       'Tá eochair Trello API atá á bainistiú ag an bhfreastalaí seo á úsáid ag an ngníomhaire seo. Ní gá duit ach chomhartha cuntais a údarú thíos.';
 
@@ -8294,10 +8302,6 @@ class AppL10nGa extends AppL10n {
   String get turnTakingOff => 'Múchadh';
 
   @override
-  String get turnThisOffToKeepThis =>
-      'Múch é seo chun an gníomhaire seo a choinneáil go hiomlán scartha ó ghníomhairí eile.';
-
-  @override
   String turnedOffByArg1(Object? arg1) {
     return 'Múchta ag $arg1';
   }
@@ -8589,10 +8593,6 @@ class AppL10nGa extends AppL10n {
   @override
   String get useTheseForContextIfA =>
       'Úsáid iad seo mar chomhthéacs. Mura bhfuil rochtain dhíreach ar URI áitiúil ón bhfreastalaí, iarr orm an comhad a sholáthar trí spás oibre inrochtana.';
-
-  @override
-  String get useThisForOrchestratorAgentsLeave =>
-      'Bain úsáid as seo le haghaidh gníomhairí ceolfhoirneora. Fág as do róbónna oibre scoite ar cheart dóibh teachtaireachtaí díreacha a chríochnú iad féin.';
 
   @override
   String get useTlsFromTheStartOf =>
@@ -9474,13 +9474,6 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get addAccount => 'Cuir Cuntas leis';
-
-  @override
-  String get canDelegateToAnyReceivingAgent =>
-      'Is féidir leis a tharmligean chuig aon ghníomhaire fála';
-
-  @override
-  String get canReceiveDelegatedTasks2 => 'in ann tascanna tarmligthe a fháil';
 
   @override
   String get noSyncYet => 'Níl sioncronú ann fós';
@@ -11633,6 +11626,13 @@ class AppL10nGa extends AppL10n {
       'Ainmneacha, seoltaí ríomhphoist agus uimhreacha gutháin';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Roinneann an fón seo le gníomhaire eile. Má roinneann tú anseo bogtar chuig an ngníomhaire seo é.';
 
@@ -12356,18 +12356,10 @@ class AppL10nGa extends AppL10n {
       'Used to address this agent. Suggested from the name; you can edit it.';
 
   @override
-  String get agentIdentifierInvalid =>
-      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
-
-  @override
   String get uxAdvancedSettings => 'Advanced settings';
 
   @override
   String get uxSelected => 'Selected';
-
-  @override
-  String get uxSelectedDelegationTargets =>
-      'Only selected agents can receive tasks from this agent.';
 
   @override
   String uxFieldRequired(String field) {
@@ -12420,13 +12412,6 @@ class AppL10nGa extends AppL10n {
   @override
   String get uxModelSkipHint =>
       'You can explore first, but chat and tasks need a model before they can run.';
-
-  @override
-  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
 
   @override
   String get taskDeliverySharedTitle => 'Shared accounts only reach you';
@@ -12528,4 +12513,581 @@ class AppL10nGa extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get technicalDetails => 'Technical details';
+
+  @override
+  String get approvalReview => 'Athbhreithnigh';
+
+  @override
+  String get approvalExpired =>
+      'Chuaigh an t-iarratas seo in éag, mar sin níor ritheadh tada.';
+
+  @override
+  String get requestTookTooLong =>
+      'Thóg sé sin rófhada agus stopadh é. Bain triail eile as.';
+
+  @override
+  String get usageLimitReached =>
+      'Tá mo theorainn úsáide bainte amach agam agus ní féidir liom freagra a thabhairt anois.';
+
+  @override
+  String get tailscaleServiceAccess => 'Service access';
+
+  @override
+  String get tailscaleServiceAccessHelp =>
+      'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.';
+
+  @override
+  String get tailscaleServiceValidation =>
+      'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.';
+
+  @override
+  String get tailscalePeer => 'Peer';
+
+  @override
+  String get tailscaleExactPath => 'Exact path and query string';
+
+  @override
+  String get tailscaleSignInBrowser =>
+      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.';
+
+  @override
+  String get tailscaleOpenSignIn => 'Open Tailscale sign-in';
+
+  @override
+  String get agentsPageIntro =>
+      'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.';
+
+  @override
+  String get agentsResponsibleFor => 'Responsible for';
+
+  @override
+  String agentsSetUpBy(Object? name) {
+    return 'Set up by $name';
+  }
+
+  @override
+  String agentsSetUpByWithReason(Object? name, Object? reason) {
+    return 'Set up by $name: $reason';
+  }
+
+  @override
+  String get agentsChat => 'Chat';
+
+  @override
+  String get agentsCreationTitle => 'New agents';
+
+  @override
+  String get agentsCreationLabel =>
+      'When an agent wants to set up another agent';
+
+  @override
+  String get agentsCreationNever => 'Never';
+
+  @override
+  String get agentsCreationAsk => 'Ask me';
+
+  @override
+  String get agentsCreationAllow => 'Allow';
+
+  @override
+  String get agentsCreationNeverHint => 'Only you add agents.';
+
+  @override
+  String get agentsCreationAskHint =>
+      'You approve each new agent first. Recommended.';
+
+  @override
+  String get agentsCreationAllowHint =>
+      'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.';
+
+  @override
+  String get agentsCreationCategory => 'Set up new agents';
+
+  @override
+  String get agentsCreationCategoryHint =>
+      'An agent creates another lasting agent on your account.';
+
+  @override
+  String get agentTasksTitle => 'Work between agents';
+
+  @override
+  String get agentTasksDescription =>
+      'What your agents handed to each other, open work first.';
+
+  @override
+  String get agentTasksEmpty => 'Nothing handed over yet';
+
+  @override
+  String get agentTasksEmptyHint =>
+      'When an agent passes work to a specialist, it shows up here.';
+
+  @override
+  String agentTaskAsked(Object? requester, Object? owner) {
+    return '$requester asked $owner';
+  }
+
+  @override
+  String agentTaskHandedOver(Object? requester, Object? owner) {
+    return '$requester handed over to $owner';
+  }
+
+  @override
+  String get agentTaskQueued => 'Queued';
+
+  @override
+  String get agentTaskWorking => 'Working';
+
+  @override
+  String get agentTaskWaiting => 'Waiting';
+
+  @override
+  String get agentTaskNeedsAnswer => 'Needs an answer';
+
+  @override
+  String get agentTaskDone => 'Done';
+
+  @override
+  String get agentTaskFailed => 'Failed';
+
+  @override
+  String get agentTaskCancelled => 'Stopped';
+
+  @override
+  String get agentTaskStop => 'Stop';
+
+  @override
+  String get agentTaskShowResult => 'Show result';
+
+  @override
+  String get agentTaskHideResult => 'Hide result';
+
+  @override
+  String agentTaskFrom(Object? name) {
+    return 'Task from $name';
+  }
+
+  @override
+  String agentTaskTakenOverFrom(Object? name) {
+    return 'Taken over from $name';
+  }
+
+  @override
+  String get agentsPermissionsTitle => 'What this agent may do';
+
+  @override
+  String get agentsPermissionsHint =>
+      'Only ever stricter than your account\'s tool permissions.';
+
+  @override
+  String get agentsPermissionAsAccount => 'As account';
+
+  @override
+  String get agentsPermissionAskFirst => 'Ask first';
+
+  @override
+  String get agentsPermissionNotAllowed => 'Not allowed';
+
+  @override
+  String agentsNotAllowedList(Object? list) {
+    return 'Not allowed: $list';
+  }
+
+  @override
+  String agentsAsksFirstList(Object? list) {
+    return 'Asks first: $list';
+  }
+
+  @override
+  String get agentsWorkingWithOthers => 'Working with other agents';
+
+  @override
+  String get agentsCanHandOff => 'Can pass work to other agents';
+
+  @override
+  String get agentsCanHandOffHint =>
+      'It decides for itself when another agent is the better fit.';
+
+  @override
+  String get agentsOnlyTheseAgents => 'Only to the agents I pick';
+
+  @override
+  String get agentsCanTakeWork => 'Other agents can give it work';
+
+  @override
+  String get agentsCanTakeWorkHint => 'Turn off to keep this agent to itself.';
+
+  @override
+  String get agentsResponsibilityHint =>
+      'What this agent takes care of. Other agents use it to decide what to give it.';
+
+  @override
+  String get agentsDescriptionHint =>
+      'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Suiteáilte';
+
+  @override
+  String get skillsDiscover => 'Faigh amach';
+
+  @override
+  String get skillsOnSkillsSh => 'Ar skills.sh';
+
+  @override
+  String get skillsBuiltinLibraries => 'Leabharlanna ionsuite';
+
+  @override
+  String get skillsBuiltinReinstall => 'Nuashonraigh';
+
+  @override
+  String get skillsSearchHint => 'Cuardaigh scileanna nó skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Níl aon scileanna suiteáilte fós. Faigh ceann ó skills.sh thíos, uaslódáil zip scileanna, nó scríobh do cheann féin.';
+
+  @override
+  String get skillsShelfPopular => 'Coitianta';
+
+  @override
+  String get skillsShelfTrending => 'Ag treochtáil';
+
+  @override
+  String get skillsTopicDocuments => 'Doiciméid';
+
+  @override
+  String get skillsTopicBrowser => 'Brabhsálaí';
+
+  @override
+  String get skillsTopicResearch => 'Taighde';
+
+  @override
+  String get skillsTopicWriting => 'Scríbhneoireacht';
+
+  @override
+  String get skillsTopicDesign => 'Dearadh';
+
+  @override
+  String get skillsTopicCoding => 'Códú';
+
+  @override
+  String get skillsTopicData => 'Sonraí';
+
+  @override
+  String get skillsTopicMarketing => 'Margaíocht';
+
+  @override
+  String get skillsGet => 'Faigh';
+
+  @override
+  String get skillsOfficial => 'Oifigiúil';
+
+  @override
+  String get skillOriginBuiltIn => 'Ionsuite';
+
+  @override
+  String get skillOriginLearned => 'Foghlamtha';
+
+  @override
+  String get skillOriginYours => 'Do chuid féin';
+
+  @override
+  String get skillDiscardTitle => 'Athruithe a chaitheamh i leataobh?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Níl d’athruithe ar $name sábháilte.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Scil ionsuite. Nuair a shábhálann tú athrú gheobhaidh tú do chóip féin; coinníonn daoine eile an bunleagan.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return 'Baintear $name as do scileanna. Coinníonn daoine eile ar an gcás seo é.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Uaslódáil leabharlann scileanna';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip d’fhillteáin scileanna, gach ceann le SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Cuir fillteán scileanna i zip, mar shampla fillteán .claude/skills nó stór iomlán. Déantar scil de gach fillteán a bhfuil SKILL.md ann, agus tagann na comhaid in aice leis leis. Má uaslódáiltear leabharlann arís, cuirtear í in ionad an tseanleagain.';
+
+  @override
+  String get skillLibraryChooseZip => 'Roghnaigh comhad .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Athraigh';
+
+  @override
+  String get skillLibraryName => 'Ainm na leabharlainne';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Fág folamh chun ainm an chomhaid a úsáid.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Níorbh fhéidir an comhad a léamh. Bain triail as é a roghnú arís.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Scileanna suiteáilte: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Suiteáilte i $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Bainte, níl siad sa zip a thuilleadh';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Scipeáilte';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Scileanna: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'As: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Scrios an leabharlann';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Baintear gach scil ó $library ($count).';
+  }
+
+  @override
+  String get bitwardenVault => 'Taisce';
+
+  @override
+  String get bitwardenLock => 'Glasáil';
+
+  @override
+  String get integrationConfigured => 'Cumraithe';
+
+  @override
+  String get showMore => 'Taispeáin níos mó';
+
+  @override
+  String get showLess => 'Taispeáin níos lú';
+
+  @override
+  String get adminExtraModels => 'Samhlacha breise';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Tá na samhlacha seo múchta do chách. Cuir tic leo siúd ar féidir le $username iad a úsáid mar sin féin. Áirítear ritheanna leo fós i dteorainneacha an chuntais seo.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Níl aon samhail múchta do chách, mar sin níl aon rud breise le deonú.';
+
+  @override
+  String get adminExtraModelsSearch => 'Cuardaigh samhlacha';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Samhlacha breise: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Sábháladh samhlacha breise do $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return 'D’athraigh $actor na samhlacha breise is féidir le $subject a úsáid';
+  }
+
+  @override
+  String get modelAdminGranted => 'Deonaithe';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Dheonaigh riarthóir an tsamhail seo duit. Tá sí múchta do gach duine eile.';
+
+  @override
+  String get sharedWebPages => 'Shared web pages';
+
+  @override
+  String get sharedWebPagesDescription =>
+      'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.';
+
+  @override
+  String get allowWebPageSharing => 'Let the agent share web pages';
+
+  @override
+  String get allowWebPageSharingDescription =>
+      'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.';
+
+  @override
+  String get noSharedWebPages => 'Nothing is shared right now.';
+
+  @override
+  String get stopSharing => 'Stop sharing';
+
+  @override
+  String sharedWebPageStopped(String name) {
+    return 'Stopped sharing $name';
+  }
+
+  @override
+  String sharedWebPagePortArg1(Object port) {
+    return 'Port $port';
+  }
+
+  @override
+  String get sharedWebPagesOffline =>
+      'Your computer is off, so shared links show an offline page until it runs again.';
+
+  @override
+  String get sharedWebPagesUnsupported =>
+      'This server runs tools directly on its own machine, so there is no computer to share pages from.';
+
+  @override
+  String get adminWebSharing => 'Let agents share web pages';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Péireáil fón';
+
+  @override
+  String get pairPhoneDescription =>
+      'Taispeáin cód QR a shíníonn aip NeoAgent ar fhón isteach sa chuntas seo, gan seoladh an fhreastalaí ná pasfhocal a chlóscríobh.';
+
+  @override
+  String get pairTitle => 'Péireáil fón';
+
+  @override
+  String get pairInstructions =>
+      'Oscail aip NeoAgent ar d\'fhón, tapáil “Scan cód QR” ar an scáileán sínithe isteach agus dírigh an ceamara ar an gcód seo.';
+
+  @override
+  String get pairQrSemantics => 'Cód QR chun fón a phéireáil';
+
+  @override
+  String get pairWaiting => 'Ag fanacht leis an bhfón';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Rachaidh in éag i $time';
+  }
+
+  @override
+  String get pairExpired => 'Tá an cód imithe in éag';
+
+  @override
+  String get pairNewCode => 'Cód nua';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Péireáilte le $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'd\'fhón';
+
+  @override
+  String get pairCantScan =>
+      'Ní féidir scanadh? Oscail an nasc seo ar an bhfón:';
+
+  @override
+  String get pairLandingTitle => 'Péireáil le haip NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Síníonn an nasc seo aip NeoAgent isteach ar an bhfón seo. Suiteáil an aip mura bhfuil sí agat, ansin oscail an nasc inti. Oibríonn an cód ar feadh cúig nóiméad.';
+
+  @override
+  String get pairLandingOpenApp => 'Oscail in aip NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Faigh an aip';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Is don fhón atá an nasc seo. Oscail ansin é, nó scan an cód QR le haip NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Tá an nasc péireála seo neamhiomlán. Taispeáin cód nua faoi Socruithe › Síniú isteach & slándáil › Péireáil fón.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Oscail NeoAgent';
+
+  @override
+  String get signInScanQr => 'Scan cód QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Ar ríomhaire atá sínithe isteach, oscail Socruithe › Síniú isteach & slándáil › Péireáil fón.';
+
+  @override
+  String get scanTitle => 'Scan cód QR';
+
+  @override
+  String get scanPrimeTitle => 'Úsáid an ceamara chun scanadh';
+
+  @override
+  String get scanPrimeBody =>
+      'Ní úsáideann NeoAgent an ceamara ach chun an cód QR a léamh. Ní thaifeadtar ná ní uaslódáiltear aon rud.';
+
+  @override
+  String get scanPrimeAllow => 'Ceadaigh an ceamara';
+
+  @override
+  String get scanPairingHint =>
+      'Dírigh an ceamara ar an gcód QR faoi Socruithe › Síniú isteach & slándáil › Péireáil fón';
+
+  @override
+  String get scanWrongPairingCode => 'Ní cód péireála NeoAgent é sin';
+
+  @override
+  String get scanTorchOn => 'Cas air an solas';
+
+  @override
+  String get scanTorchOff => 'Múch an solas';
+
+  @override
+  String get scanDeniedTitle => 'Tá rochtain ar an gceamara múchta';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Ceadaigh do NeoAgent an ceamara a úsáid i Socruithe, nó sínigh isteach le do phasfhocal ina ionad.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Ceadaigh an ceamara nuair a iarrtar ort, nó cas air é faoi Socruithe › Aipeanna › NeoAgent › Ceadanna. Is féidir leat síniú isteach le do phasfhocal freisin.';
+
+  @override
+  String get scanOpenSettings => 'Oscail Socruithe';
+
+  @override
+  String get scanFailedTitle => 'Níor thosaigh an ceamara';
+
+  @override
+  String get scanFailedBody =>
+      'Dún aipeanna eile a úsáideann an ceamara agus bain triail eile as.';
 }

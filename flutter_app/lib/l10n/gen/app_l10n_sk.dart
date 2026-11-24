@@ -469,14 +469,6 @@ class AppL10nSk extends AppL10n {
   String get agentCalls => 'Agent volá';
 
   @override
-  String get agentCommunication => 'Komunikácia agentov';
-
-  @override
-  String agentCommunicationArg1(Object? arg1) {
-    return 'Komunikácia agenta: $arg1.';
-  }
-
-  @override
   String get agentModeEditsTheWorkspaceSend =>
       'Režim agenta upravuje pracovný priestor · ⌘↵ odoslať · ⌘N nová relácia';
 
@@ -1886,18 +1878,6 @@ class AppL10nSk extends AppL10n {
   String get calledByName => 'Volaný menom';
 
   @override
-  String get canDelegateTasksToOtherAgents =>
-      'Môže delegovať úlohy na iných agentov';
-
-  @override
-  String canDelegateToArg1(Object? arg1) {
-    return 'Môže delegovať na $arg1';
-  }
-
-  @override
-  String get canReceiveDelegatedTasks => 'Môže prijímať delegované úlohy';
-
-  @override
   String get cancel => 'Zrušiť';
 
   @override
@@ -1905,9 +1885,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get cannotPreview => 'Nie je možné zobraziť ukážku';
-
-  @override
-  String get cannotReceiveDelegatedTasks => 'nemôže prijímať delegované úlohy';
 
   @override
   String get cannotRunYet => 'ešte nemôže bežať.';
@@ -2494,6 +2471,44 @@ class AppL10nSk extends AppL10n {
   String get couldNotDisconnectNeorecall => 'NeoRecall sa nepodarilo odpojiť.';
 
   @override
+  String get neocloudSetup => 'Nastavenie NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Pripojte svoj server NeoCloud. Na prihlasovacej stránke NeoCloud zvolíte, čo smie NeoAgent robiť s vašimi súbormi a či smie posielať dokumenty na podpis.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Použite URL NeoCloud, ktorú server NeoAgent dosiahne. PUBLIC_URL NeoAgent musí byť pre spätné volanie OAuth dostupná aj z tohto prehliadača.';
+
+  @override
+  String get connectedNeocloudUser => 'Pripojený používateľ NeoCloud';
+
+  @override
+  String get neocloudServerUrl => 'URL servera NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'URL servera NeoCloud je povinná.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Nastavenie NeoCloud sa nepodarilo uložiť.';
+
+  @override
+  String get disconnectNeocloud => 'Odpojiť NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Tým sa odstráni URL servera NeoCloud a všetky pripojené účty NeoCloud pre tohto agenta.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'NeoCloud sa nepodarilo odpojiť.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokálne adresy a adresy v súkromnej sieti fungujú, ak ich server NeoAgent dosiahne. Súbory v šifrovaných trezoroch nie sú NeoAgent nikdy sprístupnené.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Nextcloud sa nepodarilo odpojiť.';
 
   @override
@@ -2614,10 +2629,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get createPassword => 'Vytvorte heslo';
-
-  @override
-  String get createSpecialistBotsWithSeparateMemory =>
-      'Vytvorte špecializovaných robotov so samostatnou pamäťou, nastaveniami, nástrojmi a priradením účtov.';
 
   @override
   String get createTheFirstAccount => 'Vytvorte prvý účet';
@@ -3739,9 +3750,6 @@ class AppL10nSk extends AppL10n {
   }
 
   @override
-  String get handlesDirectTasksItself => 'Zvláda priame úlohy sám';
-
-  @override
   String get handsFreeTalkFreelyInterruptAnytime =>
       'Hands-free (hovorte voľne, prerušte kedykoľvek)';
 
@@ -4152,6 +4160,12 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get keepTaskRunning => 'Udržujte úlohu spustenú';
+
+  @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
 
   @override
   String get keepTheVaultAvailable => 'Nechajte k dispozícii trezor';
@@ -5411,6 +5425,9 @@ class AppL10nSk extends AppL10n {
   String get notNow => 'Teraz nie';
 
   @override
+  String get dontAskAgain => 'Don\'t ask again';
+
+  @override
   String get notNow2 => 'Teraz nie';
 
   @override
@@ -5493,7 +5510,7 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Na prihlásenom zariadení s Androidom otvorte Nastavenia › Prihlásenie a zabezpečenie, naskenujte tento kód a schváľte prihlásenie.';
+      'Na prihlásenom telefóne otvorte Nastavenia › Prihlásenie a zabezpečenie, ťuknite na Naskenujte prihlasovací QR kód a schváľte prihlásenie.';
 
   @override
   String get onByDefaultForNewGroups => 'Predvolene zapnuté pre nové skupiny';
@@ -5554,7 +5571,7 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Otvorte Nastavenia › Prihlásenie a zabezpečenie na prihlásenom zariadení so systémom Android, naskenujte tento kód a schváľte prihlásenie.';
+      'Na prihlásenom telefóne otvorte Nastavenia › Prihlásenie a zabezpečenie, ťuknite na Naskenujte prihlasovací QR kód, naskenujte tento kód a schváľte prihlásenie.';
 
   @override
   String get openComputer => 'Otvorte počítač';
@@ -6358,9 +6375,6 @@ class AppL10nSk extends AppL10n {
   @override
   String get restoringThePreviousNeoagentRuntime =>
       'Obnovenie predchádzajúceho runtime NeoAgent';
-
-  @override
-  String get restrictDelegationTargets => 'Obmedziť ciele delegovania';
 
   @override
   String get result => 'Výsledok';
@@ -7862,10 +7876,6 @@ class AppL10nSk extends AppL10n {
       'Tento účet odomkne NeoAgent na tomto počítači.';
 
   @override
-  String get thisAgentCanDelegateToAny =>
-      'Tento agent môže delegovať na ktoréhokoľvek oprávneného prijímajúceho agenta.';
-
-  @override
   String get thisAgentIsUsingAServer =>
       'Tento agent používa kľúč rozhrania API Trello spravovaný serverom. Musíte iba autorizovať token účtu nižšie.';
 
@@ -8253,10 +8263,6 @@ class AppL10nSk extends AppL10n {
   String get turnTakingOff => 'Odbočenie';
 
   @override
-  String get turnThisOffToKeepThis =>
-      'Vypnite, aby bol tento agent úplne oddelený od ostatných agentov.';
-
-  @override
   String turnedOffByArg1(Object? arg1) {
     return 'Vypnuté pomocou $arg1';
   }
@@ -8544,10 +8550,6 @@ class AppL10nSk extends AppL10n {
   @override
   String get useTheseForContextIfA =>
       'Použite ich pre kontext. Ak lokálny identifikátor URI nie je priamo dostupný zo servera, požiadajte ma o poskytnutie súboru prostredníctvom prístupného pracovného priestoru.';
-
-  @override
-  String get useThisForOrchestratorAgentsLeave =>
-      'Použite to pre agentov orchestrátora. Vypnite pre izolované pracovné roboty, ktoré by mali dokončiť priame správy sami.';
 
   @override
   String get useTlsFromTheStartOf =>
@@ -9424,13 +9426,6 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get addAccount => 'Pridať účet';
-
-  @override
-  String get canDelegateToAnyReceivingAgent =>
-      'Môže delegovať na akéhokoľvek prijímajúceho agenta';
-
-  @override
-  String get canReceiveDelegatedTasks2 => 'môže prijímať delegované úlohy';
 
   @override
   String get noSyncYet => 'Zatiaľ bez synchronizácie';
@@ -11579,6 +11574,13 @@ class AppL10nSk extends AppL10n {
       'Mená, e-mailové adresy a telefónne čísla';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Tento telefón zdieľa s iným agentom. Zdieľaním tu sa presunie k tomuto agentovi.';
 
@@ -12299,18 +12301,10 @@ class AppL10nSk extends AppL10n {
       'Used to address this agent. Suggested from the name; you can edit it.';
 
   @override
-  String get agentIdentifierInvalid =>
-      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
-
-  @override
   String get uxAdvancedSettings => 'Advanced settings';
 
   @override
   String get uxSelected => 'Selected';
-
-  @override
-  String get uxSelectedDelegationTargets =>
-      'Only selected agents can receive tasks from this agent.';
 
   @override
   String uxFieldRequired(String field) {
@@ -12363,13 +12357,6 @@ class AppL10nSk extends AppL10n {
   @override
   String get uxModelSkipHint =>
       'You can explore first, but chat and tasks need a model before they can run.';
-
-  @override
-  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
 
   @override
   String get taskDeliverySharedTitle => 'Shared accounts only reach you';
@@ -12471,4 +12458,581 @@ class AppL10nSk extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get technicalDetails => 'Technical details';
+
+  @override
+  String get approvalReview => 'Zobraziť';
+
+  @override
+  String get approvalExpired =>
+      'Platnosť žiadosti vypršala, nič sa nespustilo.';
+
+  @override
+  String get requestTookTooLong =>
+      'Trvalo to príliš dlho, a tak sa to zastavilo. Skús to znova.';
+
+  @override
+  String get usageLimitReached =>
+      'Dosiahol som limit využitia a teraz nemôžem odpovedať.';
+
+  @override
+  String get tailscaleServiceAccess => 'Service access';
+
+  @override
+  String get tailscaleServiceAccessHelp =>
+      'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.';
+
+  @override
+  String get tailscaleServiceValidation =>
+      'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.';
+
+  @override
+  String get tailscalePeer => 'Peer';
+
+  @override
+  String get tailscaleExactPath => 'Exact path and query string';
+
+  @override
+  String get tailscaleSignInBrowser =>
+      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.';
+
+  @override
+  String get tailscaleOpenSignIn => 'Open Tailscale sign-in';
+
+  @override
+  String get agentsPageIntro =>
+      'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.';
+
+  @override
+  String get agentsResponsibleFor => 'Responsible for';
+
+  @override
+  String agentsSetUpBy(Object? name) {
+    return 'Set up by $name';
+  }
+
+  @override
+  String agentsSetUpByWithReason(Object? name, Object? reason) {
+    return 'Set up by $name: $reason';
+  }
+
+  @override
+  String get agentsChat => 'Chat';
+
+  @override
+  String get agentsCreationTitle => 'New agents';
+
+  @override
+  String get agentsCreationLabel =>
+      'When an agent wants to set up another agent';
+
+  @override
+  String get agentsCreationNever => 'Never';
+
+  @override
+  String get agentsCreationAsk => 'Ask me';
+
+  @override
+  String get agentsCreationAllow => 'Allow';
+
+  @override
+  String get agentsCreationNeverHint => 'Only you add agents.';
+
+  @override
+  String get agentsCreationAskHint =>
+      'You approve each new agent first. Recommended.';
+
+  @override
+  String get agentsCreationAllowHint =>
+      'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.';
+
+  @override
+  String get agentsCreationCategory => 'Set up new agents';
+
+  @override
+  String get agentsCreationCategoryHint =>
+      'An agent creates another lasting agent on your account.';
+
+  @override
+  String get agentTasksTitle => 'Work between agents';
+
+  @override
+  String get agentTasksDescription =>
+      'What your agents handed to each other, open work first.';
+
+  @override
+  String get agentTasksEmpty => 'Nothing handed over yet';
+
+  @override
+  String get agentTasksEmptyHint =>
+      'When an agent passes work to a specialist, it shows up here.';
+
+  @override
+  String agentTaskAsked(Object? requester, Object? owner) {
+    return '$requester asked $owner';
+  }
+
+  @override
+  String agentTaskHandedOver(Object? requester, Object? owner) {
+    return '$requester handed over to $owner';
+  }
+
+  @override
+  String get agentTaskQueued => 'Queued';
+
+  @override
+  String get agentTaskWorking => 'Working';
+
+  @override
+  String get agentTaskWaiting => 'Waiting';
+
+  @override
+  String get agentTaskNeedsAnswer => 'Needs an answer';
+
+  @override
+  String get agentTaskDone => 'Done';
+
+  @override
+  String get agentTaskFailed => 'Failed';
+
+  @override
+  String get agentTaskCancelled => 'Stopped';
+
+  @override
+  String get agentTaskStop => 'Stop';
+
+  @override
+  String get agentTaskShowResult => 'Show result';
+
+  @override
+  String get agentTaskHideResult => 'Hide result';
+
+  @override
+  String agentTaskFrom(Object? name) {
+    return 'Task from $name';
+  }
+
+  @override
+  String agentTaskTakenOverFrom(Object? name) {
+    return 'Taken over from $name';
+  }
+
+  @override
+  String get agentsPermissionsTitle => 'What this agent may do';
+
+  @override
+  String get agentsPermissionsHint =>
+      'Only ever stricter than your account\'s tool permissions.';
+
+  @override
+  String get agentsPermissionAsAccount => 'As account';
+
+  @override
+  String get agentsPermissionAskFirst => 'Ask first';
+
+  @override
+  String get agentsPermissionNotAllowed => 'Not allowed';
+
+  @override
+  String agentsNotAllowedList(Object? list) {
+    return 'Not allowed: $list';
+  }
+
+  @override
+  String agentsAsksFirstList(Object? list) {
+    return 'Asks first: $list';
+  }
+
+  @override
+  String get agentsWorkingWithOthers => 'Working with other agents';
+
+  @override
+  String get agentsCanHandOff => 'Can pass work to other agents';
+
+  @override
+  String get agentsCanHandOffHint =>
+      'It decides for itself when another agent is the better fit.';
+
+  @override
+  String get agentsOnlyTheseAgents => 'Only to the agents I pick';
+
+  @override
+  String get agentsCanTakeWork => 'Other agents can give it work';
+
+  @override
+  String get agentsCanTakeWorkHint => 'Turn off to keep this agent to itself.';
+
+  @override
+  String get agentsResponsibilityHint =>
+      'What this agent takes care of. Other agents use it to decide what to give it.';
+
+  @override
+  String get agentsDescriptionHint =>
+      'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Nainštalované';
+
+  @override
+  String get skillsDiscover => 'Objaviť';
+
+  @override
+  String get skillsOnSkillsSh => 'Na skills.sh';
+
+  @override
+  String get skillsBuiltinLibraries => 'Vstavané knižnice';
+
+  @override
+  String get skillsBuiltinReinstall => 'Aktualizovať';
+
+  @override
+  String get skillsSearchHint => 'Hľadať zručnosti alebo na skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Zatiaľ nemáte nainštalované žiadne zručnosti. Získajte nejakú zo skills.sh nižšie, nahrajte zip so zručnosťami alebo napíšte vlastnú.';
+
+  @override
+  String get skillsShelfPopular => 'Obľúbené';
+
+  @override
+  String get skillsShelfTrending => 'Populárne teraz';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenty';
+
+  @override
+  String get skillsTopicBrowser => 'Prehliadač';
+
+  @override
+  String get skillsTopicResearch => 'Výskum';
+
+  @override
+  String get skillsTopicWriting => 'Písanie';
+
+  @override
+  String get skillsTopicDesign => 'Dizajn';
+
+  @override
+  String get skillsTopicCoding => 'Programovanie';
+
+  @override
+  String get skillsTopicData => 'Dáta';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Získať';
+
+  @override
+  String get skillsOfficial => 'Oficiálne';
+
+  @override
+  String get skillOriginBuiltIn => 'Vstavané';
+
+  @override
+  String get skillOriginLearned => 'Naučené';
+
+  @override
+  String get skillOriginYours => 'Vaše';
+
+  @override
+  String get skillDiscardTitle => 'Zahodiť zmeny?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Vaše úpravy zručnosti $name nie sú uložené.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Vstavaná zručnosť. Uložením úpravy získate vlastnú kópiu; ostatní si ponechajú originál.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name sa odstráni z vašich zručností. Ostatní na tejto inštancii si ju ponechajú.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Nahrať knižnicu zručností';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip s priečinkami zručností, každý so súborom SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Zabaľte priečinok so zručnosťami, napríklad .claude/skills alebo celý repozitár. Každý priečinok so SKILL.md sa stane zručnosťou a súbory vedľa neho sa pridajú s ňou. Opätovné nahranie knižnicu nahradí.';
+
+  @override
+  String get skillLibraryChooseZip => 'Vyberte súbor .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Zmeniť';
+
+  @override
+  String get skillLibraryName => 'Názov knižnice';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Nechajte prázdne pre použitie názvu súboru.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Súbor sa nepodarilo prečítať. Skúste ho vybrať znova.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Nainštalované zručnosti: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Nainštalované do $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Odstránené, už nie sú v zipe';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Preskočené';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Zručnosti: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Vypnuté: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Odstrániť knižnicu';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Všetky zručnosti z $library ($count) sa odstránia.';
+  }
+
+  @override
+  String get bitwardenVault => 'Trezor';
+
+  @override
+  String get bitwardenLock => 'Zamknúť';
+
+  @override
+  String get integrationConfigured => 'Nastavené';
+
+  @override
+  String get showMore => 'Zobraziť viac';
+
+  @override
+  String get showLess => 'Zobraziť menej';
+
+  @override
+  String get adminExtraModels => 'Ďalšie modely';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Tieto modely sú vypnuté pre všetkých. Označte tie, ktoré $username môže napriek tomu používať. Behy s nimi sa naďalej započítavajú do limitov tohto účtu.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Žiadny model nie je vypnutý pre všetkých, takže nie je čo navyše povoliť.';
+
+  @override
+  String get adminExtraModelsSearch => 'Hľadať modely';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Ďalšie modely: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Ďalšie modely pre $username uložené';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor zmenil, ktoré ďalšie modely môže $subject používať';
+  }
+
+  @override
+  String get modelAdminGranted => 'Povolené';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Správca vám povolil tento model. Pre všetkých ostatných je vypnutý.';
+
+  @override
+  String get sharedWebPages => 'Shared web pages';
+
+  @override
+  String get sharedWebPagesDescription =>
+      'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.';
+
+  @override
+  String get allowWebPageSharing => 'Let the agent share web pages';
+
+  @override
+  String get allowWebPageSharingDescription =>
+      'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.';
+
+  @override
+  String get noSharedWebPages => 'Nothing is shared right now.';
+
+  @override
+  String get stopSharing => 'Stop sharing';
+
+  @override
+  String sharedWebPageStopped(String name) {
+    return 'Stopped sharing $name';
+  }
+
+  @override
+  String sharedWebPagePortArg1(Object port) {
+    return 'Port $port';
+  }
+
+  @override
+  String get sharedWebPagesOffline =>
+      'Your computer is off, so shared links show an offline page until it runs again.';
+
+  @override
+  String get sharedWebPagesUnsupported =>
+      'This server runs tools directly on its own machine, so there is no computer to share pages from.';
+
+  @override
+  String get adminWebSharing => 'Let agents share web pages';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Spárovať telefón';
+
+  @override
+  String get pairPhoneDescription =>
+      'Zobrazí QR kód, ktorý prihlási aplikáciu NeoAgent v telefóne do tohto účtu bez zadávania adresy servera alebo hesla.';
+
+  @override
+  String get pairTitle => 'Spárovať telefón';
+
+  @override
+  String get pairInstructions =>
+      'Otvorte v telefóne aplikáciu NeoAgent, na prihlasovacej obrazovke ťuknite na „Naskenovať QR kód“ a nasmerujte fotoaparát na tento kód.';
+
+  @override
+  String get pairQrSemantics => 'QR kód na spárovanie telefónu';
+
+  @override
+  String get pairWaiting => 'Čaká sa na telefón';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Platnosť vyprší o $time';
+  }
+
+  @override
+  String get pairExpired => 'Platnosť kódu vypršala';
+
+  @override
+  String get pairNewCode => 'Nový kód';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Spárované s $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'vaším telefónom';
+
+  @override
+  String get pairCantScan =>
+      'Nedá sa naskenovať? Otvorte tento odkaz v telefóne:';
+
+  @override
+  String get pairLandingTitle => 'Spárovať s aplikáciou NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Tento odkaz prihlási aplikáciu NeoAgent v tomto telefóne. Ak aplikáciu ešte nemáte, nainštalujte ju a potom v nej odkaz otvorte. Kód platí päť minút.';
+
+  @override
+  String get pairLandingOpenApp => 'Otvoriť v aplikácii NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Získať aplikáciu';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Tento odkaz je určený pre váš telefón. Otvorte ho tam alebo naskenujte QR kód aplikáciou NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Tento odkaz na párovanie je neúplný. Zobrazte nový kód v Nastavenia › Prihlásenie a zabezpečenie › Spárovať telefón.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Otvoriť NeoAgent';
+
+  @override
+  String get signInScanQr => 'Naskenovať QR kód';
+
+  @override
+  String get signInScanQrHint =>
+      'Na prihlásenom počítači otvorte Nastavenia › Prihlásenie a zabezpečenie › Spárovať telefón.';
+
+  @override
+  String get scanTitle => 'Naskenovať QR kód';
+
+  @override
+  String get scanPrimeTitle => 'Skenovanie fotoaparátom';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent používa fotoaparát len na čítanie QR kódu. Nič sa nenahráva ani neodosiela.';
+
+  @override
+  String get scanPrimeAllow => 'Povoliť fotoaparát';
+
+  @override
+  String get scanPairingHint =>
+      'Nasmerujte fotoaparát na QR kód v Nastavenia › Prihlásenie a zabezpečenie › Spárovať telefón';
+
+  @override
+  String get scanWrongPairingCode => 'Toto nie je párovací kód NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Zapnúť svetlo';
+
+  @override
+  String get scanTorchOff => 'Vypnúť svetlo';
+
+  @override
+  String get scanDeniedTitle => 'Prístup k fotoaparátu je vypnutý';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Povoľte aplikácii NeoAgent používať fotoaparát v Nastaveniach alebo sa namiesto toho prihláste heslom.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Povoľte fotoaparát, keď sa zobrazí výzva, alebo ho zapnite v Nastavenia › Aplikácie › NeoAgent › Povolenia. Môžete sa tiež prihlásiť heslom.';
+
+  @override
+  String get scanOpenSettings => 'Otvoriť Nastavenia';
+
+  @override
+  String get scanFailedTitle => 'Fotoaparát sa nespustil';
+
+  @override
+  String get scanFailedBody =>
+      'Zatvorte ostatné aplikácie, ktoré používajú fotoaparát, a skúste to znova.';
 }

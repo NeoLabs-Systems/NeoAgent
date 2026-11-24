@@ -1,6 +1,9 @@
 'use strict';
 
 const MODEL_CALL_TIMEOUT_MS = 5 * 60 * 1000;
+// A stream that sends nothing for this long, first chunk included, is dead; the
+// whole-call budget would leave a caller waiting minutes before falling back.
+const STREAM_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
 function formatElapsedDuration(durationMs) {
   const totalSeconds = Math.max(1, Math.floor(Number(durationMs || 0) / 1000));
@@ -21,6 +24,10 @@ function resolveModelCallTimeoutMs(options = {}) {
     return Math.max(10, fromEnv);
   }
   return MODEL_CALL_TIMEOUT_MS;
+}
+
+function resolveStreamIdleTimeoutMs(options = {}) {
+  return Math.min(resolveModelCallTimeoutMs(options), STREAM_IDLE_TIMEOUT_MS);
 }
 
 function abortError(reason = null) {
@@ -95,6 +102,7 @@ module.exports = {
   abortError,
   isModelCallTimeout,
   resolveModelCallTimeoutMs,
+  resolveStreamIdleTimeoutMs,
   runAbortableModelCall,
   withModelCallTimeout,
 };

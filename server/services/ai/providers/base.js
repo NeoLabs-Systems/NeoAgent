@@ -21,6 +21,16 @@ class BaseProvider {
     throw error;
   }
 
+  // Turns the harness transcript into what this provider's API takes. Reasoning
+  // state stays internal unless a provider knows how to send it back.
+  prepareMessages(messages) {
+    return messages.map((message) => {
+      if (!message?.reasoningState && !message?.providerContentBlocks) return message;
+      const { reasoningState, providerContentBlocks, ...rest } = message;
+      return rest;
+    });
+  }
+
   formatTools(tools) {
     return (Array.isArray(tools) ? tools : [])
       .filter((tool) => tool && typeof tool === 'object' && String(tool.name || '').trim())

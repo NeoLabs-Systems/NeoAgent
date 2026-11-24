@@ -47,6 +47,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var callBridge: CallBridge? = null
 
+    private var restoredFromSavedState = false
+
     companion object {
         private const val ENGINE_ID = "main"
 
@@ -539,7 +541,17 @@ class MainActivity : FlutterFragmentActivity() {
         HomeWidgets.registerChannel(flutterEngine.dartExecutor.binaryMessenger, this)
         callBridge = CallBridge.attach(flutterEngine.dartExecutor.binaryMessenger, this)
 
-        captureLaunchIntent(intent)
+        // A recreated activity (rotation, theme change, restore after the
+        // process was killed) gets the intent that first started it; that
+        // widget tap was already handled and must not ring the call again.
+        if (!restoredFromSavedState) {
+            captureLaunchIntent(intent)
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        restoredFromSavedState = savedInstanceState != null
+        super.onCreate(savedInstanceState)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -648,6 +660,12 @@ class MainActivity : FlutterFragmentActivity() {
         }
         if (intent.action == HomeWidgets.ACTION_START_CALL) {
             pendingLaunchPayload = mapOf("action" to "start_call")
+            emitPendingAppLaunchIntent()
+            return
+        }
+        val link = intent.data
+        if (intent.action == Intent.ACTION_VIEW && link?.scheme == "neoagent" && link.host == "pair") {
+            pendingLaunchPayload = mapOf("action" to "pair", "text" to link.toString())
             emitPendingAppLaunchIntent()
             return
         }

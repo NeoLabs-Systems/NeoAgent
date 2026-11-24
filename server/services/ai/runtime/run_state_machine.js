@@ -7,7 +7,7 @@ const {
   RUNTIME_STATES,
   TERMINAL_RUNTIME_STATES,
 } = require('./constants');
-const { EVENT_TYPES, VISIBILITY } = require('./events/event_types');
+const { EVENT_TYPES } = require('./events/event_types');
 
 function parseMetadata(raw) {
   if (!raw) return {};
@@ -171,17 +171,14 @@ function transition({
         runId,
         userId: updated.userId,
         agentId: updated.agentId,
-        eventType: EVENT_TYPES.RUN_STATE_CHANGED,
+        eventType: EVENT_TYPES.RUN_STATE,
         actor: workerId,
         payload: {
           from_state: current.runtimeState,
           to_state: toState,
           reason: reason || null,
-          expected_version: current.version,
           version: updated.version,
-          worker_id: workerId,
         },
-        visibility: VISIBILITY.OPERATOR,
       });
     }
 

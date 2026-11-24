@@ -3,8 +3,30 @@
 const { randomUUID } = require('crypto');
 const db = require('../../../../db/database');
 const { parseJsonObject } = require('../../../../utils/text');
-const { VISIBILITY } = require('./event_types');
+const { redactEventPayload } = require('./redact');
+const { EVENT_SCHEMA_VERSION } = require('./event_types');
 
+const EVENT_COLUMNS = 'id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at';
+
+function mapEventRow(row) {
+  return {
+    id: Number(row.id),
+    runId: row.run_id,
+    userId: row.user_id,
+    agentId: row.agent_id || null,
+    eventType: row.event_type,
+    requestId: row.request_id || null,
+    stepId: row.step_id || null,
+    sequenceIndex: Number(row.sequence_index || 0),
+    payload: parseJsonObject(row.payload_json, {}),
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Appends to the run ledger. Events carry metadata only: raw prompts, tool
+ * results, and memory text live in the run's captures, under their own expiry.
+ */
 function appendEvent({
   runId,
   userId,
@@ -12,25 +34,20 @@ function appendEvent({
   eventType,
   payload = {},
   actor = null,
-  causationId = null,
-  correlationId = null,
+  parentEventId = null,
   requestId = null,
   stepId = null,
-  visibility = VISIBILITY.OPERATOR,
-  sensitivity = 'internal',
 }) {
   if (!runId || !userId || !eventType) return null;
 
   const eventId = randomUUID();
   const envelope = {
+    schema_version: EVENT_SCHEMA_VERSION,
     event_id: eventId,
-    schema_version: 1,
+    parent_event_id: parentEventId || null,
+    timestamp: new Date().toISOString(),
     actor: actor || null,
-    causation_id: causationId || null,
-    correlation_id: correlationId || runId,
-    visibility,
-    sensitivity,
-    ...(payload && typeof payload === 'object' ? payload : { value: payload }),
+    ...redactEventPayload(payload && typeof payload === 'object' ? payload : { value: payload }),
   };
 
   const row = db.transaction(() => {
@@ -49,107 +66,42 @@ function appendEvent({
       userId,
       agentId || null,
       eventType,
-      requestId || correlationId || null,
+      requestId || null,
       stepId || null,
       nextSequence,
       JSON.stringify(envelope),
     );
 
-    return db.prepare(
-      `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
-       FROM agent_run_events WHERE id = ?`,
-    ).get(result.lastInsertRowid);
+    return db.prepare(`SELECT ${EVENT_COLUMNS} FROM agent_run_events WHERE id = ?`)
+      .get(result.lastInsertRowid);
   })();
 
   if (!row) return null;
-  return {
-    id: Number(row.id),
-    eventId,
-    runId: row.run_id,
-    userId: row.user_id,
-    agentId: row.agent_id || null,
-    eventType: row.event_type,
-    requestId: row.request_id || null,
-    stepId: row.step_id || null,
-    sequenceIndex: Number(row.sequence_index || 0),
-    payload: parseJsonObject(row.payload_json, {}),
-    createdAt: row.created_at,
-  };
+  return { ...mapEventRow(row), eventId };
 }
 
-function findEventByRequestId(runId, requestId, eventType = null) {
-  if (!runId || !requestId) return null;
-  const row = eventType
-    ? db.prepare(
-      `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
-       FROM agent_run_events
-       WHERE run_id = ? AND request_id = ? AND event_type = ?
-       ORDER BY sequence_index DESC, id DESC LIMIT 1`,
-    ).get(runId, requestId, eventType)
-    : db.prepare(
-      `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
-       FROM agent_run_events
-       WHERE run_id = ? AND request_id = ?
-       ORDER BY sequence_index DESC, id DESC LIMIT 1`,
-    ).get(runId, requestId);
-  if (!row) return null;
-  return {
-    id: Number(row.id),
-    runId: row.run_id,
-    userId: row.user_id,
-    agentId: row.agent_id || null,
-    eventType: row.event_type,
-    requestId: row.request_id || null,
-    stepId: row.step_id || null,
-    sequenceIndex: Number(row.sequence_index || 0),
-    payload: parseJsonObject(row.payload_json, {}),
-    createdAt: row.created_at,
-  };
+// Never lets telemetry take a run down: a failed write costs one event.
+function recordEventSafe(input) {
+  try {
+    return appendEvent(input);
+  } catch (error) {
+    console.warn('[RunLedger] Could not record event:', input?.eventType, error?.message || error);
+    return null;
+  }
 }
 
-function mapEventRow(row) {
-  return {
-    id: Number(row.id),
-    runId: row.run_id,
-    userId: row.user_id,
-    agentId: row.agent_id || null,
-    eventType: row.event_type,
-    requestId: row.request_id || null,
-    stepId: row.step_id || null,
-    sequenceIndex: Number(row.sequence_index || 0),
-    payload: parseJsonObject(row.payload_json, {}),
-    createdAt: row.created_at,
-  };
-}
-
-function listEventsByType(runId, eventType) {
-  if (!runId || !eventType) return [];
-  const rows = db.prepare(
-    `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
-     FROM agent_run_events
-     WHERE run_id = ? AND event_type = ?
-     ORDER BY sequence_index ASC, id ASC`,
-  ).all(runId, eventType);
-  return rows.map(mapEventRow);
-}
-
-function listEvents(runId, { afterSequence = 0, limit = 500 } = {}) {
+function listEvents(runId, { afterSequence = 0, limit = 5000 } = {}) {
   if (!runId) return [];
-  const rows = db.prepare(
-    `SELECT id, run_id, user_id, agent_id, event_type, request_id, step_id, sequence_index, payload_json, created_at
-     FROM agent_run_events
+  return db.prepare(
+    `SELECT ${EVENT_COLUMNS} FROM agent_run_events
      WHERE run_id = ? AND sequence_index > ?
      ORDER BY sequence_index ASC, id ASC
      LIMIT ?`,
-  ).all(runId, Number(afterSequence) || 0, Math.max(1, Math.min(Number(limit) || 500, 5000)));
-
-  return rows.map(mapEventRow);
+  ).all(runId, Number(afterSequence) || 0, Math.max(1, Math.min(Number(limit) || 5000, 20000))).map(mapEventRow);
 }
-
 
 module.exports = {
   appendEvent,
-  findEventByRequestId,
   listEvents,
-  listEventsByType,
+  recordEventSafe,
 };

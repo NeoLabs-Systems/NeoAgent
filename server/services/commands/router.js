@@ -1,5 +1,6 @@
 'use strict';
 
+const { fixedMessage } = require('../messaging/fixed_messages');
 const db = require('../../db/database');
 const { clearWebChatSummary } = require('../ai/history');
 const { getAvailableTools } = require('../ai/tools');
@@ -34,6 +35,8 @@ function parseCommand(input, source) {
   const args = tokens.slice(1);
 
   if (!command) return null;
+  // A path pasted at the start of a message is not a command.
+  if (command.includes('/')) return null;
   return {
     command,
     args,
@@ -73,7 +76,7 @@ class CommandRouter {
       if (parsed.source === 'messaging') return { handled: false };
       return {
         handled: true,
-        content: `Unknown command: \`/${parsed.command}\`. Type \`/help\` for available commands.`,
+        content: fixedMessage(context.userId, context.agentId || null, 'unknownCommand', { command: parsed.command }),
       };
     }
 
@@ -119,17 +122,20 @@ class CommandRouter {
     if (source === 'messaging') {
       const platform = String(context.platform || '').trim();
       const chatId = String(context.chatId || '').trim();
+      // A chat known under several addresses has a conversation for each.
+      const manager = this.app?.locals?.messagingManager;
       if (platform && chatId) {
-        const conversation = db
-          .prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
-          .get(userId, agentId, platform, chatId);
-        if (conversation?.id) {
-          db.prepare('DELETE FROM conversations WHERE id = ?').run(conversation.id);
-        }
+        const conversationIds = manager
+          ? await manager.findConversations(userId, platform, chatId, { agentId })
+          : [db
+            .prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
+            .get(userId, agentId, platform, chatId)?.id].filter(Boolean);
+        const remove = db.prepare('DELETE FROM conversations WHERE id = ?');
+        for (const id of conversationIds) remove.run(id);
       }
       return {
         handled: true,
-        content: 'Context cleared for this chat. Fresh start.',
+        content: fixedMessage(userId, agentId, 'contextCleared'),
         events,
         metadata: {
           source,
@@ -159,7 +165,7 @@ class CommandRouter {
       } catch (err) {
         return {
           handled: true,
-          content: 'Context cleared. Fresh start.',
+          content: fixedMessage(userId, agentId, 'contextCleared'),
           events,
           error: err.message
         };
@@ -168,7 +174,7 @@ class CommandRouter {
 
     return {
       handled: true,
-      content: 'Context cleared. Fresh start.',
+      content: fixedMessage(userId, agentId, 'contextCleared'),
       events,
       metadata: {
         source,
@@ -203,7 +209,7 @@ class CommandRouter {
 
     return {
       handled: true,
-      content: 'Stopped.'
+      content: fixedMessage(userId, agentId, 'stopped')
     };
   }
 

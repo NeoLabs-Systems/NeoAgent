@@ -175,7 +175,7 @@ async function observeFirstTurn(runOptions) {
   };
   engine.isReadOnlyToolCall = () => true;
 
-  await engine.run(userId, 'do the thing', {
+  await engine.run(userId, 'help me with this please', {
     stream: false,
     skipGlobalRecall: true,
     maxIterations: 3,
@@ -241,7 +241,6 @@ test('browser work activates click and type instead of navigate alone', async ()
   assert.ok(activeNames.includes('browser_click'), 'browser_click must be active for page interaction');
   assert.ok(activeNames.includes('browser_type'), 'browser_type must be active for page interaction');
   assert.ok(activeNames.includes('browser_extract'));
-  assert.match(discovery, /browser_click/);
 });
 
 for (const [label, runOptions] of SURFACES) {

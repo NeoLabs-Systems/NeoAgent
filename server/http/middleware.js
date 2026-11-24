@@ -1,5 +1,8 @@
 'use strict';
 
+const { analyticsConfig } = require('../analytics-config');
+
+const { redactErrorsForNonAdmins } = require('./errors');
 const session = require('express-session');
 const SQLiteStore = require('better-sqlite3-session-store')(session);
 const helmet = require('helmet');
@@ -83,6 +86,8 @@ function buildHelmetOptions({ secureCookies }) {
   }
 
   const connectSrc = ["'self'", ...wsConnectSrc];
+  const analytics = analyticsConfig();
+  if (analytics) connectSrc.push(analytics.origin);
   if (allowExternalConnect) {
     connectSrc.push('https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://www.gstatic.com', 'https://cdn.jsdelivr.net');
   }
@@ -199,6 +204,15 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
   }
 
   app.use(helmet(buildHelmetOptions({ secureCookies })));
+  // Routes match any letter case, but the origin check, auth responses and error
+  // redaction look for a lowercase /api/, so /API/ must not reach the handlers.
+  app.use((req, res, next) => {
+    const path = `${req.originalUrl || req.url || req.path || ''}`.split('?')[0];
+    if (/^\/api(\/|$)/i.test(path) && !/^\/api(\/|$)/.test(path)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    return next();
+  });
   app.use(attachRequestSignal);
   app.use(
     cors((req, callback) => {
@@ -266,6 +280,7 @@ function applyHttpMiddleware(app, { secureCookies, trustProxy, sessionMiddleware
   app.use(jsonBody);
   app.use(urlencodedBody);
   app.use(sessionMiddleware);
+  app.use(redactErrorsForNonAdmins);
 }
 
 module.exports = {

@@ -172,7 +172,8 @@ function extractMessageText(message = {}) {
 function simplifyMessage(msg = {}, fallbackChatId = '') {
   const key = msg.key || {};
   const chatId = key.remoteJid || fallbackChatId || '';
-  const sender = key.participant || key.remoteJid || '';
+  const addresses = [key.participant, key.participantAlt, key.remoteJid, key.remoteJidAlt].filter(Boolean);
+  const sender = addresses.find((jid) => jid.endsWith('@s.whatsapp.net')) || addresses[0] || '';
   const text = extractMessageText(msg.message || {});
   let kind = 'text';
   if (msg.message?.imageMessage) kind = 'image';

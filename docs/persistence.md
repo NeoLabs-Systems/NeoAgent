@@ -57,7 +57,7 @@ description: The single SQLite instance, what it owns, how schema changes are ap
 
 1. **Stale runs.** `interruptStaleAgentRuns()` marks runs and steps a dead process left open as `interrupted`.
 2. **Orphan recovery.** `recoverOrphanedRuns()` closes runs whose lease expired, keeping checkpoints.
-3. **Resume.** Eligible `web` and `messaging` runs restart, see [Agent run lifecycle](agent-run-lifecycle.md#pause-stop-and-restart).
+3. **Resume.** Eligible `web` and `messaging` runs and scheduled task runs restart, see [Agent run lifecycle](agent-run-lifecycle.md#pause-stop-and-restart).
 
 ## Runtime paths
 

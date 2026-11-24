@@ -527,7 +527,10 @@ class _AuthViewState extends State<AuthView> {
     }
   }
 
-  Widget _passwordVisibilityToggle() {
+  Widget? _passwordVisibilityToggle() {
+    // Toggling obscureText on an autofill field leaves iOS Safari unable to
+    // reopen the keyboard (flutter#193267), fixed only from Flutter 3.50.
+    if (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) return null;
     return IconButton(
       tooltip: _obscurePassword
           ? appStrings.authShowPassword
@@ -996,23 +999,30 @@ class _AuthViewState extends State<AuthView> {
           label: Text(appStrings.securityKey),
         ),
     ];
-    if (buttons.length == 2 && !_registerMode) {
-      return Row(
-        children: <Widget>[
-          Expanded(child: buttons[0]),
-          const SizedBox(width: 10),
-          Expanded(child: buttons[1]),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        for (final (index, button) in buttons.indexed) ...<Widget>[
-          if (index > 0) const SizedBox(height: 10),
-          button,
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Half a phone-width card clips labels like "Sicherheitsschlüssel".
+        if (buttons.length == 2 &&
+            !_registerMode &&
+            constraints.maxWidth >= 340) {
+          return Row(
+            children: <Widget>[
+              Expanded(child: buttons[0]),
+              const SizedBox(width: 10),
+              Expanded(child: buttons[1]),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (final (index, button) in buttons.indexed) ...<Widget>[
+              if (index > 0) const SizedBox(height: 10),
+              button,
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -1162,6 +1172,7 @@ class _AuthViewState extends State<AuthView> {
     required List<AuthProviderCatalogItem> availableProviders,
     required bool awaitingTwoFactor,
     required bool showQrLogin,
+    required bool showScanToPair,
     required String title,
     required String subtitle,
   }) {
@@ -1230,9 +1241,12 @@ class _AuthViewState extends State<AuthView> {
           const SizedBox(height: 16),
           _InlineSuccess(message: controller.authInfoMessage!),
         ],
-        if (showQrLogin) ...<Widget>[
+        if (showQrLogin || showScanToPair) ...<Widget>[
           const SizedBox(height: 26),
-          _buildQrLoginBlock(controller),
+          if (showQrLogin)
+            _buildQrLoginBlock(controller)
+          else
+            _ScanToPairButton(controller: controller),
           const SizedBox(height: 22),
           _orDivider(appStrings.authOrUsePassword),
           const SizedBox(height: 16),
@@ -1307,7 +1321,7 @@ class _AuthViewState extends State<AuthView> {
           ),
         ] else ...<Widget>[
           if (hasAlternatives) ...<Widget>[
-            if (showQrLogin)
+            if (showQrLogin || showScanToPair)
               const SizedBox(height: 12)
             else ...<Widget>[
               const SizedBox(height: 20),
@@ -1444,10 +1458,14 @@ class _AuthViewState extends State<AuthView> {
 
     final awaitingTwoFactor = controller.isAwaitingTwoFactor;
     final showRegisterToggle = controller.hasUser;
-    final showQrLogin =
+    final passwordStep =
         !awaitingTwoFactor &&
         !controller.isAwaitingProviderUsername &&
         !_registerMode;
+    // A phone scans a signed-in screen's code; any other screen shows one
+    // for a signed-in phone (or is approved from the wearable's side).
+    final showQrLogin = passwordStep && !qrScannerSupported;
+    final showScanToPair = passwordStep && qrScannerSupported;
     final waitingForPhone = showQrLogin && controller.qrLoginScan != null;
     if (!showQrLogin) {
       _setInlineQrVisible(false);
@@ -1507,6 +1525,7 @@ class _AuthViewState extends State<AuthView> {
                                   availableProviders: availableProviders,
                                   awaitingTwoFactor: awaitingTwoFactor,
                                   showQrLogin: showQrLogin,
+                                  showScanToPair: showScanToPair,
                                   title: title,
                                   subtitle: subtitle,
                                 ),
@@ -1726,7 +1745,6 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   bool _blockedDialogOpen = false;
   bool _approvalSheetOpen = false;
-  bool _callPermissionsAsked = false;
   SidebarGroup? _expandedSidebarGroup;
   AppSection? _lastSelectedSection;
   final GlobalKey _devicesPanelKey = GlobalKey();
@@ -1897,14 +1915,18 @@ class _HomeViewState extends State<HomeView> {
     final inCall =
         controller.incomingAgentCall != null ||
         controller.voiceAssistantLiveState.sessionId.isNotEmpty;
-    if (!_callPermissionsAsked && controller.isAuthenticated && !inCall) {
-      _callPermissionsAsked = true;
+    if (!_callPermissionsPromptedThisLaunch &&
+        controller.isAuthenticated &&
+        !inCall) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(promptForCallPermissionsIfNeeded(context));
       });
     }
     final pendingApproval = controller.pendingApproval;
-    if (!_approvalSheetOpen && pendingApproval != null) {
+    if (!_approvalSheetOpen &&
+        pendingApproval != null &&
+        pendingApproval.approvalId != controller.approvalSheetDismissedId &&
+        pendingApproval.expiresAt.isAfter(DateTime.now())) {
       _approvalSheetOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

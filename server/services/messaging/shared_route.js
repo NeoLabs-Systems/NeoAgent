@@ -43,6 +43,13 @@ function isRefusedSharedRecipient(userId, agentId, platform, to) {
   return Boolean(link) && !isLinkRecipient(platform, link, to);
 }
 
+// A saved destination the shared account would refuse falls back to the person's
+// own chat, its only reachable one, so results keep arriving after a switch to it.
+function reachableSharedTarget(userId, agentId, target) {
+  if (!isRefusedSharedRecipient(userId, agentId, target.platform, target.to)) return target;
+  return { platform: target.platform, to: sharedLinkFor(userId, agentId, target.platform).chat_id };
+}
+
 class SlidingWindowLimiter {
   constructor(limit, windowMs, maxKeys = 10000) {
     this.limit = limit;
@@ -100,6 +107,10 @@ class SharedRoutePlatform {
     return { adapter, chatId: link.chat_id };
   }
 
+  async conversationChatIds(chatId) {
+    return (await this.getAdapter()?.conversationChatIds?.(chatId)) || [chatId];
+  }
+
   async sendMessage(to, content, options = {}) {
     const { adapter, chatId } = this._deliveryTarget(to);
     if (!this.outboundLimiter.take('send')) {
@@ -108,6 +119,18 @@ class SharedRoutePlatform {
       throw error;
     }
     return adapter.sendMessage(chatId, content, options);
+  }
+
+  // Absent on an adapter with nothing to tap, where the prompt is plain text.
+  async sendApprovalPrompt(to, prompt) {
+    const { adapter, chatId } = this._deliveryTarget(to);
+    if (adapter.sendApprovalPrompt) return adapter.sendApprovalPrompt(chatId, prompt);
+    return adapter.sendMessage(chatId, `${prompt.text}\n\n${prompt.replyHint}`);
+  }
+
+  async deleteApprovalPrompt(to, promptId) {
+    const { adapter, chatId } = this._deliveryTarget(to);
+    return adapter.deleteApprovalPrompt?.(chatId, promptId);
   }
 
   async sendTyping(to, isTyping, options = {}) {
@@ -149,4 +172,5 @@ module.exports = {
   chatKey,
   isRefusedSharedRecipient,
   isSendersOwnChat,
+  reachableSharedTarget,
 };

@@ -86,10 +86,8 @@ function execute(command, options, callback) {
   proc.stdout.on('data', (d) => { stdout += d; if (stdout.length > 500000) stdout = stdout.slice(-250000); });
   proc.stderr.on('data', (d) => { stderr += d; if (stderr.length > 100000) stderr = stderr.slice(-50000); });
 
-  if (options.stdinInput) {
-    proc.stdin.write(options.stdinInput);
-    proc.stdin.end();
-  }
+  proc.stdin.on('error', () => {});
+  proc.stdin.end(options.stdinInput || undefined);
 
   proc.on('close', (code) => {
     clearTimeout(timer);

@@ -37,6 +37,9 @@ class AppLaunchRequest {
 class AppLaunchBridge {
   static const String startCallAction = 'start_call';
   static const String shareToChatAction = 'share_to_chat';
+
+  /// A QR pairing link (`neoagent://pair?…`) in [AppLaunchRequest.text].
+  static const String pairAction = 'pair';
   static const EventChannel _events = EventChannel(
     'neoagent/app_launch/events',
   );

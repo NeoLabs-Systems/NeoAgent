@@ -474,14 +474,6 @@ class AppL10nNl extends AppL10n {
   String get agentCalls => 'Agentoproepen';
 
   @override
-  String get agentCommunication => 'Communicatie tussen agenten';
-
-  @override
-  String agentCommunicationArg1(Object? arg1) {
-    return 'Agentcommunicatie: $arg1.';
-  }
-
-  @override
   String get agentModeEditsTheWorkspaceSend =>
       'Agentmodus bewerkt de werkruimte · ⌘↵ verzenden · ⌘N nieuwe sessie';
 
@@ -1892,18 +1884,6 @@ class AppL10nNl extends AppL10n {
   String get calledByName => 'Bij naam genoemd';
 
   @override
-  String get canDelegateTasksToOtherAgents =>
-      'Kan taken delegeren aan andere agenten';
-
-  @override
-  String canDelegateToArg1(Object? arg1) {
-    return 'Kan delegeren aan $arg1';
-  }
-
-  @override
-  String get canReceiveDelegatedTasks => 'Kan gedelegeerde taken ontvangen';
-
-  @override
   String get cancel => 'Annuleren';
 
   @override
@@ -1911,10 +1891,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get cannotPreview => 'Kan geen voorbeeld bekijken';
-
-  @override
-  String get cannotReceiveDelegatedTasks =>
-      'kan geen gedelegeerde taken ontvangen';
 
   @override
   String get cannotRunYet => 'kan nog niet draaien.';
@@ -2502,6 +2478,44 @@ class AppL10nNl extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Kan NeoRecall niet loskoppelen.';
 
   @override
+  String get neocloudSetup => 'NeoCloud instellen';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Verbind je NeoCloud-server. Op de aanmeldpagina van NeoCloud kies je wat NeoAgent met je bestanden mag doen en of het documenten ter ondertekening mag versturen.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Gebruik een NeoCloud-URL die de NeoAgent-server kan bereiken. De PUBLIC_URL van NeoAgent moet voor de OAuth-callback ook vanuit deze browser bereikbaar zijn.';
+
+  @override
+  String get connectedNeocloudUser => 'Verbonden NeoCloud-gebruiker';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-server-URL';
+
+  @override
+  String get neocloudServerUrlIsRequired => 'NeoCloud-server-URL is verplicht.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Kan NeoCloud-instellingen niet opslaan.';
+
+  @override
+  String get disconnectNeocloud => 'NeoCloud loskoppelen?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Hiermee worden de NeoCloud-server-URL en alle verbonden NeoCloud-accounts voor deze agent verwijderd.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Kan NeoCloud niet loskoppelen.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Lokale URL\'\'s en URL\'\'s in een privénetwerk werken als de NeoAgent-server ze kan bereiken. Bestanden in versleutelde kluizen zijn nooit zichtbaar voor NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Kan Nextcloud niet ontkoppelen.';
 
   @override
@@ -2619,10 +2633,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get createPassword => 'Wachtwoord aanmaken';
-
-  @override
-  String get createSpecialistBotsWithSeparateMemory =>
-      'Creëer gespecialiseerde bots met afzonderlijk geheugen, instellingen, tools en accounttoewijzingen.';
 
   @override
   String get createTheFirstAccount => 'Maak het eerste account aan';
@@ -3748,9 +3758,6 @@ class AppL10nNl extends AppL10n {
   }
 
   @override
-  String get handlesDirectTasksItself => 'Voert directe taken zelf uit';
-
-  @override
   String get handsFreeTalkFreelyInterruptAnytime =>
       'Handsfree (vrijuit praten, op elk moment onderbreken)';
 
@@ -4161,6 +4168,12 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get keepTaskRunning => 'Houd de taak actief';
+
+  @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
 
   @override
   String get keepTheVaultAvailable => 'Houd de kluis beschikbaar';
@@ -5427,6 +5440,9 @@ class AppL10nNl extends AppL10n {
   String get notNow => 'Niet nu';
 
   @override
+  String get dontAskAgain => 'Don\'t ask again';
+
+  @override
   String get notNow2 => 'Niet nu';
 
   @override
@@ -5509,7 +5525,7 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Open op een ingelogd Android-apparaat Instellingen › Aanmelden en beveiliging, scan deze code en keur de aanmelding goed.';
+      'Open op een ingelogde telefoon Instellingen › Inloggen en beveiliging, tik op QR-aanmelding scannen en keur de aanmelding goed.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5571,7 +5587,7 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Open Instellingen › Aanmelden en beveiliging op een ingelogd Android-apparaat, scan deze code en keur de aanmelding goed.';
+      'Open op een ingelogde telefoon Instellingen › Inloggen en beveiliging, tik op QR-aanmelding scannen, scan deze code en keur de aanmelding goed.';
 
   @override
   String get openComputer => 'Computer openen';
@@ -6375,9 +6391,6 @@ class AppL10nNl extends AppL10n {
   @override
   String get restoringThePreviousNeoagentRuntime =>
       'De vorige NeoAgent-runtime herstellen';
-
-  @override
-  String get restrictDelegationTargets => 'Beperk delegatiedoelen';
 
   @override
   String get result => 'Resultaat';
@@ -7875,10 +7888,6 @@ class AppL10nNl extends AppL10n {
       'Dit account ontgrendelt NeoAgent op deze machine.';
 
   @override
-  String get thisAgentCanDelegateToAny =>
-      'Deze agent kan delegeren aan elke in aanmerking komende ontvangende agent.';
-
-  @override
   String get thisAgentIsUsingAServer =>
       'Deze agent gebruikt een door de server beheerde Trello API-sleutel. U hoeft hieronder alleen een accounttoken te autoriseren.';
 
@@ -8264,10 +8273,6 @@ class AppL10nNl extends AppL10n {
   String get turnTakingOff => 'Schakel uit';
 
   @override
-  String get turnThisOffToKeepThis =>
-      'Schakel dit uit om deze agent volledig gescheiden te houden van andere agenten.';
-
-  @override
   String turnedOffByArg1(Object? arg1) {
     return 'Uitgeschakeld door $arg1';
   }
@@ -8558,10 +8563,6 @@ class AppL10nNl extends AppL10n {
   @override
   String get useTheseForContextIfA =>
       'Gebruik deze voor context. Als een lokale URI niet rechtstreeks toegankelijk is vanaf de server, vraag mij dan om het bestand aan te leveren via een toegankelijke werkruimte.';
-
-  @override
-  String get useThisForOrchestratorAgentsLeave =>
-      'Gebruik dit voor Orchestrator-agents. Laat het los voor geïsoleerde werkbots die directe berichten zelf moeten afhandelen.';
 
   @override
   String get useTlsFromTheStartOf =>
@@ -9437,13 +9438,6 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get addAccount => 'Account toevoegen';
-
-  @override
-  String get canDelegateToAnyReceivingAgent =>
-      'Kan delegeren aan elke ontvangende agent';
-
-  @override
-  String get canReceiveDelegatedTasks2 => 'gedelegeerde taken kunnen ontvangen';
 
   @override
   String get noSyncYet => 'Nog geen synchronisatie';
@@ -11590,6 +11584,13 @@ class AppL10nNl extends AppL10n {
       'Namen, e-mailadressen en telefoonnummers';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Deze telefoon deelt met een andere agent. Hier delen verplaatst het naar deze agent.';
 
@@ -12311,18 +12312,10 @@ class AppL10nNl extends AppL10n {
       'Used to address this agent. Suggested from the name; you can edit it.';
 
   @override
-  String get agentIdentifierInvalid =>
-      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
-
-  @override
   String get uxAdvancedSettings => 'Advanced settings';
 
   @override
   String get uxSelected => 'Selected';
-
-  @override
-  String get uxSelectedDelegationTargets =>
-      'Only selected agents can receive tasks from this agent.';
 
   @override
   String uxFieldRequired(String field) {
@@ -12375,13 +12368,6 @@ class AppL10nNl extends AppL10n {
   @override
   String get uxModelSkipHint =>
       'You can explore first, but chat and tasks need a model before they can run.';
-
-  @override
-  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
 
   @override
   String get taskDeliverySharedTitle => 'Shared accounts only reach you';
@@ -12483,4 +12469,607 @@ class AppL10nNl extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get technicalDetails => 'Technical details';
+
+  @override
+  String get approvalReview => 'Bekijken';
+
+  @override
+  String get approvalExpired =>
+      'Dit verzoek is verlopen, er is niets uitgevoerd.';
+
+  @override
+  String get requestTookTooLong =>
+      'Dat duurde te lang en is gestopt. Probeer het opnieuw.';
+
+  @override
+  String get usageLimitReached =>
+      'Ik heb mijn gebruikslimiet bereikt en kan nu niet antwoorden.';
+
+  @override
+  String get tailscaleServiceAccess => 'Service access';
+
+  @override
+  String get tailscaleServiceAccessHelp =>
+      'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.';
+
+  @override
+  String get tailscaleServiceValidation =>
+      'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.';
+
+  @override
+  String get tailscalePeer => 'Peer';
+
+  @override
+  String get tailscaleExactPath => 'Exact path and query string';
+
+  @override
+  String get tailscaleSignInBrowser =>
+      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.';
+
+  @override
+  String get tailscaleOpenSignIn => 'Open Tailscale sign-in';
+
+  @override
+  String get agentsPageIntro =>
+      'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.';
+
+  @override
+  String get agentsResponsibleFor => 'Responsible for';
+
+  @override
+  String agentsSetUpBy(Object? name) {
+    return 'Set up by $name';
+  }
+
+  @override
+  String agentsSetUpByWithReason(Object? name, Object? reason) {
+    return 'Set up by $name: $reason';
+  }
+
+  @override
+  String get agentsChat => 'Chat';
+
+  @override
+  String get agentsCreationTitle => 'New agents';
+
+  @override
+  String get agentsCreationLabel =>
+      'When an agent wants to set up another agent';
+
+  @override
+  String get agentsCreationNever => 'Never';
+
+  @override
+  String get agentsCreationAsk => 'Ask me';
+
+  @override
+  String get agentsCreationAllow => 'Allow';
+
+  @override
+  String get agentsCreationNeverHint => 'Only you add agents.';
+
+  @override
+  String get agentsCreationAskHint =>
+      'You approve each new agent first. Recommended.';
+
+  @override
+  String get agentsCreationAllowHint =>
+      'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.';
+
+  @override
+  String get agentsCreationCategory => 'Set up new agents';
+
+  @override
+  String get agentsCreationCategoryHint =>
+      'An agent creates another lasting agent on your account.';
+
+  @override
+  String get agentTasksTitle => 'Work between agents';
+
+  @override
+  String get agentTasksDescription =>
+      'What your agents handed to each other, open work first.';
+
+  @override
+  String get agentTasksEmpty => 'Nothing handed over yet';
+
+  @override
+  String get agentTasksEmptyHint =>
+      'When an agent passes work to a specialist, it shows up here.';
+
+  @override
+  String agentTaskAsked(Object? requester, Object? owner) {
+    return '$requester asked $owner';
+  }
+
+  @override
+  String agentTaskHandedOver(Object? requester, Object? owner) {
+    return '$requester handed over to $owner';
+  }
+
+  @override
+  String get agentTaskQueued => 'Queued';
+
+  @override
+  String get agentTaskWorking => 'Working';
+
+  @override
+  String get agentTaskWaiting => 'Waiting';
+
+  @override
+  String get agentTaskNeedsAnswer => 'Needs an answer';
+
+  @override
+  String get agentTaskDone => 'Done';
+
+  @override
+  String get agentTaskFailed => 'Failed';
+
+  @override
+  String get agentTaskCancelled => 'Stopped';
+
+  @override
+  String get agentTaskStop => 'Stop';
+
+  @override
+  String get agentTaskShowResult => 'Show result';
+
+  @override
+  String get agentTaskHideResult => 'Hide result';
+
+  @override
+  String agentTaskFrom(Object? name) {
+    return 'Task from $name';
+  }
+
+  @override
+  String agentTaskTakenOverFrom(Object? name) {
+    return 'Taken over from $name';
+  }
+
+  @override
+  String get agentsPermissionsTitle => 'What this agent may do';
+
+  @override
+  String get agentsPermissionsHint =>
+      'Only ever stricter than your account\'s tool permissions.';
+
+  @override
+  String get agentsPermissionAsAccount => 'As account';
+
+  @override
+  String get agentsPermissionAskFirst => 'Ask first';
+
+  @override
+  String get agentsPermissionNotAllowed => 'Not allowed';
+
+  @override
+  String agentsNotAllowedList(Object? list) {
+    return 'Not allowed: $list';
+  }
+
+  @override
+  String agentsAsksFirstList(Object? list) {
+    return 'Asks first: $list';
+  }
+
+  @override
+  String get agentsWorkingWithOthers => 'Working with other agents';
+
+  @override
+  String get agentsCanHandOff => 'Can pass work to other agents';
+
+  @override
+  String get agentsCanHandOffHint =>
+      'It decides for itself when another agent is the better fit.';
+
+  @override
+  String get agentsOnlyTheseAgents => 'Only to the agents I pick';
+
+  @override
+  String get agentsCanTakeWork => 'Other agents can give it work';
+
+  @override
+  String get agentsCanTakeWorkHint => 'Turn off to keep this agent to itself.';
+
+  @override
+  String get agentsResponsibilityHint =>
+      'What this agent takes care of. Other agents use it to decide what to give it.';
+
+  @override
+  String get agentsDescriptionHint =>
+      'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Geïnstalleerd';
+
+  @override
+  String get skillsDiscover => 'Ontdekken';
+
+  @override
+  String get skillsOnSkillsSh => 'Op skills.sh';
+
+  @override
+  String get skillsBuiltinLibraries => 'Ingebouwde bibliotheken';
+
+  @override
+  String get skillsBuiltinReinstall => 'Bijwerken';
+
+  @override
+  String get skillsSearchHint => 'Zoek vaardigheden of op skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Nog geen vaardigheden geïnstalleerd. Haal er een van skills.sh hieronder, upload een zip met vaardigheden of schrijf je eigen.';
+
+  @override
+  String get skillsShelfPopular => 'Populair';
+
+  @override
+  String get skillsShelfTrending => 'Trending';
+
+  @override
+  String get skillsTopicDocuments => 'Documenten';
+
+  @override
+  String get skillsTopicBrowser => 'Browser';
+
+  @override
+  String get skillsTopicResearch => 'Onderzoek';
+
+  @override
+  String get skillsTopicWriting => 'Schrijven';
+
+  @override
+  String get skillsTopicDesign => 'Ontwerp';
+
+  @override
+  String get skillsTopicCoding => 'Programmeren';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Ophalen';
+
+  @override
+  String get skillsOfficial => 'Officieel';
+
+  @override
+  String get skillOriginBuiltIn => 'Ingebouwd';
+
+  @override
+  String get skillOriginLearned => 'Geleerd';
+
+  @override
+  String get skillOriginYours => 'Eigen';
+
+  @override
+  String get skillDiscardTitle => 'Wijzigingen verwerpen?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Je wijzigingen aan $name zijn niet opgeslagen.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Ingebouwde vaardigheid. Als je een wijziging opslaat, krijg je je eigen kopie; anderen houden het origineel.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name wordt uit je vaardigheden verwijderd. Anderen op deze instantie houden hem.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Vaardighedenbibliotheek uploaden';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Een zip met vaardigheidsmappen, elk met een SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Zip een map met vaardigheden, zoals een .claude/skills-map of een hele repository. Elke map met een SKILL.md wordt een vaardigheid, en de bestanden ernaast gaan mee. Een bibliotheek opnieuw uploaden vervangt hem.';
+
+  @override
+  String get skillLibraryChooseZip => 'Kies een .zip-bestand';
+
+  @override
+  String get skillLibraryChangeFile => 'Wijzigen';
+
+  @override
+  String get skillLibraryName => 'Naam van de bibliotheek';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Laat leeg om de bestandsnaam te gebruiken.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Dit bestand kon niet worden gelezen. Probeer het opnieuw te kiezen.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vaardigheden geïnstalleerd',
+      one: '1 vaardigheid geïnstalleerd',
+      zero: 'Geen vaardigheden geïnstalleerd',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vaardigheden geïnstalleerd in $library',
+      one: '1 vaardigheid geïnstalleerd in $library',
+      zero: 'Geen vaardigheden geïnstalleerd in $library',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Verwijderd, niet meer in de zip';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Overgeslagen';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vaardigheden',
+      one: '1 vaardigheid',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return '$count uit';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Bibliotheek verwijderen';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Alle vaardigheden uit $library ($count) worden verwijderd.';
+  }
+
+  @override
+  String get bitwardenVault => 'Kluis';
+
+  @override
+  String get bitwardenLock => 'Vergrendelen';
+
+  @override
+  String get integrationConfigured => 'Ingesteld';
+
+  @override
+  String get showMore => 'Meer tonen';
+
+  @override
+  String get showLess => 'Minder tonen';
+
+  @override
+  String get adminExtraModels => 'Extra modellen';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Deze modellen staan voor iedereen uit. Vink de modellen aan die $username toch mag gebruiken. Runs ermee tellen nog steeds mee voor de limieten van dit account.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Er staat geen model voor iedereen uit, dus er valt niets extra toe te kennen.';
+
+  @override
+  String get adminExtraModelsSearch => 'Modellen zoeken';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extra modellen',
+      one: '1 extra model',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Extra modellen opgeslagen voor $username';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor heeft gewijzigd welke extra modellen $subject kan gebruiken';
+  }
+
+  @override
+  String get modelAdminGranted => 'Toegekend';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Een beheerder heeft je dit model toegekend. Voor iedereen anders staat het uit.';
+
+  @override
+  String get sharedWebPages => 'Shared web pages';
+
+  @override
+  String get sharedWebPagesDescription =>
+      'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.';
+
+  @override
+  String get allowWebPageSharing => 'Let the agent share web pages';
+
+  @override
+  String get allowWebPageSharingDescription =>
+      'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.';
+
+  @override
+  String get noSharedWebPages => 'Nothing is shared right now.';
+
+  @override
+  String get stopSharing => 'Stop sharing';
+
+  @override
+  String sharedWebPageStopped(String name) {
+    return 'Stopped sharing $name';
+  }
+
+  @override
+  String sharedWebPagePortArg1(Object port) {
+    return 'Port $port';
+  }
+
+  @override
+  String get sharedWebPagesOffline =>
+      'Your computer is off, so shared links show an offline page until it runs again.';
+
+  @override
+  String get sharedWebPagesUnsupported =>
+      'This server runs tools directly on its own machine, so there is no computer to share pages from.';
+
+  @override
+  String get adminWebSharing => 'Let agents share web pages';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Telefoon koppelen';
+
+  @override
+  String get pairPhoneDescription =>
+      'Toon een QR-code waarmee de NeoAgent-app op een telefoon inlogt op dit account, zonder serveradres of wachtwoord te typen.';
+
+  @override
+  String get pairTitle => 'Telefoon koppelen';
+
+  @override
+  String get pairInstructions =>
+      'Open de NeoAgent-app op uw telefoon, tik op het inlogscherm op ‘QR-code scannen’ en richt de camera op deze code.';
+
+  @override
+  String get pairQrSemantics => 'QR-code om een telefoon te koppelen';
+
+  @override
+  String get pairWaiting => 'Wachten op de telefoon';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Verloopt over $time';
+  }
+
+  @override
+  String get pairExpired => 'Code verlopen';
+
+  @override
+  String get pairNewCode => 'Nieuwe code';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Gekoppeld aan $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'uw telefoon';
+
+  @override
+  String get pairCantScan =>
+      'Lukt scannen niet? Open deze link op de telefoon:';
+
+  @override
+  String get pairLandingTitle => 'Koppelen met de NeoAgent-app';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Met deze link logt de NeoAgent-app op deze telefoon in. Installeer de app als u dat nog niet hebt gedaan en open de link daarin. De code werkt vijf minuten.';
+
+  @override
+  String get pairLandingOpenApp => 'Openen in NeoAgent-app';
+
+  @override
+  String get pairLandingGetApp => 'App downloaden';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Deze link is bedoeld voor uw telefoon. Open hem daar of scan de QR-code met de NeoAgent-app.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Deze koppelingslink is onvolledig. Toon een nieuwe code via Instellingen › Inloggen en beveiliging › Telefoon koppelen.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'NeoAgent openen';
+
+  @override
+  String get signInScanQr => 'QR-code scannen';
+
+  @override
+  String get signInScanQrHint =>
+      'Open op een ingelogde computer Instellingen › Inloggen en beveiliging › Telefoon koppelen.';
+
+  @override
+  String get scanTitle => 'QR-code scannen';
+
+  @override
+  String get scanPrimeTitle => 'Scannen met de camera';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent gebruikt de camera alleen om de QR-code te lezen. Er wordt niets opgenomen of geüpload.';
+
+  @override
+  String get scanPrimeAllow => 'Camera toestaan';
+
+  @override
+  String get scanPairingHint =>
+      'Richt de camera op de QR-code onder Instellingen › Inloggen en beveiliging › Telefoon koppelen';
+
+  @override
+  String get scanWrongPairingCode => 'Dat is geen NeoAgent-koppelcode';
+
+  @override
+  String get scanTorchOn => 'Lamp aanzetten';
+
+  @override
+  String get scanTorchOff => 'Lamp uitzetten';
+
+  @override
+  String get scanDeniedTitle => 'Cameratoegang staat uit';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Sta NeoAgent in Instellingen toe de camera te gebruiken, of log in met uw wachtwoord.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Sta de camera toe wanneer daarom wordt gevraagd, of zet deze aan via Instellingen › Apps › NeoAgent › Rechten. U kunt ook inloggen met uw wachtwoord.';
+
+  @override
+  String get scanOpenSettings => 'Instellingen openen';
+
+  @override
+  String get scanFailedTitle => 'De camera is niet gestart';
+
+  @override
+  String get scanFailedBody =>
+      'Sluit andere apps die de camera gebruiken en probeer het opnieuw.';
 }

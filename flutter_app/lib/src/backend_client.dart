@@ -372,6 +372,30 @@ class BackendClient {
     );
   }
 
+  /// QR pairing: a code this signed-in screen shows for a phone to redeem.
+  Future<Map<String, dynamic>> startPairing(String baseUrl) async {
+    return postMap(baseUrl, '/api/account/pairing', const <String, dynamic>{});
+  }
+
+  Future<Map<String, dynamic>> pairingStatus(
+    String baseUrl,
+    String code,
+  ) async {
+    return getMap(baseUrl, '/api/account/pairing/${Uri.encodeComponent(code)}');
+  }
+
+  /// Signs this device in with a code another, signed-in screen showed.
+  Future<Map<String, dynamic>> redeemPairing({
+    required String baseUrl,
+    required String code,
+    required String deviceName,
+  }) async {
+    return postMap(baseUrl, '/api/auth/pair', <String, dynamic>{
+      'code': code,
+      'name': deviceName,
+    }, allowUnauthorized: true);
+  }
+
   Future<void> logout(String baseUrl) async {
     try {
       await postMap(
@@ -752,6 +776,26 @@ class BackendClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchAdminUserModelGrants(
+    String baseUrl,
+    int userId,
+  ) async {
+    return getMap(baseUrl, '/api/admin/users/$userId/allowed-models');
+  }
+
+  /// Replaces the models granted to one account; an empty list clears them.
+  Future<Map<String, dynamic>> saveAdminUserModelGrants(
+    String baseUrl, {
+    required int userId,
+    required List<String> modelIds,
+  }) async {
+    return putMap(
+      baseUrl,
+      '/api/admin/users/$userId/allowed-models',
+      <String, dynamic>{'modelIds': modelIds},
+    );
+  }
+
   Future<Map<String, dynamic>> fetchAdminDefaultRateLimits(
     String baseUrl,
   ) async {
@@ -902,6 +946,14 @@ class BackendClient {
 
   Future<void> archiveAgentProfile(String baseUrl, String id) async {
     await deleteMap(baseUrl, '/api/agent-profiles/$id');
+  }
+
+  Future<Map<String, dynamic>> fetchAgentTasks(String baseUrl) async {
+    return getMap(baseUrl, '/api/agent-profiles/tasks');
+  }
+
+  Future<Map<String, dynamic>> cancelAgentTask(String baseUrl, String id) async {
+    return postMap(baseUrl, '/api/agent-profiles/tasks/$id/cancel', const {});
   }
 
   Future<Map<String, dynamic>> fetchChatHistory(
@@ -1159,6 +1211,14 @@ class BackendClient {
     return getMap(baseUrl, '/api/social-reach/status');
   }
 
+  Future<Map<String, dynamic>> fetchWebShares(String baseUrl) async {
+    return getMap(baseUrl, '/api/web-shares');
+  }
+
+  Future<void> deleteWebShare(String baseUrl, String id) async {
+    await deleteMap(baseUrl, '/api/web-shares/${Uri.encodeComponent(id)}');
+  }
+
   Future<Map<String, dynamic>> importSocialReachCookies(
     String baseUrl,
     String platform, {
@@ -1197,6 +1257,24 @@ class BackendClient {
     String runId,
   ) async {
     return getMap(baseUrl, '/api/agents/$runId/steps');
+  }
+
+  Future<Map<String, dynamic>> fetchHarnessReport(
+    String baseUrl, {
+    String? agentId,
+  }) {
+    return getMap(baseUrl, _withAgentQuery('/api/agents/harness/report', agentId));
+  }
+
+  Future<Map<String, dynamic>> requestCaptureNextRun(
+    String baseUrl, {
+    String? agentId,
+  }) {
+    return postMap(
+      baseUrl,
+      _withAgentQuery('/api/agents/capture-next', agentId),
+      const <String, dynamic>{},
+    );
   }
 
   Future<Map<String, dynamic>> fetchRunPromptTurns(
@@ -1791,6 +1869,77 @@ class BackendClient {
     return getList(
       baseUrl,
       '/api/skills/skills-sh/search?q=${Uri.encodeQueryComponent(query)}',
+    );
+  }
+
+  /// Installs a zip of skill folders as one skill library. [name] defaults to
+  /// the zip's file name on the server.
+  Future<Map<String, dynamic>> uploadSkillLibrary(
+    String baseUrl, {
+    required String filename,
+    required Uint8List bytes,
+    String? name,
+  }) async {
+    final query = name == null || name.trim().isEmpty
+        ? ''
+        : '?name=${Uri.encodeQueryComponent(name.trim())}';
+    final response = await _httpClient.postMultipart(
+      _resolveUri(baseUrl, '/api/skills/library$query'),
+      fieldName: 'archive',
+      filename: filename,
+      bytes: bytes,
+    );
+    _throwIfError(response);
+    return _asMap(_decodeJson(response.body));
+  }
+
+  Future<Map<String, dynamic>> setSkillLibraryEnabled(
+    String baseUrl, {
+    required String library,
+    required bool enabled,
+  }) {
+    return putMap(
+      baseUrl,
+      '/api/skills/library/${Uri.encodeComponent(library)}',
+      <String, dynamic>{'enabled': enabled},
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteSkillLibrary(
+    String baseUrl,
+    String library,
+  ) {
+    return deleteMap(
+      baseUrl,
+      '/api/skills/library/${Uri.encodeComponent(library)}',
+    );
+  }
+
+  /// Skill libraries shipped with the server.
+  Future<List<Map<String, dynamic>>> builtinSkillLibraries(String baseUrl) {
+    return getList(baseUrl, '/api/skills/builtin-libraries');
+  }
+
+  /// Installs or reinstalls every skill of a built-in library.
+  Future<Map<String, dynamic>> installBuiltinSkillLibrary(
+    String baseUrl,
+    String id,
+  ) {
+    return postMap(
+      baseUrl,
+      '/api/skills/builtin-libraries/${Uri.encodeComponent(id)}',
+      const <String, dynamic>{},
+    );
+  }
+
+  /// A skills.sh leaderboard: `popular` (all time) or `trending`.
+  Future<List<Map<String, dynamic>>> featuredSkillsSh(
+    String baseUrl,
+    String list,
+  ) {
+    return getList(
+      baseUrl,
+      '/api/skills/skills-sh/featured?list=${Uri.encodeQueryComponent(list)}',
     );
   }
 

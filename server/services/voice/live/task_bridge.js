@@ -6,9 +6,17 @@ const { sanitizeError } = require('../../../utils/security');
 const { resolveAgentId } = require('../../agents/manager');
 const { MESSAGE_KINDS } = require('../../ai/runtime/constants');
 const { applyBackgroundAction, listBackgroundRuns } = require('../../ai/loop/background_runs');
+const { renderFragment } = require('../../ai/prompts/registry');
 
 const logger = createServiceLogger('LiveVoiceTasks');
 const SPOKEN_LIVENESS = new Set(['blocked', 'waiting']);
+const MAX_SPOKEN_REQUEST_CHARS = 160;
+const MAX_STATUS_STEP_CHARS = 160;
+
+function clampRequest(request) {
+  const text = String(request || '').trim();
+  return text.length > MAX_SPOKEN_REQUEST_CHARS ? `${text.slice(0, MAX_SPOKEN_REQUEST_CHARS)}…` : text;
+}
 
 // Everything the live model hands off runs as an ordinary agent run: same
 // orchestrator, tools, memory, approvals, verification, and outbox delivery as
@@ -84,7 +92,10 @@ class LiveTaskBridge {
     const task = this.#label(entry.runId, record);
     if (entry.messageKind === MESSAGE_KINDS.FINAL) {
       if (record) record.delivered = true;
-      this.session.tell(handle, `${task} finished. Its outcome:\n${content}`);
+      this.session.tellOutcome(handle, renderFragment('voice/task_finished.md', {
+        request: this.#request(entry.runId, record),
+        outcome: content,
+      }), { runId: entry.runId, reply: content });
       return;
     }
     const metadata = entry.payload?.metadata || {};
@@ -99,7 +110,42 @@ class LiveTaskBridge {
       this.session.tell(handle, `${task} needs the owner:\n${content}`);
       return;
     }
-    this.session.offerProgress(handle, `Progress on ${task}:\n${content}`);
+    // The task chose to say this, unlike the heartbeat's progress lines.
+    if (entry.messageKind === MESSAGE_KINDS.INTERIM) {
+      this.session.tell(handle, `News from ${task}:\n${content}`);
+      return;
+    }
+    // Once the task has answered, an update still waiting for the line is out of date.
+    const stillTrue = () => {
+      const current = this.runs.get(entry.runId);
+      return Boolean(current) && !current.delivered && !current.cancelled;
+    };
+    this.session.offerProgress(handle, `Progress on ${task}:\n${content}`, stillTrue);
+  }
+
+  // What this call's running work is doing right now, from the run's own steps,
+  // or null when there is nothing to report: a task waiting for the owner's
+  // answer already asked its question.
+  statusReport() {
+    const runs = this.#ownerRuns().filter((run) => (
+      this.runs.has(run.run_id) && !this.runs.get(run.run_id).delivered && run.status === 'running'
+    ));
+    if (!runs.length) return null;
+    const facts = runs.map((run) => {
+      const latest = run.recent_steps?.at(-1);
+      const startedMs = Date.parse(run.started_at || '');
+      const seconds = Number.isFinite(startedMs) ? Math.round((Date.now() - startedMs) / 1000) : null;
+      return [
+        `- "${clampRequest(run.request)}"`,
+        seconds === null ? '' : `, running for ${seconds} seconds`,
+        latest ? `, latest step (${latest.status}): ${String(latest.step || '').slice(0, MAX_STATUS_STEP_CHARS)}` : ', no step recorded yet',
+      ].join('');
+    });
+    return {
+      handle: this.runs.get(runs.at(-1).run_id)?.handle || null,
+      facts: facts.join('\n'),
+      latestStep: runs.map((run) => run.recent_steps?.at(-1)?.step || '').join('\n'),
+    };
   }
 
   // The call screen's stop button; without a run id it stops this call's
@@ -191,9 +237,13 @@ class LiveTaskBridge {
     return this.taskIds.get(runId);
   }
 
+  #request(runId, record = this.runs.get(runId)) {
+    return clampRequest(record?.request || this.agentEngine.getRunMeta(runId)?.request || '');
+  }
+
+  // Text the live model speaks from carries no task number it could read out.
   #label(runId, record = this.runs.get(runId)) {
-    const request = record?.request || this.agentEngine.getRunMeta(runId)?.request || '';
-    return request ? `task ${this.#taskId(runId)} ("${request}")` : `task ${this.#taskId(runId)}`;
+    return `the task "${this.#request(runId, record)}"`;
   }
 
   #start(handle, request) {
@@ -230,13 +280,17 @@ class LiveTaskBridge {
       return;
     }
     const reply = status === 'completed' ? String(content || '').trim() : '';
+    const request = this.#request(runId, record);
     const outcome = reply
-      ? `${this.#label(runId, record)} finished. Its outcome:\n${reply}`
-      : [
-        `${this.#label(runId, record)} ended with status "${status}" and produced no result for the owner.`,
-        error ? `Reported error: ${sanitizeError(error)}` : '',
-        content ? `Partial output: ${String(content).trim()}` : '',
-      ].filter(Boolean).join('\n');
+      ? renderFragment('voice/task_finished.md', { request, outcome: reply })
+      : renderFragment('voice/task_failed.md', {
+        request,
+        status,
+        details: [
+          error ? `Reported error: ${sanitizeError(error)}` : '',
+          content ? `Partial output: ${String(content).trim()}` : '',
+        ].filter(Boolean).join('\n'),
+      });
     this.session.deliverTaskOutcome({ handle: record.handle, runId, outcome, reply });
   }
 }

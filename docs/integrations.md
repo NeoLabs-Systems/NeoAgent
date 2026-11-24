@@ -27,8 +27,10 @@ Connect accounts under **Tools › Integrations**; each agent keeps its own conn
 | Email & Calendar | Mail over IMAP/SMTP; calendars and contacts over CalDAV/CardDAV; read-only calendars by iCal link | [App password or iCal link](#email-and-calendar) |
 | Phone calendar & contacts | Every calendar and contact on your phone | [NeoAgent phone app](#phone-calendar-and-contacts) |
 | NeoRecall | Read-only search, memories, daily summaries, conversations | Your NeoRecall URL, then NeoRecall sign-in |
+| NeoCloud | Files, Markdown-to-PDF, e-signature requests with private signing links | Your NeoCloud URL, then NeoCloud sign-in |
 | Nextcloud | Files, shares, Calendar, Contacts, other apps via OCS | Your Nextcloud URL, then Nextcloud sign-in |
 | Home Assistant | Entity states and service calls | HTTPS URL and a Long-Lived Access Token |
+| Tailscale | Peer inventory, granted HTTP operations and TCP checks | Choose Connect and sign in to Tailscale |
 | Trello | Boards, lists, cards, comments, search | Trello API key and account token |
 | Weather | Location search, current conditions, forecasts | One click (Open-Meteo, no key) |
 | World News | Top headlines by keyword or category | GNews API key |
@@ -89,6 +91,17 @@ The NeoAgent app on Android or iOS shares the calendars and contacts already on 
 - **Ready for daily questions.** Once connected, its search, daily-summary and conversation tools are active in every run.
 - **Reachable callback.** Sign-in opens the URL you entered; NeoAgent's `PUBLIC_URL` must be reachable from your browser.
 
+### NeoCloud
+
+1. Choose **NeoCloud** and enter your NeoCloud server's URL; NeoAgent checks `/api/health` and `/api/version`.
+2. Sign in on NeoCloud's own page and choose what NeoAgent may do: files read-only or read & write, and whether it may send signature requests.
+
+- **Fifteen tools.** List, search, read, create, update, move and trash files; create folders; write Markdown as a PDF; request signatures, list and check requests, remind signers, renew a signer's link, cancel.
+- **Only what you granted.** Tools whose access you didn't allow on NeoCloud aren't offered, and a read-only connection hides every write tool.
+- **Contracts in one step.** Ask for a quick contract and NeoAgent writes it, saves it as a PDF with a signature block and gives you each signer's private link to pass on.
+- **Nothing permanent.** Deleting moves files to NeoCloud's trash; updates keep version history. Encrypted vaults stay out of reach.
+- **Reachable callback.** Sign-in opens the URL you entered; NeoAgent's `PUBLIC_URL` must be reachable from your browser.
+
 ### Nextcloud
 
 1. Choose **Nextcloud** and enter your instance URL; NeoAgent checks its `status.php`.
@@ -102,6 +115,43 @@ The NeoAgent app on Android or iOS shares the calendars and contacts already on 
 
 - **HTTPS only**, on port 443 or 8123.
 - **Private addresses are blocked.** Local, loopback and private-network addresses are refused, also after DNS resolution.
+
+### Tailscale
+
+Open **Tools › Integrations › Tailscale**, choose **Connect account**, and sign in
+on Tailscale's own page. Return to NeoAgent after approving the new node; the
+account appears automatically. No OAuth app registration, API key, server socket
+path, or Tailscale installation on the NeoAgent server is needed. Use **Cancel**
+to end an unfinished sign-in. Sign-in sessions expire after five minutes.
+
+Open the connected account's menu and choose **Service access**. Add a peer,
+port, HTTP/HTTPS scheme, exact path (including its query string), and permitted
+methods. Save the list, then enable **Read/Write** for HTTP operations. Every
+HTTP call, including GET, requires Read/Write because arbitrary services can
+change state on GET. New connections start read-only with no service grants.
+`tailscale_list_peers` reports available peers and grants; `tailscale_ping` only
+checks granted ports. Services can still require their own application credentials.
+
+This integration requires the existing per-user QEMU or Docker computer runtime;
+host and local-companion execution are refused. It always uses the user's
+isolated cloud computer, even when their interactive computer selection is Local.
+Each agent connection owns its node state. Incoming Tailscale connections, SSH,
+subnet routes, exit nodes and host DNS changes are disabled. Peer calls use an
+exact node ID and an address from that node's current peer map; they do not use
+host DNS, redirects, a shared host daemon, or a listening proxy.
+
+There is at most one Tailscale client process per user VM. It runs while signing
+in or executing an operation and stops afterwards, trading connection startup
+latency for no idle client. The pinned daemon binary is installed once when the
+guest runtime is built; no separate worker image or tool dependency is installed
+per user or per call. Persistent keys are encrypted in NeoAgent's existing
+database; temporary client state uses private files in the guest's memory-backed
+filesystem. Existing guest runtimes must be updated to include the daemon and
+guest endpoints before connecting.
+
+Disconnect disables new calls and cancels active calls before removing stored
+credentials. Remote logout is attempted; if the tailnet is unreachable, an unused
+device entry may remain in Tailscale's admin console and can be removed there.
 
 ## 💬 Messaging channels {#messaging-channels}
 
@@ -136,6 +186,8 @@ Pick the mode before scanning the QR code, and switch later with **Chat mode** o
 | --- | --- |
 | **Separate account** (default) | Links a number that belongs to the agent. Direct chats and groups, gated by **Who can message**. |
 | **Personal self-chat** | Links your own number. Only your "Message yourself" chat reaches the agent; every other chat is ignored. |
+
+**Calls.** On a separate account, every incoming WhatsApp call is rejected, because the agent cannot take one. If the caller is on the allowlist, the agent rings the NeoAgent app instead, on every device it is open on. If no app is connected, it rings one that reconnects within two minutes. Personal self-chat leaves calls alone, since they are calls to you.
 
 ### GitHub mentions
 

@@ -19,7 +19,7 @@ typedef struct {
 
 esp_err_t pairing_manager_init(pairing_manager_t *manager);
 esp_err_t pairing_manager_set_challenge(pairing_manager_t *manager, const neoagent_pairing_state_t *challenge);
-esp_err_t pairing_manager_create_challenge(pairing_manager_t *manager, const char *server_url, const char *device_label);
+esp_err_t pairing_manager_create_challenge(pairing_manager_t *manager, const char *server_url, const char *device_label, const char *device_platform);
 esp_err_t pairing_manager_poll_status(pairing_manager_t *manager, const char *server_url);
 esp_err_t pairing_manager_claim_session(pairing_manager_t *manager, const char *server_url, neoagent_session_state_t *session, session_store_t *store);
 void pairing_manager_mark_approved(pairing_manager_t *manager);

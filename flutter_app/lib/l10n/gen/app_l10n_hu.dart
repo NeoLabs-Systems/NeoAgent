@@ -469,14 +469,6 @@ class AppL10nHu extends AppL10n {
   String get agentCalls => 'Ügynökhívások';
 
   @override
-  String get agentCommunication => 'Ügynöki kommunikáció';
-
-  @override
-  String agentCommunicationArg1(Object? arg1) {
-    return 'Ügynöki kommunikáció: $arg1.';
-  }
-
-  @override
   String get agentModeEditsTheWorkspaceSend =>
       'Az Ügynök mód szerkeszti a munkaterületet · ⌘↵ küldés · ⌘N új munkamenet';
 
@@ -1886,18 +1878,6 @@ class AppL10nHu extends AppL10n {
   String get calledByName => 'Nevén szólítva';
 
   @override
-  String get canDelegateTasksToOtherAgents =>
-      'Feladatokat delegálhat más ügynökökre';
-
-  @override
-  String canDelegateToArg1(Object? arg1) {
-    return 'Delegálható a $arg1-re';
-  }
-
-  @override
-  String get canReceiveDelegatedTasks => 'Képes átruházott feladatokat fogadni';
-
-  @override
   String get cancel => 'Mégsem';
 
   @override
@@ -1905,9 +1885,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get cannotPreview => 'Az előnézet nem tekinthető meg';
-
-  @override
-  String get cannotReceiveDelegatedTasks => 'nem kaphat átruházott feladatokat';
 
   @override
   String get cannotRunYet => 'még nem futhat.';
@@ -2501,6 +2478,46 @@ class AppL10nHu extends AppL10n {
       'Nem sikerült leválasztani a NeoRecallt.';
 
   @override
+  String get neocloudSetup => 'NeoCloud beállítása';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Csatlakoztasd a NeoCloud-szerveredet. A NeoCloud bejelentkezési oldalán választhatod ki, mit tehet a NeoAgent a fájljaiddal, és küldhet-e dokumentumokat aláírásra.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Olyan NeoCloud URL-t használj, amelyet a NeoAgent-szerver elér. A NeoAgent PUBLIC_URL-jének az OAuth-visszahíváshoz ebből a böngészőből is elérhetőnek kell lennie.';
+
+  @override
+  String get connectedNeocloudUser => 'Csatlakoztatott NeoCloud-felhasználó';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud-szerver URL';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'A NeoCloud-szerver URL megadása kötelező.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Nem sikerült menteni a NeoCloud beállítását.';
+
+  @override
+  String get disconnectNeocloud => 'Leválasztod a NeoCloudot?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Ez eltávolítja a NeoCloud-szerver URL-jét és az ügynökhöz csatlakoztatott összes NeoCloud-fiókot.';
+
+  @override
+  String get couldNotDisconnectNeocloud =>
+      'Nem sikerült leválasztani a NeoCloudot.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'A helyi és magánhálózati URL-ek működnek, ha a NeoAgent-szerver eléri őket. A titkosított széfekben lévő fájlok soha nem láthatók a NeoAgent számára.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Nem sikerült leválasztani a Nextcloudot.';
 
@@ -2622,10 +2639,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get createPassword => 'Jelszó létrehozása';
-
-  @override
-  String get createSpecialistBotsWithSeparateMemory =>
-      'Hozzon létre speciális robotokat külön memóriával, beállításokkal, eszközökkel és fiók-hozzárendelésekkel.';
 
   @override
   String get createTheFirstAccount => 'Hozd létre az első fiókot';
@@ -3756,9 +3769,6 @@ class AppL10nHu extends AppL10n {
   }
 
   @override
-  String get handlesDirectTasksItself => 'A közvetlen feladatokat maga kezeli';
-
-  @override
   String get handsFreeTalkFreelyInterruptAnytime =>
       'Kihangosított (szabadon beszélhet, bármikor megszakíthatja)';
 
@@ -4169,6 +4179,12 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get keepTaskRunning => 'Folytassa a feladat futását';
+
+  @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
 
   @override
   String get keepTheVaultAvailable => 'Tartsa elérhetővé a trezort';
@@ -5430,6 +5446,9 @@ class AppL10nHu extends AppL10n {
   String get notNow => 'Most nem';
 
   @override
+  String get dontAskAgain => 'Don\'t ask again';
+
+  @override
   String get notNow2 => 'Most nem';
 
   @override
@@ -5512,7 +5531,7 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Egy bejelentkezett Android-eszközön nyissa meg a Beállítások › Bejelentkezés és biztonság lehetőséget, olvassa be ezt a kódot, és hagyja jóvá a bejelentkezést.';
+      'Egy bejelentkezett telefonon nyissa meg ezt: Beállítások › Bejelentkezés és biztonság, koppintson a Bejelentkezési QR beolvasása gombra, és hagyja jóvá a bejelentkezést.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5574,7 +5593,7 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Nyissa meg a Beállítások › Bejelentkezés és biztonság elemet egy bejelentkezett Android-eszközön, olvassa be ezt a kódot, és hagyja jóvá a bejelentkezést.';
+      'Egy bejelentkezett telefonon nyissa meg ezt: Beállítások › Bejelentkezés és biztonság, koppintson a Bejelentkezési QR beolvasása gombra, olvassa be ezt a kódot, és hagyja jóvá a bejelentkezést.';
 
   @override
   String get openComputer => 'Nyissa meg a számítógépet';
@@ -6382,9 +6401,6 @@ class AppL10nHu extends AppL10n {
   @override
   String get restoringThePreviousNeoagentRuntime =>
       'A korábbi NeoAgent futási környezet visszaállítása';
-
-  @override
-  String get restrictDelegationTargets => 'A delegálási célok korlátozása';
 
   @override
   String get result => 'Eredmény';
@@ -7891,10 +7907,6 @@ class AppL10nHu extends AppL10n {
       'Ez a fiók feloldja a NeoAgent zárolását ezen a gépen.';
 
   @override
-  String get thisAgentCanDelegateToAny =>
-      'Ez az ügynök bármely jogosult fogadó ügynökre delegálhat.';
-
-  @override
   String get thisAgentIsUsingAServer =>
       'Ez az ügynök egy szerver által felügyelt Trello API-kulcsot használ. Csak alább kell engedélyeznie egy fióktokkent.';
 
@@ -8283,10 +8295,6 @@ class AppL10nHu extends AppL10n {
   String get turnTakingOff => 'Felszállás';
 
   @override
-  String get turnThisOffToKeepThis =>
-      'Kapcsolja ki, hogy ez az ügynök teljesen elkülönüljön a többi ügynöktől.';
-
-  @override
   String turnedOffByArg1(Object? arg1) {
     return '$arg1 kikapcsolta';
   }
@@ -8580,10 +8588,6 @@ class AppL10nHu extends AppL10n {
   @override
   String get useTheseForContextIfA =>
       'Használja ezeket a kontextushoz. Ha egy helyi URI nem érhető el közvetlenül a szerverről, kérjen meg, hogy biztosítsam a fájlt egy elérhető munkaterületen keresztül.';
-
-  @override
-  String get useThisForOrchestratorAgentsLeave =>
-      'Használja ezt a hangszerelő ügynökökhöz. Hagyja ki az elszigetelt munkarobotoknál, amelyeknek maguknak kell befejezniük a közvetlen üzeneteket.';
 
   @override
   String get useTlsFromTheStartOf =>
@@ -9462,13 +9466,6 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get addAccount => 'Fiók hozzáadása lehetőségre';
-
-  @override
-  String get canDelegateToAnyReceivingAgent =>
-      'Bármely fogadó ügynökhöz delegálható';
-
-  @override
-  String get canReceiveDelegatedTasks2 => 'delegált feladatokat kaphat';
 
   @override
   String get noSyncYet => 'Még nincs szinkronizálás';
@@ -11618,6 +11615,13 @@ class AppL10nHu extends AppL10n {
   String get phoneSyncContactsHint => 'Nevek, e-mail-címek és telefonszámok';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Ez a telefon egy másik ügynökkel oszt meg. Az itteni megosztás áthelyezi ehhez az ügynökhöz.';
 
@@ -12339,18 +12343,10 @@ class AppL10nHu extends AppL10n {
       'Used to address this agent. Suggested from the name; you can edit it.';
 
   @override
-  String get agentIdentifierInvalid =>
-      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
-
-  @override
   String get uxAdvancedSettings => 'Advanced settings';
 
   @override
   String get uxSelected => 'Selected';
-
-  @override
-  String get uxSelectedDelegationTargets =>
-      'Only selected agents can receive tasks from this agent.';
 
   @override
   String uxFieldRequired(String field) {
@@ -12403,13 +12399,6 @@ class AppL10nHu extends AppL10n {
   @override
   String get uxModelSkipHint =>
       'You can explore first, but chat and tasks need a model before they can run.';
-
-  @override
-  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
 
   @override
   String get taskDeliverySharedTitle => 'Shared accounts only reach you';
@@ -12511,4 +12500,579 @@ class AppL10nHu extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get technicalDetails => 'Technical details';
+
+  @override
+  String get approvalReview => 'Megtekintés';
+
+  @override
+  String get approvalExpired => 'A kérés lejárt, így semmi sem futott le.';
+
+  @override
+  String get requestTookTooLong =>
+      'Túl sokáig tartott, ezért leállt. Próbáld újra.';
+
+  @override
+  String get usageLimitReached =>
+      'Elértem a használati korlátomat, ezért most nem tudok válaszolni.';
+
+  @override
+  String get tailscaleServiceAccess => 'Service access';
+
+  @override
+  String get tailscaleServiceAccessHelp =>
+      'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.';
+
+  @override
+  String get tailscaleServiceValidation =>
+      'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.';
+
+  @override
+  String get tailscalePeer => 'Peer';
+
+  @override
+  String get tailscaleExactPath => 'Exact path and query string';
+
+  @override
+  String get tailscaleSignInBrowser =>
+      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.';
+
+  @override
+  String get tailscaleOpenSignIn => 'Open Tailscale sign-in';
+
+  @override
+  String get agentsPageIntro =>
+      'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.';
+
+  @override
+  String get agentsResponsibleFor => 'Responsible for';
+
+  @override
+  String agentsSetUpBy(Object? name) {
+    return 'Set up by $name';
+  }
+
+  @override
+  String agentsSetUpByWithReason(Object? name, Object? reason) {
+    return 'Set up by $name: $reason';
+  }
+
+  @override
+  String get agentsChat => 'Chat';
+
+  @override
+  String get agentsCreationTitle => 'New agents';
+
+  @override
+  String get agentsCreationLabel =>
+      'When an agent wants to set up another agent';
+
+  @override
+  String get agentsCreationNever => 'Never';
+
+  @override
+  String get agentsCreationAsk => 'Ask me';
+
+  @override
+  String get agentsCreationAllow => 'Allow';
+
+  @override
+  String get agentsCreationNeverHint => 'Only you add agents.';
+
+  @override
+  String get agentsCreationAskHint =>
+      'You approve each new agent first. Recommended.';
+
+  @override
+  String get agentsCreationAllowHint =>
+      'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.';
+
+  @override
+  String get agentsCreationCategory => 'Set up new agents';
+
+  @override
+  String get agentsCreationCategoryHint =>
+      'An agent creates another lasting agent on your account.';
+
+  @override
+  String get agentTasksTitle => 'Work between agents';
+
+  @override
+  String get agentTasksDescription =>
+      'What your agents handed to each other, open work first.';
+
+  @override
+  String get agentTasksEmpty => 'Nothing handed over yet';
+
+  @override
+  String get agentTasksEmptyHint =>
+      'When an agent passes work to a specialist, it shows up here.';
+
+  @override
+  String agentTaskAsked(Object? requester, Object? owner) {
+    return '$requester asked $owner';
+  }
+
+  @override
+  String agentTaskHandedOver(Object? requester, Object? owner) {
+    return '$requester handed over to $owner';
+  }
+
+  @override
+  String get agentTaskQueued => 'Queued';
+
+  @override
+  String get agentTaskWorking => 'Working';
+
+  @override
+  String get agentTaskWaiting => 'Waiting';
+
+  @override
+  String get agentTaskNeedsAnswer => 'Needs an answer';
+
+  @override
+  String get agentTaskDone => 'Done';
+
+  @override
+  String get agentTaskFailed => 'Failed';
+
+  @override
+  String get agentTaskCancelled => 'Stopped';
+
+  @override
+  String get agentTaskStop => 'Stop';
+
+  @override
+  String get agentTaskShowResult => 'Show result';
+
+  @override
+  String get agentTaskHideResult => 'Hide result';
+
+  @override
+  String agentTaskFrom(Object? name) {
+    return 'Task from $name';
+  }
+
+  @override
+  String agentTaskTakenOverFrom(Object? name) {
+    return 'Taken over from $name';
+  }
+
+  @override
+  String get agentsPermissionsTitle => 'What this agent may do';
+
+  @override
+  String get agentsPermissionsHint =>
+      'Only ever stricter than your account\'s tool permissions.';
+
+  @override
+  String get agentsPermissionAsAccount => 'As account';
+
+  @override
+  String get agentsPermissionAskFirst => 'Ask first';
+
+  @override
+  String get agentsPermissionNotAllowed => 'Not allowed';
+
+  @override
+  String agentsNotAllowedList(Object? list) {
+    return 'Not allowed: $list';
+  }
+
+  @override
+  String agentsAsksFirstList(Object? list) {
+    return 'Asks first: $list';
+  }
+
+  @override
+  String get agentsWorkingWithOthers => 'Working with other agents';
+
+  @override
+  String get agentsCanHandOff => 'Can pass work to other agents';
+
+  @override
+  String get agentsCanHandOffHint =>
+      'It decides for itself when another agent is the better fit.';
+
+  @override
+  String get agentsOnlyTheseAgents => 'Only to the agents I pick';
+
+  @override
+  String get agentsCanTakeWork => 'Other agents can give it work';
+
+  @override
+  String get agentsCanTakeWorkHint => 'Turn off to keep this agent to itself.';
+
+  @override
+  String get agentsResponsibilityHint =>
+      'What this agent takes care of. Other agents use it to decide what to give it.';
+
+  @override
+  String get agentsDescriptionHint =>
+      'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Telepítve';
+
+  @override
+  String get skillsDiscover => 'Felfedezés';
+
+  @override
+  String get skillsOnSkillsSh => 'A skills.sh-n';
+
+  @override
+  String get skillsBuiltinLibraries => 'Beépített könyvtárak';
+
+  @override
+  String get skillsBuiltinReinstall => 'Frissítés';
+
+  @override
+  String get skillsSearchHint => 'Készségek keresése vagy skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Még nincs telepített készség. Szerezz egyet lent a skills.sh-ról, tölts fel egy zipet készségekkel, vagy írd meg a sajátodat.';
+
+  @override
+  String get skillsShelfPopular => 'Népszerű';
+
+  @override
+  String get skillsShelfTrending => 'Felkapott';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumentumok';
+
+  @override
+  String get skillsTopicBrowser => 'Böngésző';
+
+  @override
+  String get skillsTopicResearch => 'Kutatás';
+
+  @override
+  String get skillsTopicWriting => 'Írás';
+
+  @override
+  String get skillsTopicDesign => 'Dizájn';
+
+  @override
+  String get skillsTopicCoding => 'Programozás';
+
+  @override
+  String get skillsTopicData => 'Adatok';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Beszerzés';
+
+  @override
+  String get skillsOfficial => 'Hivatalos';
+
+  @override
+  String get skillOriginBuiltIn => 'Beépített';
+
+  @override
+  String get skillOriginLearned => 'Tanult';
+
+  @override
+  String get skillOriginYours => 'Saját';
+
+  @override
+  String get skillDiscardTitle => 'Elveted a módosításokat?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'A(z) $name módosításai nincsenek mentve.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Beépített készség. Egy módosítás mentésével saját másolatot kapsz; mások megtartják az eredetit.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return 'A(z) $name kikerül a készségeid közül. A példány többi felhasználója megtartja.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Készségkönyvtár feltöltése';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Készségmappák zipje, mindegyikben egy SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Csomagolj zipbe egy készségmappát, például egy .claude/skills mappát vagy egy teljes tárolót. Minden SKILL.md-t tartalmazó mappából készség lesz, a mellette lévő fájlok is jönnek vele. A könyvtár újbóli feltöltése lecseréli azt.';
+
+  @override
+  String get skillLibraryChooseZip => 'Válassz egy .zip fájlt';
+
+  @override
+  String get skillLibraryChangeFile => 'Módosítás';
+
+  @override
+  String get skillLibraryName => 'Könyvtár neve';
+
+  @override
+  String get skillLibraryNameHelp => 'Hagyd üresen a fájlnév használatához.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'A fájl nem olvasható. Próbáld meg újra kiválasztani.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Telepített készségek: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Telepítve ide: $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Eltávolítva, már nincs a zipben';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Kihagyva';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Készségek: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Kikapcsolva: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Könyvtár törlése';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'A(z) $library összes készsége ($count) eltávolításra kerül.';
+  }
+
+  @override
+  String get bitwardenVault => 'Széf';
+
+  @override
+  String get bitwardenLock => 'Zárolás';
+
+  @override
+  String get integrationConfigured => 'Beállítva';
+
+  @override
+  String get showMore => 'Több megjelenítése';
+
+  @override
+  String get showLess => 'Kevesebb megjelenítése';
+
+  @override
+  String get adminExtraModels => 'További modellek';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Ezek a modellek mindenkinek ki vannak kapcsolva. Jelöld be azokat, amelyeket $username mégis használhat. A velük futtatott feladatok továbbra is beleszámítanak a fiók korlátaiba.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Egyetlen modell sincs mindenkinek kikapcsolva, így nincs mit külön engedélyezni.';
+
+  @override
+  String get adminExtraModelsSearch => 'Modellek keresése';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'További modellek: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return '$username további modelljei mentve';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor módosította, mely további modelleket használhatja $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Engedélyezve';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Egy adminisztrátor engedélyezte neked ezt a modellt. Mindenki más számára ki van kapcsolva.';
+
+  @override
+  String get sharedWebPages => 'Shared web pages';
+
+  @override
+  String get sharedWebPagesDescription =>
+      'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.';
+
+  @override
+  String get allowWebPageSharing => 'Let the agent share web pages';
+
+  @override
+  String get allowWebPageSharingDescription =>
+      'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.';
+
+  @override
+  String get noSharedWebPages => 'Nothing is shared right now.';
+
+  @override
+  String get stopSharing => 'Stop sharing';
+
+  @override
+  String sharedWebPageStopped(String name) {
+    return 'Stopped sharing $name';
+  }
+
+  @override
+  String sharedWebPagePortArg1(Object port) {
+    return 'Port $port';
+  }
+
+  @override
+  String get sharedWebPagesOffline =>
+      'Your computer is off, so shared links show an offline page until it runs again.';
+
+  @override
+  String get sharedWebPagesUnsupported =>
+      'This server runs tools directly on its own machine, so there is no computer to share pages from.';
+
+  @override
+  String get adminWebSharing => 'Let agents share web pages';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Telefon párosítása';
+
+  @override
+  String get pairPhoneDescription =>
+      'Megjelenít egy QR-kódot, amellyel egy telefonon a NeoAgent alkalmazás bejelentkezik ebbe a fiókba a szervercím vagy jelszó beírása nélkül.';
+
+  @override
+  String get pairTitle => 'Telefon párosítása';
+
+  @override
+  String get pairInstructions =>
+      'Nyissa meg a NeoAgent alkalmazást a telefonján, a bejelentkezési képernyőn koppintson a „QR-kód beolvasása” gombra, és irányítsa a kamerát erre a kódra.';
+
+  @override
+  String get pairQrSemantics => 'QR-kód telefon párosításához';
+
+  @override
+  String get pairWaiting => 'Várakozás a telefonra';
+
+  @override
+  String pairExpiresIn(String time) {
+    return '$time múlva lejár';
+  }
+
+  @override
+  String get pairExpired => 'A kód lejárt';
+
+  @override
+  String get pairNewCode => 'Új kód';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Párosítva: $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'az Ön telefonja';
+
+  @override
+  String get pairCantScan =>
+      'Nem sikerül a beolvasás? Nyissa meg ezt a linket a telefonon:';
+
+  @override
+  String get pairLandingTitle => 'Párosítás a NeoAgent alkalmazással';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Ez a link bejelentkezteti a NeoAgent alkalmazást ezen a telefonon. Telepítse az alkalmazást, ha még nem tette meg, majd nyissa meg benne a linket. A kód öt percig érvényes.';
+
+  @override
+  String get pairLandingOpenApp => 'Megnyitás a NeoAgent alkalmazásban';
+
+  @override
+  String get pairLandingGetApp => 'Alkalmazás letöltése';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Ez a link a telefonjára készült. Nyissa meg ott, vagy olvassa be a QR-kódot a NeoAgent alkalmazással.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Ez a párosítási link hiányos. Jelenítsen meg új kódot itt: Beállítások › Bejelentkezés és biztonság › Telefon párosítása.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'NeoAgent megnyitása';
+
+  @override
+  String get signInScanQr => 'QR-kód beolvasása';
+
+  @override
+  String get signInScanQrHint =>
+      'Egy bejelentkezett számítógépen nyissa meg ezt: Beállítások › Bejelentkezés és biztonság › Telefon párosítása.';
+
+  @override
+  String get scanTitle => 'QR-kód beolvasása';
+
+  @override
+  String get scanPrimeTitle => 'Beolvasás a kamerával';
+
+  @override
+  String get scanPrimeBody =>
+      'A NeoAgent csak a QR-kód beolvasására használja a kamerát. Semmi sem kerül rögzítésre vagy feltöltésre.';
+
+  @override
+  String get scanPrimeAllow => 'Kamera engedélyezése';
+
+  @override
+  String get scanPairingHint =>
+      'Irányítsa a kamerát a QR-kódra itt: Beállítások › Bejelentkezés és biztonság › Telefon párosítása';
+
+  @override
+  String get scanWrongPairingCode => 'Ez nem NeoAgent párosítási kód';
+
+  @override
+  String get scanTorchOn => 'Lámpa bekapcsolása';
+
+  @override
+  String get scanTorchOff => 'Lámpa kikapcsolása';
+
+  @override
+  String get scanDeniedTitle => 'A kamera-hozzáférés ki van kapcsolva';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Engedélyezze a Beállításokban, hogy a NeoAgent használja a kamerát, vagy jelentkezzen be inkább a jelszavával.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Engedélyezze a kamerát, amikor a rendszer kéri, vagy kapcsolja be itt: Beállítások › Alkalmazások › NeoAgent › Engedélyek. A jelszavával is bejelentkezhet.';
+
+  @override
+  String get scanOpenSettings => 'Beállítások megnyitása';
+
+  @override
+  String get scanFailedTitle => 'A kamera nem indult el';
+
+  @override
+  String get scanFailedBody =>
+      'Zárja be a kamerát használó többi alkalmazást, és próbálja újra.';
 }

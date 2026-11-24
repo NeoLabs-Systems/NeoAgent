@@ -468,14 +468,6 @@ class AppL10nLt extends AppL10n {
   String get agentCalls => 'Agento skambučiai';
 
   @override
-  String get agentCommunication => 'Agento bendravimas';
-
-  @override
-  String agentCommunicationArg1(Object? arg1) {
-    return 'Agento bendravimas: $arg1.';
-  }
-
-  @override
   String get agentModeEditsTheWorkspaceSend =>
       'Agento režimas redaguoja darbo sritį · ⌘↵ siųsti · ⌘N naujas seansas';
 
@@ -1886,18 +1878,6 @@ class AppL10nLt extends AppL10n {
   String get calledByName => 'Pašauktas vardu';
 
   @override
-  String get canDelegateTasksToOtherAgents =>
-      'Gali deleguoti užduotis kitiems agentams';
-
-  @override
-  String canDelegateToArg1(Object? arg1) {
-    return 'Galima deleguoti $arg1';
-  }
-
-  @override
-  String get canReceiveDelegatedTasks => 'Gali priimti deleguotas užduotis';
-
-  @override
   String get cancel => 'Atšaukti';
 
   @override
@@ -1905,9 +1885,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get cannotPreview => 'Negalima peržiūrėti';
-
-  @override
-  String get cannotReceiveDelegatedTasks => 'negali gauti deleguotų užduočių';
 
   @override
   String get cannotRunYet => 'dar negali bėgti.';
@@ -2498,6 +2475,45 @@ class AppL10nLt extends AppL10n {
   String get couldNotDisconnectNeorecall => 'Nepavyko atjungti NeoRecall.';
 
   @override
+  String get neocloudSetup => 'NeoCloud sąranka';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Prijunkite savo NeoCloud serverį. NeoCloud prisijungimo puslapyje pasirinksite, ką NeoAgent gali daryti su jūsų failais ir ar gali siųsti dokumentus pasirašyti.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Naudokite NeoCloud URL, kurį pasiekia NeoAgent serveris. NeoAgent PUBLIC_URL taip pat turi būti pasiekiamas iš šios naršyklės OAuth atgaliniam iškvietimui.';
+
+  @override
+  String get connectedNeocloudUser => 'Prijungtas NeoCloud naudotojas';
+
+  @override
+  String get neocloudServerUrl => 'NeoCloud serverio URL';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'NeoCloud serverio URL yra privalomas.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Nepavyko išsaugoti NeoCloud sąrankos.';
+
+  @override
+  String get disconnectNeocloud => 'Atjungti NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Bus pašalintas NeoCloud serverio URL ir visos prijungtos šio agento NeoCloud paskyros.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Nepavyko atjungti NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'Vietiniai ir privataus tinklo URL veikia, jei NeoAgent serveris juos pasiekia. Šifruotų saugyklų failai niekada nerodomi NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud => 'Nepavyko atjungti Nextcloud.';
 
   @override
@@ -2616,10 +2632,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get createPassword => 'Sukurti slaptažodį';
-
-  @override
-  String get createSpecialistBotsWithSeparateMemory =>
-      'Kurkite specializuotus robotus su atskira atmintimi, nustatymais, įrankiais ir paskyros priskyrimais.';
 
   @override
   String get createTheFirstAccount => 'Sukurkite pirmąją paskyrą';
@@ -3741,10 +3753,6 @@ class AppL10nLt extends AppL10n {
   }
 
   @override
-  String get handlesDirectTasksItself =>
-      'Pats susitvarko su tiesioginėmis užduotimis';
-
-  @override
   String get handsFreeTalkFreelyInterruptAnytime =>
       'Laisvų rankų įranga (kalbėkite laisvai, pertraukite bet kada)';
 
@@ -4154,6 +4162,12 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get keepTaskRunning => 'Vykdykite užduotį';
+
+  @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
 
   @override
   String get keepTheVaultAvailable => 'Laikykite saugyklą prieinamą';
@@ -5413,6 +5427,9 @@ class AppL10nLt extends AppL10n {
   String get notNow => 'Ne dabar';
 
   @override
+  String get dontAskAgain => 'Don\'t ask again';
+
+  @override
   String get notNow2 => 'Ne dabar';
 
   @override
@@ -5495,7 +5512,7 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Android įrenginyje, kuriame esate prisijungę, atidarykite Nustatymai › Prisijungimas ir sauga, nuskaitykite šį kodą ir patvirtinkite prisijungimą.';
+      'Prisijungusiame telefone atidarykite Nustatymai › Prisijungimas ir sauga, palieskite Nuskaitykite prisijungimo QR kodą ir patvirtinkite prisijungimą.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5557,7 +5574,7 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Atidarykite Nustatymai › Prisijungimas ir sauga Android įrenginyje, kuriame esate prisijungę, nuskaitykite šį kodą ir patvirtinkite prisijungimą.';
+      'Prisijungusiame telefone atidarykite Nustatymai › Prisijungimas ir sauga, palieskite Nuskaitykite prisijungimo QR kodą, nuskaitykite šį kodą ir patvirtinkite prisijungimą.';
 
   @override
   String get openComputer => 'Atidarykite kompiuterį';
@@ -6362,9 +6379,6 @@ class AppL10nLt extends AppL10n {
   @override
   String get restoringThePreviousNeoagentRuntime =>
       'Atkuriamas ankstesnis „NeoAgent“ vykdymo laikas';
-
-  @override
-  String get restrictDelegationTargets => 'Apriboti delegavimo tikslus';
 
   @override
   String get result => 'Rezultatas';
@@ -7868,10 +7882,6 @@ class AppL10nLt extends AppL10n {
       'Ši paskyra atrakins „NeoAgent“ šiame įrenginyje.';
 
   @override
-  String get thisAgentCanDelegateToAny =>
-      'Šis agentas gali deleguoti bet kuriam tinkamam gaunančiam agentui.';
-
-  @override
   String get thisAgentIsUsingAServer =>
       'Šis agentas naudoja serverio valdomą Trello API raktą. Toliau reikia tik įgalioti paskyros prieigos raktą.';
 
@@ -8259,10 +8269,6 @@ class AppL10nLt extends AppL10n {
   String get turnTakingOff => 'Nusileidimas';
 
   @override
-  String get turnThisOffToKeepThis =>
-      'Išjunkite, kad šis agentas būtų visiškai atskirtas nuo kitų agentų.';
-
-  @override
   String turnedOffByArg1(Object? arg1) {
     return 'Išjungė $arg1';
   }
@@ -8554,10 +8560,6 @@ class AppL10nLt extends AppL10n {
   @override
   String get useTheseForContextIfA =>
       'Naudokite juos kontekstui. Jei vietinis URI nėra tiesiogiai pasiekiamas iš serverio, paprašykite manęs pateikti failą per prieinamą darbo sritį.';
-
-  @override
-  String get useThisForOrchestratorAgentsLeave =>
-      'Naudokite tai orkestrantams. Išjunkite pavienius darbo robotus, kurie patys turėtų baigti tiesioginius pranešimus.';
 
   @override
   String get useTlsFromTheStartOf =>
@@ -9436,13 +9438,6 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get addAccount => 'Pridėti paskyrą';
-
-  @override
-  String get canDelegateToAnyReceivingAgent =>
-      'Gali deleguoti bet kuriam priimančiam agentui';
-
-  @override
-  String get canReceiveDelegatedTasks2 => 'gali gauti deleguotas užduotis';
 
   @override
   String get noSyncYet => 'Dar nėra sinchronizavimo';
@@ -11587,6 +11582,13 @@ class AppL10nLt extends AppL10n {
       'Vardai, el. pašto adresai ir telefono numeriai';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Šis telefonas bendrina su kitu agentu. Bendrinant čia jis perkeliamas šiam agentui.';
 
@@ -12307,18 +12309,10 @@ class AppL10nLt extends AppL10n {
       'Used to address this agent. Suggested from the name; you can edit it.';
 
   @override
-  String get agentIdentifierInvalid =>
-      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
-
-  @override
   String get uxAdvancedSettings => 'Advanced settings';
 
   @override
   String get uxSelected => 'Selected';
-
-  @override
-  String get uxSelectedDelegationTargets =>
-      'Only selected agents can receive tasks from this agent.';
 
   @override
   String uxFieldRequired(String field) {
@@ -12371,13 +12365,6 @@ class AppL10nLt extends AppL10n {
   @override
   String get uxModelSkipHint =>
       'You can explore first, but chat and tasks need a model before they can run.';
-
-  @override
-  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
 
   @override
   String get taskDeliverySharedTitle => 'Shared accounts only reach you';
@@ -12479,4 +12466,581 @@ class AppL10nLt extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get technicalDetails => 'Technical details';
+
+  @override
+  String get approvalReview => 'Peržiūrėti';
+
+  @override
+  String get approvalExpired =>
+      'Užklausos laikas baigėsi, nieko nebuvo vykdoma.';
+
+  @override
+  String get requestTookTooLong =>
+      'Tai užtruko per ilgai ir buvo sustabdyta. Bandyk dar kartą.';
+
+  @override
+  String get usageLimitReached =>
+      'Pasiekiau naudojimo limitą ir šiuo metu negaliu atsakyti.';
+
+  @override
+  String get tailscaleServiceAccess => 'Service access';
+
+  @override
+  String get tailscaleServiceAccessHelp =>
+      'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.';
+
+  @override
+  String get tailscaleServiceValidation =>
+      'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.';
+
+  @override
+  String get tailscalePeer => 'Peer';
+
+  @override
+  String get tailscaleExactPath => 'Exact path and query string';
+
+  @override
+  String get tailscaleSignInBrowser =>
+      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.';
+
+  @override
+  String get tailscaleOpenSignIn => 'Open Tailscale sign-in';
+
+  @override
+  String get agentsPageIntro =>
+      'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.';
+
+  @override
+  String get agentsResponsibleFor => 'Responsible for';
+
+  @override
+  String agentsSetUpBy(Object? name) {
+    return 'Set up by $name';
+  }
+
+  @override
+  String agentsSetUpByWithReason(Object? name, Object? reason) {
+    return 'Set up by $name: $reason';
+  }
+
+  @override
+  String get agentsChat => 'Chat';
+
+  @override
+  String get agentsCreationTitle => 'New agents';
+
+  @override
+  String get agentsCreationLabel =>
+      'When an agent wants to set up another agent';
+
+  @override
+  String get agentsCreationNever => 'Never';
+
+  @override
+  String get agentsCreationAsk => 'Ask me';
+
+  @override
+  String get agentsCreationAllow => 'Allow';
+
+  @override
+  String get agentsCreationNeverHint => 'Only you add agents.';
+
+  @override
+  String get agentsCreationAskHint =>
+      'You approve each new agent first. Recommended.';
+
+  @override
+  String get agentsCreationAllowHint =>
+      'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.';
+
+  @override
+  String get agentsCreationCategory => 'Set up new agents';
+
+  @override
+  String get agentsCreationCategoryHint =>
+      'An agent creates another lasting agent on your account.';
+
+  @override
+  String get agentTasksTitle => 'Work between agents';
+
+  @override
+  String get agentTasksDescription =>
+      'What your agents handed to each other, open work first.';
+
+  @override
+  String get agentTasksEmpty => 'Nothing handed over yet';
+
+  @override
+  String get agentTasksEmptyHint =>
+      'When an agent passes work to a specialist, it shows up here.';
+
+  @override
+  String agentTaskAsked(Object? requester, Object? owner) {
+    return '$requester asked $owner';
+  }
+
+  @override
+  String agentTaskHandedOver(Object? requester, Object? owner) {
+    return '$requester handed over to $owner';
+  }
+
+  @override
+  String get agentTaskQueued => 'Queued';
+
+  @override
+  String get agentTaskWorking => 'Working';
+
+  @override
+  String get agentTaskWaiting => 'Waiting';
+
+  @override
+  String get agentTaskNeedsAnswer => 'Needs an answer';
+
+  @override
+  String get agentTaskDone => 'Done';
+
+  @override
+  String get agentTaskFailed => 'Failed';
+
+  @override
+  String get agentTaskCancelled => 'Stopped';
+
+  @override
+  String get agentTaskStop => 'Stop';
+
+  @override
+  String get agentTaskShowResult => 'Show result';
+
+  @override
+  String get agentTaskHideResult => 'Hide result';
+
+  @override
+  String agentTaskFrom(Object? name) {
+    return 'Task from $name';
+  }
+
+  @override
+  String agentTaskTakenOverFrom(Object? name) {
+    return 'Taken over from $name';
+  }
+
+  @override
+  String get agentsPermissionsTitle => 'What this agent may do';
+
+  @override
+  String get agentsPermissionsHint =>
+      'Only ever stricter than your account\'s tool permissions.';
+
+  @override
+  String get agentsPermissionAsAccount => 'As account';
+
+  @override
+  String get agentsPermissionAskFirst => 'Ask first';
+
+  @override
+  String get agentsPermissionNotAllowed => 'Not allowed';
+
+  @override
+  String agentsNotAllowedList(Object? list) {
+    return 'Not allowed: $list';
+  }
+
+  @override
+  String agentsAsksFirstList(Object? list) {
+    return 'Asks first: $list';
+  }
+
+  @override
+  String get agentsWorkingWithOthers => 'Working with other agents';
+
+  @override
+  String get agentsCanHandOff => 'Can pass work to other agents';
+
+  @override
+  String get agentsCanHandOffHint =>
+      'It decides for itself when another agent is the better fit.';
+
+  @override
+  String get agentsOnlyTheseAgents => 'Only to the agents I pick';
+
+  @override
+  String get agentsCanTakeWork => 'Other agents can give it work';
+
+  @override
+  String get agentsCanTakeWorkHint => 'Turn off to keep this agent to itself.';
+
+  @override
+  String get agentsResponsibilityHint =>
+      'What this agent takes care of. Other agents use it to decide what to give it.';
+
+  @override
+  String get agentsDescriptionHint =>
+      'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Įdiegta';
+
+  @override
+  String get skillsDiscover => 'Atrasti';
+
+  @override
+  String get skillsOnSkillsSh => 'Svetainėje skills.sh';
+
+  @override
+  String get skillsBuiltinLibraries => 'Įtaisytosios bibliotekos';
+
+  @override
+  String get skillsBuiltinReinstall => 'Atnaujinti';
+
+  @override
+  String get skillsSearchHint => 'Ieškoti įgūdžių arba skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Dar neįdiegta jokių įgūdžių. Gaukite vieną iš skills.sh žemiau, įkelkite įgūdžių zip arba parašykite savo.';
+
+  @override
+  String get skillsShelfPopular => 'Populiarūs';
+
+  @override
+  String get skillsShelfTrending => 'Populiarėjantys';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumentai';
+
+  @override
+  String get skillsTopicBrowser => 'Naršyklė';
+
+  @override
+  String get skillsTopicResearch => 'Tyrimai';
+
+  @override
+  String get skillsTopicWriting => 'Rašymas';
+
+  @override
+  String get skillsTopicDesign => 'Dizainas';
+
+  @override
+  String get skillsTopicCoding => 'Programavimas';
+
+  @override
+  String get skillsTopicData => 'Duomenys';
+
+  @override
+  String get skillsTopicMarketing => 'Rinkodara';
+
+  @override
+  String get skillsGet => 'Gauti';
+
+  @override
+  String get skillsOfficial => 'Oficialus';
+
+  @override
+  String get skillOriginBuiltIn => 'Integruotas';
+
+  @override
+  String get skillOriginLearned => 'Išmoktas';
+
+  @override
+  String get skillOriginYours => 'Jūsų';
+
+  @override
+  String get skillDiscardTitle => 'Atmesti pakeitimus?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Jūsų $name pakeitimai neišsaugoti.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Integruotas įgūdis. Išsaugoję pakeitimą gausite savo kopiją; kiti pasilieka originalą.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name pašalinamas iš jūsų įgūdžių. Kiti šio egzemplioriaus naudotojai jį pasilieka.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Įkelti įgūdžių biblioteką';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Įgūdžių aplankų zip, kiekviename yra SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Suarchyvuokite įgūdžių aplanką, pvz., .claude/skills aplanką arba visą saugyklą. Kiekvienas aplankas su SKILL.md tampa įgūdžiu, o šalia esantys failai keliauja kartu. Pakartotinai įkėlus biblioteką, ji pakeičiama.';
+
+  @override
+  String get skillLibraryChooseZip => 'Pasirinkite .zip failą';
+
+  @override
+  String get skillLibraryChangeFile => 'Keisti';
+
+  @override
+  String get skillLibraryName => 'Bibliotekos pavadinimas';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Palikite tuščią, kad būtų naudojamas failo pavadinimas.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Nepavyko perskaityti failo. Pabandykite jį pasirinkti dar kartą.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Įdiegta įgūdžių: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Įdiegta į $library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Pašalinta, nebėra zip faile';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Praleista';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Įgūdžiai: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Išjungta: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Ištrinti biblioteką';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Pašalinami visi $library įgūdžiai ($count).';
+  }
+
+  @override
+  String get bitwardenVault => 'Saugykla';
+
+  @override
+  String get bitwardenLock => 'Užrakinti';
+
+  @override
+  String get integrationConfigured => 'Sukonfigūruota';
+
+  @override
+  String get showMore => 'Rodyti daugiau';
+
+  @override
+  String get showLess => 'Rodyti mažiau';
+
+  @override
+  String get adminExtraModels => 'Papildomi modeliai';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Šie modeliai išjungti visiems. Pažymėkite tuos, kuriuos $username vis tiek gali naudoti. Vykdymai su jais vis tiek įskaičiuojami į šios paskyros limitus.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'Nė vienas modelis nėra išjungtas visiems, todėl papildomai suteikti nėra ko.';
+
+  @override
+  String get adminExtraModelsSearch => 'Ieškoti modelių';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Papildomi modeliai: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Papildomi $username modeliai išsaugoti';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor pakeitė, kuriuos papildomus modelius gali naudoti $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Suteikta';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Administratorius suteikė jums šį modelį. Visiems kitiems jis išjungtas.';
+
+  @override
+  String get sharedWebPages => 'Shared web pages';
+
+  @override
+  String get sharedWebPagesDescription =>
+      'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.';
+
+  @override
+  String get allowWebPageSharing => 'Let the agent share web pages';
+
+  @override
+  String get allowWebPageSharingDescription =>
+      'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.';
+
+  @override
+  String get noSharedWebPages => 'Nothing is shared right now.';
+
+  @override
+  String get stopSharing => 'Stop sharing';
+
+  @override
+  String sharedWebPageStopped(String name) {
+    return 'Stopped sharing $name';
+  }
+
+  @override
+  String sharedWebPagePortArg1(Object port) {
+    return 'Port $port';
+  }
+
+  @override
+  String get sharedWebPagesOffline =>
+      'Your computer is off, so shared links show an offline page until it runs again.';
+
+  @override
+  String get sharedWebPagesUnsupported =>
+      'This server runs tools directly on its own machine, so there is no computer to share pages from.';
+
+  @override
+  String get adminWebSharing => 'Let agents share web pages';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Susieti telefoną';
+
+  @override
+  String get pairPhoneDescription =>
+      'Rodo QR kodą, kuriuo telefono programa „NeoAgent“ prisijungia prie šios paskyros neįvedant serverio adreso ar slaptažodžio.';
+
+  @override
+  String get pairTitle => 'Susieti telefoną';
+
+  @override
+  String get pairInstructions =>
+      'Atidarykite programą „NeoAgent“ telefone, prisijungimo ekrane palieskite „Nuskaityti QR kodą“ ir nukreipkite fotoaparatą į šį kodą.';
+
+  @override
+  String get pairQrSemantics => 'QR kodas telefonui susieti';
+
+  @override
+  String get pairWaiting => 'Laukiama telefono';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Baigs galioti po $time';
+  }
+
+  @override
+  String get pairExpired => 'Kodo galiojimas baigėsi';
+
+  @override
+  String get pairNewCode => 'Naujas kodas';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Susieta su $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'jūsų telefonu';
+
+  @override
+  String get pairCantScan =>
+      'Nepavyksta nuskaityti? Atidarykite šią nuorodą telefone:';
+
+  @override
+  String get pairLandingTitle => 'Susiekite su programa „NeoAgent“';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Ši nuoroda prijungia programą „NeoAgent“ šiame telefone. Įdiekite programą, jei dar to nepadarėte, tada atidarykite nuorodą joje. Kodas galioja penkias minutes.';
+
+  @override
+  String get pairLandingOpenApp => 'Atidaryti programoje „NeoAgent“';
+
+  @override
+  String get pairLandingGetApp => 'Gauti programą';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Ši nuoroda skirta jūsų telefonui. Atidarykite ją ten arba nuskaitykite QR kodą programa „NeoAgent“.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Ši susiejimo nuoroda neišsami. Naują kodą parodykite skiltyje Nustatymai › Prisijungimas ir sauga › Susieti telefoną.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Atidaryti „NeoAgent“';
+
+  @override
+  String get signInScanQr => 'Nuskaityti QR kodą';
+
+  @override
+  String get signInScanQrHint =>
+      'Prisijungusiame kompiuteryje atidarykite Nustatymai › Prisijungimas ir sauga › Susieti telefoną.';
+
+  @override
+  String get scanTitle => 'Nuskaityti QR kodą';
+
+  @override
+  String get scanPrimeTitle => 'Nuskaitymas fotoaparatu';
+
+  @override
+  String get scanPrimeBody =>
+      '„NeoAgent“ naudoja fotoaparatą tik QR kodui nuskaityti. Niekas neįrašoma ir neįkeliama.';
+
+  @override
+  String get scanPrimeAllow => 'Leisti fotoaparatą';
+
+  @override
+  String get scanPairingHint =>
+      'Nukreipkite fotoaparatą į QR kodą skiltyje Nustatymai › Prisijungimas ir sauga › Susieti telefoną';
+
+  @override
+  String get scanWrongPairingCode => 'Tai ne „NeoAgent“ susiejimo kodas';
+
+  @override
+  String get scanTorchOn => 'Įjungti šviesą';
+
+  @override
+  String get scanTorchOff => 'Išjungti šviesą';
+
+  @override
+  String get scanDeniedTitle => 'Prieiga prie fotoaparato išjungta';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Nustatymuose leiskite „NeoAgent“ naudoti fotoaparatą arba prisijunkite slaptažodžiu.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Leiskite naudoti fotoaparatą, kai bus paklausta, arba įjunkite jį skiltyje Nustatymai › Programos › NeoAgent › Leidimai. Taip pat galite prisijungti slaptažodžiu.';
+
+  @override
+  String get scanOpenSettings => 'Atidaryti nustatymus';
+
+  @override
+  String get scanFailedTitle => 'Fotoaparatas nepasileido';
+
+  @override
+  String get scanFailedBody =>
+      'Uždarykite kitas fotoaparatą naudojančias programas ir bandykite dar kartą.';
 }

@@ -458,6 +458,12 @@ class RuntimeManager {
     return this._computerBackendForUser(userId).vmManager.hasVm(userId);
   }
 
+  // The user's cloud computer, if it is running; null otherwise or on a
+  // deployment without guests (TERMINAL_ENV=host).
+  runningGuestForUser(userId) {
+    return this.computerBackend?.runningGuest?.(userId) || null;
+  }
+
   isGuestAgentReadyForUser(userId, timeoutMs = 1000) {
     return this._computerBackendForUser(userId).isGuestAgentReadyForUser(userId, timeoutMs);
   }

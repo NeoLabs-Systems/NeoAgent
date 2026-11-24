@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveToolMeta, resultBudgetFor } = require('./tools/metadata');
+
 // Limits for the runaway guards and tool-result replay. None of them shapes
 // normal work: the model decides how many steps a task takes and when it is
 // done. The turn ceiling is an emergency stop only.
@@ -49,13 +51,18 @@ function buildLoopPolicy(aiSettings = {}, options = {}) {
 
   // Results cut below what the model needs are re-fetched in slices, and each
   // slice is a full model turn, so the budget errs on the side of complete.
+  // A stored value below these is never cheaper: older settings kept 1200, and one run
+  // read its results back in 2 KB slices for 346 turns and 48M tokens.
   const requestedDefaultBudget = optionalNumber(aiSettings.tool_replay_budget_chars);
-  const defaultBudget = Number.isFinite(requestedDefaultBudget) && requestedDefaultBudget > 0
-    ? clampFinite(Math.floor(requestedDefaultBudget), 500, MAX_ALLOWED_BUDGET_CHARS, DEFAULT_TOOL_RESULT_BUDGET_CHARS)
-    : DEFAULT_TOOL_RESULT_BUDGET_CHARS;
+  const defaultBudget = clampFinite(
+    Math.floor(requestedDefaultBudget),
+    DEFAULT_TOOL_RESULT_BUDGET_CHARS,
+    MAX_ALLOWED_BUDGET_CHARS,
+    DEFAULT_TOOL_RESULT_BUDGET_CHARS,
+  );
   const categoryBudget = (setting, floor) => clampFinite(
     Math.floor(optionalNumber(aiSettings[setting])),
-    500,
+    Math.max(defaultBudget, floor),
     MAX_ALLOWED_BUDGET_CHARS,
     Math.max(defaultBudget, floor),
   );
@@ -76,17 +83,9 @@ function buildLoopPolicy(aiSettings = {}, options = {}) {
   };
 }
 
-function getToolCategory(toolName) {
-  if (!toolName) return 'default';
-  if (/^(read_file|write_file|search_files|list_directory|file_)/.test(toolName)) return 'file';
-  if (/^browser_/.test(toolName)) return 'browser';
-  if (/^(execute_command|android_shell|android_)/.test(toolName)) return 'command';
-  return 'default';
-}
-
-function resolveToolResultLimits(toolName, policy) {
-  const category = getToolCategory(toolName);
-  const soft = policy.toolResultBudget[category] ?? policy.toolResultBudget.default;
+function resolveToolResultLimits(toolName, policy, definition = null) {
+  const budget = resultBudgetFor(resolveToolMeta(toolName, definition));
+  const soft = policy.toolResultBudget[budget] ?? policy.toolResultBudget.default;
   const hard = Math.min(soft * policy.hardLimitMultiplier, policy.absoluteHardLimit);
   return { softLimit: soft, hardLimit: hard };
 }

@@ -97,6 +97,15 @@ test('an ordered trigger starting now fires only what comes after its first poll
   assert.deepEqual(runtime.fired.map((row) => row.context.triggerEvent.runId), [2, 3]);
 });
 
+test('a phone alarm fires once when due, even on the first poll after creation', async () => {
+  const alarm = { time: new Date(NOW + MINUTE).toISOString() };
+  const task = polledTask('phone_alarm', { connectionId: 1 }, new Date(NOW).toISOString());
+  const runtime = pollingRuntime(task, { phone_list_alarms: { alarms: [alarm] } });
+  await pollTriggerTask(runtime, task, { now: NOW + 2 * MINUTE });
+  await pollTriggerTask(runtime, task, { now: NOW + 4 * MINUTE });
+  assert.deepEqual(runtime.fired.map((row) => row.context.triggerEvent.time), [alarm.time]);
+});
+
 test('an ordered trigger starting from the latest item fires the first item of an empty folder', async () => {
   const files = [];
   const task = polledTask('nextcloud_file_added', { connectionId: 1, path: 'Inbox' });

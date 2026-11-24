@@ -8,12 +8,30 @@
 
 const db = require('../../db/database');
 const { recordAccessEvent } = require('./audit');
+const { sanitizeError } = require('../../utils/security');
+const { nonAdminErrorMessage, redactRunEvent, redactRunRecord } = require('../../utils/public_error');
 
 const ADMIN_USERS_ENV_KEY = 'NEOAGENT_ADMIN_USERS';
 
 function isAdminUser(userId) {
   const row = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(userId);
   return Number(row?.is_admin) === 1;
+}
+
+// The failure text this account may read. Unknown accounts are not admins.
+function errorMessageForUser(userId, err) {
+  return isAdminUser(userId) ? sanitizeError(err) : nonAdminErrorMessage(err);
+}
+
+// Run records as this account may read them.
+function runRecordsForUser(userId, { run, runs, steps, events }) {
+  if (isAdminUser(userId)) return { run, runs, steps, events };
+  return {
+    run: run && redactRunRecord(run),
+    runs: runs?.map(redactRunRecord),
+    steps: steps?.map(redactRunRecord),
+    events: events?.map(redactRunEvent),
+  };
 }
 
 function listAdmins() {
@@ -109,6 +127,8 @@ function needsAdminGrant() {
 }
 
 module.exports = {
+  errorMessageForUser,
+  runRecordsForUser,
   isAdminUser,
   listAdmins,
   grantAdmin,

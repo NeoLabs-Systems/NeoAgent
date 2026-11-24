@@ -5,30 +5,61 @@ const { resolveAgent } = require('../agents/manager');
 const { createServiceLogger } = require('../../utils/logger');
 
 const DEFAULT_RING_TIMEOUT_MS = 30_000;
+// How long a call back waits for an app to come back. Placing the call that
+// triggers it sends the app to the background, where a phone may suspend it.
+const DEFAULT_APP_WAIT_MS = 2 * 60 * 1000;
 
 const logger = createServiceLogger('AgentCalls');
 
+function describeClient(socket) {
+  return String(socket?.handshake?.headers?.['user-agent'] || 'unknown').slice(0, 40);
+}
+
 class AgentCallCoordinator {
-  constructor({ io, agentEngine, voiceRuntimeManager, ringTimeoutMs = DEFAULT_RING_TIMEOUT_MS }) {
+  constructor({
+    io,
+    agentEngine,
+    voiceRuntimeManager,
+    ringTimeoutMs = DEFAULT_RING_TIMEOUT_MS,
+    appWaitMs = DEFAULT_APP_WAIT_MS,
+  }) {
     this.io = io;
     this.agentEngine = agentEngine;
     this.voiceRuntimeManager = voiceRuntimeManager;
     this.ringTimeoutMs = ringTimeoutMs;
+    this.appWaitMs = appWaitMs;
     this.pendingById = new Map();
     this.pendingByUser = new Map();
     this.shuttingDown = false;
   }
 
-  async callUser({ userId, agentId, runId, conversationId = null, openingMessage, signal = null }) {
+  /** Rings the phone back after a call on a platform that cannot carry voice was declined. */
+  async callBack({ userId, agentId, platform, callerId }) {
+    const result = await this.callUser({
+      userId,
+      agentId,
+      waitForApp: true,
+      openingMessage: `${callerId} just tried to call you on ${platform}, which cannot carry a voice call,`
+        + ' so you are calling back in the app. Greet them and ask what they need.',
+    });
+    logger.info(`Call back after a ${platform} call: ${result.status}${result.reason ? ` (${result.reason})` : ''}.`);
+    return result;
+  }
+
+  async callUser({ userId, agentId, runId, conversationId = null, openingMessage, signal = null, waitForApp = false }) {
     const content = String(openingMessage || '').trim();
     if (!content) return { status: 'unavailable', reason: 'opening_message is required' };
     if (this.shuttingDown || signal?.aborted) return { status: 'cancelled' };
+    // A call still waiting for an app has rung nobody, so a real one goes first.
+    const pending = this.#pendingForUser(userId);
+    if (pending?.waitingForApp && !waitForApp) this.#finish(pending, 'superseded');
     if (this.pendingByUser.has(String(userId))) return { status: 'busy' };
     if (this.voiceRuntimeManager.hasActiveSessionForUser(userId)) return { status: 'busy' };
 
     const sockets = await this.io.in(`user:${userId}`).fetchSockets();
     const recipients = new Set(sockets.map((socket) => socket.id));
-    if (recipients.size === 0) {
+    const waitingForApp = waitForApp && recipients.size === 0;
+    if (recipients.size === 0 && !waitingForApp) {
       return {
         status: 'unavailable',
         reason: 'no_connected_app',
@@ -38,7 +69,13 @@ class AgentCallCoordinator {
 
     const agent = resolveAgent(userId, agentId);
     const callId = randomUUID();
-    const expiresAt = new Date(Date.now() + this.ringTimeoutMs).toISOString();
+    const waitMs = waitingForApp ? this.appWaitMs : this.ringTimeoutMs;
+    const expiresAt = new Date(Date.now() + waitMs).toISOString();
+    if (waitingForApp) {
+      logger.info(`No app is connected; waiting up to ${Math.round(waitMs / 1000)}s for one to ring.`);
+    } else {
+      logger.info(`Ringing ${sockets.map(describeClient).join(', ')}.`);
+    }
 
     return new Promise((resolve) => {
       const invitation = {
@@ -56,8 +93,9 @@ class AgentCallCoordinator {
         abortHandler: null,
         timer: null,
         settled: false,
+        waitingForApp,
       };
-      invitation.timer = setTimeout(() => this.#finish(invitation, 'missed'), this.ringTimeoutMs);
+      invitation.timer = setTimeout(() => this.#finish(invitation, 'missed'), waitMs);
       invitation.timer.unref?.();
       if (signal) {
         invitation.abortHandler = () => this.#finish(invitation, 'cancelled');
@@ -65,6 +103,7 @@ class AgentCallCoordinator {
       }
       this.pendingById.set(callId, invitation);
       this.pendingByUser.set(String(userId), callId);
+      if (waitingForApp) return;
       this.io.to(`user:${userId}`).emit('voice:incoming_call', {
         callId,
         agentId: invitation.agentId,
@@ -77,6 +116,15 @@ class AgentCallCoordinator {
   offerPendingCall(socket, userId) {
     const invitation = this.#pendingForUser(userId);
     if (!invitation || !socket?.id) return false;
+    if (invitation.waitingForApp) {
+      logger.info(`An app came back; ringing ${describeClient(socket)}.`);
+      // Now it rings for the usual time.
+      invitation.waitingForApp = false;
+      invitation.expiresAt = new Date(Date.now() + this.ringTimeoutMs).toISOString();
+      clearTimeout(invitation.timer);
+      invitation.timer = setTimeout(() => this.#finish(invitation, 'missed'), this.ringTimeoutMs);
+      invitation.timer.unref?.();
+    }
     invitation.recipients.add(socket.id);
     socket.emit('voice:incoming_call', {
       callId: invitation.callId,

@@ -263,7 +263,13 @@ function createOAuthProvider(options = {}) {
     },
     getToolDefinitions(toolOptions = {}) {
       const connectedAppIds = new Set(toolOptions.connectedAppIds || []);
-      return toolDefinitions.filter((tool) => connectedAppIds.has(tool.appId));
+      const tools = toolDefinitions.filter((tool) => connectedAppIds.has(tool.appId));
+      // Given the connected rows, a provider may narrow its tools to what
+      // those connections can use (granted scopes, access mode).
+      return Array.isArray(toolOptions.connections)
+        && typeof options.filterToolDefinitions === 'function'
+        ? options.filterToolDefinitions(tools, toolOptions.connections)
+        : tools;
     },
     supportsTool(toolName) {
       return toolAppMap.has(String(toolName || '').trim());

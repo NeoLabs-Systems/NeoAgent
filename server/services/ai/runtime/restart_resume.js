@@ -6,6 +6,7 @@ const { storeWebRunReply } = require('../history');
 const { fenceUntrusted } = require('../../../utils/untrusted_text');
 const { createServiceLogger } = require('../../../utils/logger');
 const { shortenRunId } = require('../logFormat');
+const { EVENT_TYPES } = require('./events/event_types');
 
 const logger = createServiceLogger('Runtime');
 
@@ -16,8 +17,10 @@ const logger = createServiceLogger('Runtime');
 const RESUME_WINDOW_MINUTES = 60;
 
 // Surfaces whose person or chat is still there after a restart. A live voice
-// call has ended, the CLI's exec process has exited, sub-agents and delegations
-// answer to a parent run, and scheduled work has its own retry bookkeeping.
+// call has ended, the CLI's exec process has exited, and sub-agents and
+// delegations answer to a parent run. A scheduled task's run is named by the
+// task runtime instead (`resumableTask`), since that runtime builds its prompt
+// and delivers its answer.
 const RESUMABLE_TRIGGER_SOURCES = new Set(['web', 'messaging']);
 
 // Plain data a resumed run needs to work on the same surface and deliver to
@@ -66,11 +69,13 @@ function resumeWindowModifier() {
  * next boot must not start it a third time.
  */
 function buildResumeEnvelope(userMessage, options = {}) {
+  if (options.resumedFromRunId) return null;
+  if (options.taskId) return options.resumableTask ? { task: { ...options.resumableTask } } : null;
   if (!RESUMABLE_TRIGGER_SOURCES.has(options.triggerSource || 'web')) return null;
   if (Number(options.subagentDepth) > 0 || options.triggerType === 'agent_delegation') return null;
   // A public run's scope lives in memory and is not rebuilt here, so it would
   // come back with the owner's tools.
-  if (options.taskId || options.resumedFromRunId || options.audience === 'public') return null;
+  if (options.audience === 'public') return null;
 
   const picked = {};
   for (const key of RESUME_OPTION_KEYS) {
@@ -114,11 +119,10 @@ const claimRun = db.transaction((runId, resumedAs) => {
 });
 
 /**
- * The resumed run's user turn: the original request plus what the cut-off run
- * already did, so the model continues instead of starting over. The original
- * user turn is already in the conversation and is not stored again.
+ * What the cut-off run already did, for the run that continues it, so the model
+ * picks up the work instead of starting over.
  */
-function buildContinuationNote(runId, message) {
+function interruptedRunNote(runId, situation, request = '') {
   const steps = db.prepare(
     `SELECT description, status FROM agent_steps
      WHERE run_id = ? AND status IN ('completed', 'interrupted')
@@ -126,7 +130,7 @@ function buildContinuationNote(runId, message) {
   ).all(runId, STEP_LIMIT).reverse();
   const sent = db.prepare(
     `SELECT payload_json FROM agent_outbox
-     WHERE run_id = ? AND message_kind != 'final' AND status = 'delivered'
+     WHERE run_id = ? AND message_kind != 'final' AND status IN ('delivered', 'ambiguous')
      ORDER BY created_at DESC LIMIT ?`,
   ).all(runId, SENT_MESSAGE_LIMIT).reverse()
     .map((row) => String(JSON.parse(row.payload_json || '{}').content || '').slice(0, 400))
@@ -143,34 +147,77 @@ function buildContinuationNote(runId, message) {
 
   return [
     '[Resumed after a restart]',
+    situation,
+    request,
+    `What the interrupted run already did:\n${fenceUntrusted('external_interrupted_run', log)}`,
+    'Pick up where it stopped. Do not repeat completed actions or resend messages already sent. A call that was cut off may or may not have taken effect, so check before redoing it. Then finish as you normally would.',
+  ].filter(Boolean).join('\n\n');
+}
+
+// The resumed run's user turn. The original user turn is already in the
+// conversation and is not stored again.
+function buildContinuationNote(runId, message) {
+  return interruptedRunNote(
+    runId,
     'NeoAgent restarted while you were working on the request below, which ended that run early. This run continues the same task; nothing new has come from the user.',
     `Original request:\n${message}`,
-    `What the interrupted run already did:\n${fenceUntrusted('external_interrupted_run', log)}`,
-    'Pick up where it stopped. Do not repeat completed actions or resend messages already sent. A call that was cut off may or may not have taken effect, so check before redoing it. Then answer the original request as you normally would.',
-  ].join('\n\n');
+  );
+}
+
+/**
+ * Starts a run on the surface a resume envelope recorded, with no caller
+ * waiting for it. On the web that caller would write the chat transcript, so
+ * this does.
+ */
+async function startRunOnRoute(agentEngine, userId, message, options) {
+  const result = await agentEngine.run(userId, message, options);
+  if ((options.triggerSource || 'web') === 'web') {
+    storeWebRunReply({
+      userId,
+      agentId: options.agentId || null,
+      conversationId: options.conversationId || null,
+      result,
+      platform: 'web',
+    });
+  }
+  return result;
+}
+
+// Where a run that is still going answers its user, or null when it is not on
+// a surface a later run could reach.
+function routeOfRun(runId) {
+  const row = db.prepare(
+    "SELECT json_extract(metadata_json, '$.resume.options') AS route FROM agent_runs WHERE id = ?",
+  ).get(runId);
+  return row?.route ? JSON.parse(row.route) : null;
 }
 
 function startResumedRun(agentEngine, run, runId, { message, options }) {
-  agentEngine.run(run.user_id, buildContinuationNote(run.id, message), {
+  startRunOnRoute(agentEngine, run.user_id, buildContinuationNote(run.id, message), {
     ...options,
+    agentId: options.agentId || run.agent_id,
     title: options.title || message,
     context: { ...(options.context || {}), rawUserMessage: options.context?.rawUserMessage || message },
     runId,
     resumedFromRunId: run.id,
-  }).then((result) => {
-    // On the web the caller that awaited the run writes the chat transcript;
-    // that caller is gone, so this one does it.
-    if ((options.triggerSource || 'web') === 'web') {
-      storeWebRunReply({
-        userId: run.user_id,
-        agentId: run.agent_id,
-        conversationId: options.conversationId || null,
-        result,
-        platform: 'web',
-      });
-    }
   }).catch((error) => {
     logger.error(`Resumed run ${shortenRunId(runId)} (from ${shortenRunId(run.id)}) failed:`, error?.message || error);
+  });
+}
+
+// A task's run goes back to the task runtime, for the same occurrence.
+function startResumedTask(taskRuntime, run, runId, task) {
+  taskRuntime.resumeInterruptedTask({
+    ...task,
+    userId: run.user_id,
+    runId,
+    resumedFromRunId: run.id,
+    note: interruptedRunNote(
+      run.id,
+      'NeoAgent restarted while this task was running, which ended that run early. This run continues the same occurrence of the task.',
+    ),
+  }).catch((error) => {
+    logger.error(`Resumed task run ${shortenRunId(runId)} (from ${shortenRunId(run.id)}) failed:`, error?.message || error);
   });
 }
 
@@ -178,17 +225,20 @@ function startResumedRun(agentEngine, run, runId, { message, options }) {
  * Start a new run for every recent run a restart cut off. Runs are started
  * concurrently and not awaited, so boot never waits on agent work.
  */
-function resumeInterruptedRuns(agentEngine) {
+function resumeInterruptedRuns(agentEngine, { taskRuntime = null } = {}) {
   const candidates = db.prepare(
-    `SELECT id, user_id, agent_id FROM agent_runs WHERE ${RESUMABLE_RUNS_WHERE} ORDER BY heartbeat_at ASC`,
+    `SELECT id, user_id, agent_id, json_extract(metadata_json, '$.resume.task') IS NOT NULL AS is_task
+     FROM agent_runs WHERE ${RESUMABLE_RUNS_WHERE} ORDER BY heartbeat_at ASC`,
   ).all(resumeWindowModifier());
   const resumed = [];
   for (const run of candidates) {
+    if (run.is_task && !taskRuntime) continue;
     const runId = randomUUID();
     const envelope = claimRun.immediate(run.id, runId);
     if (!envelope) continue;
-    agentEngine.recordRunEvent(run.user_id, run.id, 'run_resumed', { resumedAs: runId }, { agentId: run.agent_id });
-    startResumedRun(agentEngine, run, runId, envelope);
+    agentEngine.recordRunEvent(run.user_id, run.id, EVENT_TYPES.RUN_STATE, { to_state: 'resumed', resumed_as: runId }, { agentId: run.agent_id });
+    if (envelope.task) startResumedTask(taskRuntime, run, runId, envelope.task);
+    else startResumedRun(agentEngine, run, runId, envelope);
     resumed.push(`${shortenRunId(run.id)}->${shortenRunId(runId)}`);
   }
   if (resumed.length) logger.info(`Resuming ${resumed.length} run(s) a restart interrupted: ${resumed.join(', ')}`);
@@ -209,4 +259,6 @@ module.exports = {
   countResumableRuns,
   hasResumeEnvelope,
   resumeInterruptedRuns,
+  routeOfRun,
+  startRunOnRoute,
 };

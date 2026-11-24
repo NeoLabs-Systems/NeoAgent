@@ -36,8 +36,20 @@ Search the "Invoices" Drive folder for files from the last 30 days...
 - **Limits.** Up to 200 files, 1 MB per file, 8 MB per skill.
 - **Editable.** Installed skills can be changed or removed like your own.
 
-:::note Bundled store removed
-NeoAgent no longer ships a built-in skill store, and skills installed from it are removed when skills load.
+### Built-in libraries
+
+**Tools › Skills › Built-in libraries** lists skill libraries that ship with NeoAgent. Each one installs as a single library card: **Get** adds all its skills, **Update** reinstalls them, and the card under **Installed** switches them on and off or deletes them together.
+
+| Library | Skills | Source |
+|---|---|---|
+| EE Workcenter (`via`) | KiCad board design, autorouting, ERC/DRC/simulation gates, procurement, verification, blog posts | [ThyFriendlyFox/via](https://github.com/ThyFriendlyFox/via/tree/main/.claude/skills) (MIT) |
+
+The via skills drive that repository's `workcenter` tools, so they are useful on a machine with the via workcenter checked out.
+
+To add a library, see `server/catalog_sources/skill-libraries/README.md`.
+
+:::note Old skill store removed
+The earlier one-skill-at-a-time store is gone, and skills installed from it are removed when skills load. Built-in libraries do not use it.
 :::
 
 ## 🧠 Auto-learned skills

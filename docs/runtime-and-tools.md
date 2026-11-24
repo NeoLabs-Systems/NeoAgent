@@ -41,6 +41,7 @@ description: One Computer provider contract, the QEMU guest, control leases, ADB
 - **Capacity.** Concurrent computers are limited by host memory after the reserve and by logical CPUs minus one.
 - **Storage.** A start is refused (`COMPUTER_STORAGE_CAPACITY`) when free space minus the reserve cannot cover unwritten sparse disks.
 - **Settings.** The `NEOAGENT_COMPUTER_*` limits are listed in [Configuration](configuration.md).
+- **Shared web pages.** `server/services/web_shares/proxy.js` serves `/<username>/<slug>/…` ahead of the other middleware. It never boots a computer: it finds the running guest with `runningGuestForUser`, relays through the guest agent's `/proxy/<port>` route, filters headers, adds the sandbox policy and puts the user-made notice into HTML documents. Shares are stored in `web_shares`; `share_web_page` is offered only while `web_sharing_enabled` is on. WebSocket upgrades are not relayed.
 
 ## Control leases
 
@@ -84,22 +85,41 @@ The macOS, Windows and Linux desktop apps can act as the computer.
 
 | Source | Defined in |
 |---|---|
-| Built-in tools | `services/ai/tools.js`, larger handlers in `services/ai/integrated_tools/` |
+| Built-in tools | `services/ai/tools/definitions/` for schemas and metadata, `tools/handlers/` for code, larger handlers in `services/ai/integrated_tools/` |
 | Integration tools | Providers in `services/integrations/`, exposed only for connected apps |
 | Skills | `SkillRunner` (`services/ai/toolRunner.js`), loaded from `agent-data/skills` |
 | MCP tools | `services/mcp/client.js`; remote `http(s)` servers only |
+
+## Coding tools
+
+The tools a run codes with work through the workspace service and `executeCliCommand`, so they behave the same in a guest VM, on a desktop companion, and in host mode. Their output is bounded, and the shell stays the escape hatch.
+
+| Tool | Does | Notes |
+|---|---|---|
+| `repo_overview` | Root, branch, dirty files, layout, languages, manifests, docs, test command | `services/workspace/repo_inspect.js` |
+| `search_files` | Text or regex search, grouped by file, with context lines and globs | `rg` when installed, otherwise `grep`; `services/workspace/code_search.js` |
+| `read_file`, `read_files` | Lines or ranges of files | A whole-file read stops after 400 lines and says where |
+| `edit_file` | Exact-text edits to one file | All or nothing; a failed match reports the nearby lines; `services/workspace/text_edits.js` |
+| `repo_diff` | Changed files and a bounded diff | By default the run's own changes, read from its checkpoints; `services/workspace/repo_diff.js` |
+| `run_tests` | Runs the tests, returns counts and only the failures | The full log is an artifact; asks for approval as `shell` does; `services/workspace/run_tests.js` |
+
+- **Containment.** The read tools run without approval, so their scripts check the physical path and refuse anything outside the workspace. `run_tests` is approved as `shell` is, and `repo_diff` follows the repositories the run itself changed, so those two may leave it.
+- **No state change.** `repo_overview` and `repo_diff` leave the tree, index, and branch alone. `repo_diff` reads the working tree through a throwaway index, which writes only unreachable objects, as a checkpoint does.
+- **Test results.** `parseTestOutput` (`services/ai/test_output.js`) returns null when a run counts nothing, so "no tests found" never reads as a clean pass. Cancelled tests count as failed, and chained runs add up.
+- **Writes.** `WorkspaceManager` writes through a temporary file and a rename, keeping the file's mode and following symlinks.
 
 ## Dispatch path
 
 `runToolCall()` in `services/ai/runtime/tool_turn.js`:
 
-1. **Scrub.** Invisible characters are removed from the arguments, so approvals show what will run.
+1. **Scrub and type.** Invisible characters are removed from the arguments, so approvals show what will run, and near misses of the tool's declared types are fixed (`"5.0"` for an integer, `"true"`, a JSON string for an array, an enum value in the wrong case) in `tools/coerce_args.js`. Anything else is left for the tool to reject.
 2. **Record.** An `agent_steps` row and `run:tool_start` event are written.
-3. **Hook.** `before_tool_call` runs the security hooks.
-4. **Repeat check.** The repetition guard blocks an exact call that already failed twice.
-5. **Execute.** The tool runs with the run's user, agent, computer target and abort signal.
-6. **Compact.** `compactToolResult()` trims large results before they reach the model.
-7. **Finish.** The step, `run:tool_end` and the run's trust record are updated.
+3. **Policy gate.** A call missing an argument its schema requires is answered with what is missing, and nothing runs; it never counts toward a repeat or a rest. `before_tool_call` runs the security hooks, and the decision goes on the run ledger. Nothing a tool returned can raise what a later call may do.
+4. **Repeat check.** A read repeated with nothing changed is suppressed, and an exact call that already failed twice is blocked. A remote tool (`latencyClass: 'remote'`: search, HTTP, messaging, integrations, MCP) that fails three times in a row with the same error rests for a minute, or as long as the service's `retry-after` asks. Tools on the agent's own computer never rest: their failures depend on what they were asked. A re-read after an edit runs normally.
+5. **Tracking.** File and shell changes are snapshotted with Git before and after, so `repo_diff` shows what the run changed. This needs Python 3 and Git on the computer; without them the change still runs. `workspace_rollback` does not restore a shared workspace: correct the specific edits instead.
+6. **Execute.** The tool runs with the run's user, agent, computer target and abort signal. A tool that reads a file the agent made (a message attachment, an upload, an image to analyse) names that argument in its metadata (`fileArgs`): the file is first fetched from the agent's computer through `/workspace/files/download`, kept as an owned artifact, and the tool gets the artifact's path. The shell starts in the workspace unless a `cwd` is given.
+7. **Compact.** `compactToolResult()` trims large results before they reach the model: 12,000 characters by default, 24,000 for files and 16,000 for commands and the browser. A stored setting below that is ignored, since a smaller budget is paid back in turns. What is cut is saved; `read_artifact` reads it by line range or finds lines with `query`.
+8. **Finish.** The step, `run:tool_end` and the run's trust record are updated.
 
 ## Security hooks
 
@@ -109,7 +129,7 @@ The macOS, Windows and Linux desktop apps can act as the computer.
 |---|---|---|
 | 1 | `tool-delegation-check` | The account's manager removed the tool's category |
 | 5 | `tool-policy-check` | The category policy is `deny` |
-| 10 | `tool-approval-gate` | Approval is needed and the owner denies it or does not answer in 30 seconds |
+| 10 | `tool-approval-gate` | Approval is needed and the owner denies it or does not answer in time: 30 seconds in the app, 5 minutes when it is also asked in a chat |
 
 | Setting | Values | Stored in |
 |---|---|---|
@@ -121,8 +141,27 @@ The approval gate also asks when `services/security/trust_policy.js` flags a cal
 - **Audience review.** Someone other than the owner is steering the run; applies even in `allow_all`.
 - **Taint review.** The run read outside content, and the call would reach a new recipient or host, persist an instruction, or send a credential.
 
-- **Delivery.** Approvals arrive as `tool:approval_required` and resolve as `tool:approval_resolved`.
+- **Delivery.** Approvals arrive as `tool:approval_required` and resolve as `tool:approval_resolved`. A run that came from a chat also asks there; the first answer from either place decides.
 - **Result.** A blocked call returns a structured reason to the model instead of an error.
+
+### Approving from a chat
+
+`services/messaging/chat_approvals.js` puts the approval up in the chat the run came from and removes it once answered or expired, where the platform allows deleting.
+
+| Platform | How it asks | How it is answered |
+|---|---|---|
+| WhatsApp | Poll, deleted for everyone afterwards | Vote |
+| Discord | Message with reactions, deleted afterwards | ✅ allow, 🔁 always allow, 🚫 don't allow |
+| Telegram | Inline buttons, deleted afterwards | Tap |
+| Slack, Teams, Google Chat, Matrix, Signal, LINE, Mattermost, iMessage, IRC | Text | Reply with an option's word, in the app's language or `allow`, `always`, `deny` |
+
+Typed answers also work on WhatsApp, Discord and Telegram. They are consumed only while an approval is open in that chat and only from someone who may decide; otherwise the message reaches the agent as usual.
+
+**Who may decide.** Only someone who speaks for the owner: an allowlisted DM sender, the account's self chat, the linked person on a shared account, or a person listed by name under group senders. Other group members, anyone admitted by an open policy, and per-group member rules can talk to the agent but not approve, so nobody can approve what the audience review held for them. Other people's answers are ignored silently.
+
+**Where it does not ask.** Public threads (GitHub), runs with no chat (app, schedules), a DM from an unvetted sender, and a group with nobody listed by name. Those stay app-only, so a request is not shown to people who could not answer it. A group sees only what is being asked; a DM also sees the reason and a short detail with credentials hidden.
+
+**Wording.** `services/security/approval_copy.js` writes each approval once, in the owner's language, for the app and chats alike. An approval that times out is deleted and a short note says it was skipped.
 
 ## Credential broker
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { createRunDelivery } = require('../../../server/services/ai/runtime/delivery/run_delivery');
+
 const assert = require('node:assert/strict');
 const { afterEach, beforeEach, describe, test } = require('node:test');
 
@@ -41,6 +43,12 @@ function createMessagingManager() {
     async sendMessage(userId, platform, to, content, options) {
       sent.push({ userId, platform, to, content, options });
       return { success: true };
+    },
+    // A chat has only the one address here.
+    async findConversations(userId, platform, chatId, { agentId } = {}) {
+      const db = require('../../../server/db/database');
+      return db.prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
+        .all(userId, agentId, platform, chatId).map((row) => row.id);
     },
   };
 }
@@ -135,7 +143,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(messagingManager.sent[0].content, 'The daily summary is ready.');
   });
 
-  test('automatic scheduled runs do not fallback-send plain assistant text', async () => {
+  test('an automatic run\'s final answer is delivered', async () => {
     const messagingManager = createMessagingManager();
     const prompts = [];
     const optionsSeen = [];
@@ -155,14 +163,79 @@ describe('scheduled task result delivery', () => {
     });
 
     assert.equal(result.content, 'No relevant calendar changes.');
-    assert.equal(result.taskDelivery.sent, false);
-    assert.equal(result.taskDelivery.reason, 'explicit_delivery_required');
-    assert.equal(messagingManager.sent.length, 0);
-    assert.match(prompts[0].prompt, /content="\[NO RESPONSE\]" exactly; never leave content blank/);
+    assert.equal(result.taskDelivery.sent, true);
+    assert.equal(messagingManager.sent.length, 1);
+    assert.match(prompts[0].prompt, /Your final answer is delivered to the user/);
+    assert.match(prompts[0].prompt, /answer exactly \[NO RESPONSE\] and nothing else/);
     assert.match(prompts[0].prompt, /decide from that evidence instead of re-running nearby variants/);
     assert.equal(optionsSeen[0].bypassUserRateLimits, true);
     assert.equal(optionsSeen[0].triggerSource, 'schedule');
     assert.equal(optionsSeen[0].stageProactiveMessages, true);
+  });
+
+  test('a run a restart cut off goes again for the same occurrence, once, told what it did', async () => {
+    const calls = [];
+    const task = await createScheduledTask({
+      async runWithModel(_userId, prompt, options) {
+        calls.push({ prompt, options });
+        return { content: 'Summary sent.' };
+      },
+    }, createMessagingManager());
+    const insertRun = ctx.db.prepare(
+      `INSERT INTO agent_runs (id, user_id, title, status, final_response, metadata_json, created_at)
+       VALUES (?, ?, 'Daily summary', ?, ?, ?, ?)`,
+    );
+    insertRun.run('yesterday', user.userId, 'completed', 'Yesterday: 3 meetings.', JSON.stringify({ taskId: task.id }), '2026-11-05 06:00:00');
+    insertRun.run('cut-off', user.userId, 'interrupted', null, JSON.stringify({ taskId: task.id }), '2026-11-06 06:00:00');
+
+    // Hours after its time, which a fresh start would skip as late.
+    const scheduledAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    await runtime.resumeInterruptedTask({
+      taskId: task.id,
+      userId: user.userId,
+      scheduledAt,
+      triggerSource: 'schedule',
+      runId: 'resumed-run',
+      resumedFromRunId: 'cut-off',
+      note: '[Resumed after a restart]\nWhat the interrupted run already did: read the calendar.',
+    });
+
+    assert.equal(calls.length, 1, 'not skipped as a late start');
+    const [{ prompt, options }] = calls;
+    assert.match(prompt, /Execution instant: /);
+    assert.ok(prompt.includes(scheduledAt), 'the occurrence it was cut off from');
+    assert.match(prompt, /What the interrupted run already did: read the calendar\./);
+    assert.match(prompt, /Yesterday: 3 meetings\./, 'the previous occurrence is the one before the cut-off run');
+    assert.equal(options.runId, 'resumed-run');
+    assert.equal(options.resumedFromRunId, 'cut-off');
+
+    const { buildResumeEnvelope } = require('../../../server/services/ai/runtime/restart_resume');
+    assert.equal(buildResumeEnvelope(prompt, options), null, 'a resumed run is never resumed again');
+  });
+
+  test('a scheduled or run-now task run names itself for a restart; a one-time or event run does not', async () => {
+    const calls = [];
+    const task = await createScheduledTask({
+      async runWithModel(_userId, prompt, options) {
+        calls.push(options);
+        return { content: 'ok' };
+      },
+    }, createMessagingManager());
+    const scheduledAt = new Date().toISOString();
+    const runs = [
+      { manual: false, triggerType: 'schedule', triggerSource: 'schedule', scheduledAt },
+      { manual: true, triggerType: 'schedule', triggerSource: 'manual', scheduledAt },
+      { oneTime: true, triggerType: 'schedule', triggerSource: 'schedule', scheduledAt },
+      { triggerType: 'email', triggerSource: 'email', scheduledAt, triggerPayload: { subject: 'x' } },
+    ];
+    for (const meta of runs) await runtime._executeTaskSerial(task.id, user.userId, meta);
+
+    const { buildResumeEnvelope } = require('../../../server/services/ai/runtime/restart_resume');
+    const envelopes = calls.map((options) => buildResumeEnvelope('prompt', options));
+    assert.deepEqual(envelopes[0], { task: { taskId: task.id, scheduledAt, triggerSource: 'schedule' } });
+    assert.deepEqual(envelopes[1], { task: { taskId: task.id, scheduledAt, triggerSource: 'manual' } });
+    assert.equal(envelopes[2], null, 'a one-time task stays until it runs');
+    assert.equal(envelopes[3], null, 'an event payload is not kept');
   });
 
   test('task runs see the target chat and what the previous run sent', async () => {
@@ -326,8 +399,7 @@ describe('scheduled task result delivery', () => {
     const messagingManager = createMessagingManager();
     const task = await createScheduledTask({
       async runWithModel(_userId, _prompt, options) {
-        options.deliveryState.proactiveMessageStaged = true;
-        options.deliveryState.stagedProactiveMessage = {
+        options.delivery.staged = {
           platform: 'whatsapp',
           to: 'recipient',
           content: 'Wetter in Braunschweig: sonnig. Keine neue Mail.',
@@ -357,8 +429,7 @@ describe('scheduled task result delivery', () => {
     const messagingManager = createMessagingManager();
     const task = await createScheduledTask({
       async runWithModel(_userId, _prompt, options) {
-        options.deliveryState.proactiveMessageStaged = true;
-        options.deliveryState.stagedProactiveMessage = {
+        options.delivery.staged = {
           platform: 'telegram',
           to: 'owner-dm',
           content: 'Summary ready.',
@@ -531,7 +602,7 @@ describe('scheduled task result delivery', () => {
           runId: 'run-id',
           triggerSource: options.triggerSource,
           taskId: options.taskId,
-          deliveryState: options.deliveryState,
+          delivery: options.delivery,
           stageProactiveMessages: options.stageProactiveMessages,
         }, { activeRuns: new Map(), messagingManager });
         assert.equal(sent.platform, 'github');
@@ -557,7 +628,7 @@ describe('scheduled task result delivery', () => {
       runId: 'run-id',
       triggerSource: 'github_issue_opened',
       taskId: 1,
-      deliveryState: { notifyTarget: { platform: 'github', to: 'acme/app#118' } },
+      delivery: createRunDelivery({ notifyTarget: { platform: 'github', to: 'acme/app#118' } }),
     }, { activeRuns: new Map(), messagingManager });
 
     assert.equal(result.via, 'messaging');
@@ -675,7 +746,7 @@ describe('scheduled task result delivery', () => {
     const messagingManager = createMessagingManager();
     const task = await createScheduledTask({
       async runWithModel(userId, prompt, options) {
-        options.deliveryState.noResponse = true;
+        options.delivery.noResponse = true;
         return { content: '' };
       },
     }, messagingManager);
@@ -732,7 +803,7 @@ describe('scheduled task result delivery', () => {
 
   test('marks explicit no-response tool decisions in both delivery states', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
-    const deliveryState = {};
+    const delivery = createRunDelivery();
     const runState = {};
     const engine = {
       activeRuns: new Map([['run-id', runState]]),
@@ -749,18 +820,17 @@ describe('scheduled task result delivery', () => {
       runId: 'run-id',
       triggerSource: 'schedule',
       taskId: 1,
-      deliveryState,
+      delivery,
     }, engine);
 
     assert.equal(result.skipped, true);
     assert.equal(result.reason, 'no_response');
-    assert.equal(runState.noResponse, true);
-    assert.equal(deliveryState.noResponse, true);
+    assert.equal(delivery.noResponse, true);
   });
 
   test('accepts empty no-response content for proactive task runs', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
-    const deliveryState = {};
+    const delivery = createRunDelivery();
     const runState = {};
     const engine = {
       activeRuns: new Map([['run-id', runState]]),
@@ -777,19 +847,18 @@ describe('scheduled task result delivery', () => {
       runId: 'run-id',
       triggerSource: 'schedule',
       taskId: 1,
-      deliveryState,
+      delivery,
     }, engine);
 
     assert.equal(result.skipped, true);
     assert.equal(result.reason, 'no_response');
-    assert.equal(runState.noResponse, true);
-    assert.equal(deliveryState.noResponse, true);
+    assert.equal(delivery.noResponse, true);
   });
 
   test('stages proactive send_message decisions for background verification', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const sendCalls = [];
-    const deliveryState = {};
+    const delivery = createRunDelivery();
     const runState = {};
     const engine = {
       activeRuns: new Map([['run-id', runState]]),
@@ -811,26 +880,21 @@ describe('scheduled task result delivery', () => {
       runId: 'run-id',
       triggerSource: 'schedule',
       taskId: 1,
-      deliveryState,
+      delivery,
       stageProactiveMessages: true,
     }, engine);
 
     assert.equal(result.staged, true);
     assert.equal(sendCalls.length, 0);
-    assert.equal(runState.proactiveMessageStaged, true);
-    assert.equal(deliveryState.proactiveMessageStaged, true);
-    assert.equal(deliveryState.stagedProactiveMessage.platform, 'whatsapp');
-    assert.equal(deliveryState.stagedProactiveMessage.to, 'recipient');
-    assert.equal(deliveryState.stagedProactiveMessage.content, 'Weather for Braunschweig: sunny.');
+    assert.equal(delivery.staged.platform, 'whatsapp');
+    assert.equal(delivery.staged.to, 'recipient');
+    assert.equal(delivery.staged.content, 'Weather for Braunschweig: sunny.');
   });
 
   test('failed explicit send_message does not mark terminal delivery', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const runState = {
-      messagingSent: false,
-      explicitMessageSent: false,
-      finalDeliverySent: false,
-      sentMessages: [],
+      delivery: createRunDelivery(),
     };
     const engine = {
       activeRuns: new Map([['run-id', runState]]),
@@ -854,19 +918,15 @@ describe('scheduled task result delivery', () => {
     }, engine);
 
     assert.equal(result.success, false);
-    assert.equal(runState.messagingSent, false);
-    assert.equal(runState.explicitMessageSent, false);
-    assert.equal(runState.finalDeliverySent, false);
-    assert.deepEqual(runState.sentMessages, []);
+    assert.equal(runState.delivery.lastWordSent, false);
+    assert.equal(runState.delivery.finalDelivered, false);
+    assert.equal(runState.delivery.finalDelivered, false);
   });
 
   test('a reply in the originating chat is neither the run\'s final delivery nor a move to the background', async () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const runState = {
-      messagingSent: false,
-      explicitMessageSent: false,
-      finalDeliverySent: false,
-      sentMessages: [],
+      delivery: createRunDelivery(),
     };
     const sent = [];
     const visible = [];
@@ -896,9 +956,8 @@ describe('scheduled task result delivery', () => {
     }, context, engine);
 
     assert.equal(sent.length, 1);
-    assert.equal(runState.messagingSent, false);
-    assert.equal(runState.explicitMessageSent, false);
-    assert.equal(runState.finalDeliverySent, false);
+    assert.equal(runState.delivery.lastWordSent, false);
+    assert.equal(runState.delivery.finalDelivered, false);
     assert.deepEqual(visible, []);
 
     await executeTool('send_message', {
@@ -908,8 +967,8 @@ describe('scheduled task result delivery', () => {
     }, context, engine);
 
     assert.equal(sent.length, 2);
-    assert.equal(runState.explicitMessageSent, true);
-    assert.equal(runState.finalDeliverySent, false);
+    assert.equal(runState.delivery.lastWordSent, true);
+    assert.equal(runState.delivery.finalDelivered, false);
     assert.deepEqual(visible, [['reply', 'run-id']]);
   });
 
@@ -917,10 +976,7 @@ describe('scheduled task result delivery', () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const sent = [];
     const runState = {
-      messagingSent: false,
-      explicitMessageSent: false,
-      finalDeliverySent: false,
-      sentMessages: [],
+      delivery: createRunDelivery(),
     };
     const engine = {
       activeRuns: new Map([['run-id', runState]]),
@@ -948,7 +1004,7 @@ describe('scheduled task result delivery', () => {
 
     assert.equal(result.success, true);
     assert.equal(sent.length, 1);
-    assert.equal(runState.explicitMessageSent, true);
+    assert.equal(runState.delivery.lastWordSent, true);
 
     await executeTool('send_message', {
       platform: 'whatsapp',
@@ -962,10 +1018,7 @@ describe('scheduled task result delivery', () => {
     const { executeTool } = require('../../../server/services/ai/tools');
     const sent = [];
     const runState = {
-      messagingSent: false,
-      explicitMessageSent: false,
-      finalDeliverySent: false,
-      sentMessages: [],
+      delivery: createRunDelivery(),
       messagingContext: {
         platform: 'discord',
         chatId: 'channel-99',
@@ -1009,7 +1062,7 @@ describe('scheduled task result delivery', () => {
     assert.equal(sent.length, 1);
     assert.equal(sent[0][1], 'discord');
     assert.equal(sent[0][2], 'channel-99');
-    assert.equal(runState.explicitMessageSent, true);
+    assert.equal(runState.delivery.lastWordSent, true);
   });
 
   test('direct inbound replies are not redirected away from the DM', async () => {

@@ -65,6 +65,27 @@ void main() {
     );
   });
 
+  test('a scanned pairing code is redeemed on the server it names', () async {
+    final http = ScriptedHttpClient(
+      (method, uri, body) => jsonResponse(200, <String, dynamic>{
+        'success': true,
+        'user': <String, dynamic>{'id': 1, 'username': 'neo'},
+      }),
+    );
+    final response = await BackendClient(httpClient: http).redeemPairing(
+      baseUrl: 'https://example.com/neo',
+      code: 'Q2hhbmdlTWVQbGVhc2VJdHNBVGVzdENvZGVYeXo',
+      deviceName: 'Android app',
+    );
+
+    expect(response['user']['username'], 'neo');
+    final pair = http.requests.single;
+    expect(pair.$1, 'POST');
+    expect(pair.$2.toString(), 'https://example.com/neo/api/auth/pair');
+    expect(pair.$3, contains('Q2hhbmdlTWVQbGVhc2VJdHNBVGVzdENvZGVYeXo'));
+    expect(pair.$3, contains('Android app'));
+  });
+
   testWidgets('registration shows every field problem at once', (tester) async {
     final http = ScriptedHttpClient(
       (method, uri, body) => jsonResponse(200, <String, dynamic>{}),

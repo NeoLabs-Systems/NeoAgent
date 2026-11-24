@@ -466,14 +466,6 @@ class AppL10nMt extends AppL10n {
   String get agentCalls => 'Sejħiet ta\' Aġent';
 
   @override
-  String get agentCommunication => 'Komunikazzjoni tal-aġent';
-
-  @override
-  String agentCommunicationArg1(Object? arg1) {
-    return 'Komunikazzjoni tal-aġent: $arg1.';
-  }
-
-  @override
   String get agentModeEditsTheWorkspaceSend =>
       'Il-mod aġent teditja l-ispazju tax-xogħol · ⌘↵ ibgħat · ⌘N sessjoni ġdida';
 
@@ -1881,18 +1873,6 @@ class AppL10nMt extends AppL10n {
   String get calledByName => 'Imsejjaħ bl-isem';
 
   @override
-  String get canDelegateTasksToOtherAgents =>
-      'Jista\' jiddelega kompiti lil aġenti oħra';
-
-  @override
-  String canDelegateToArg1(Object? arg1) {
-    return 'Jista\' jiddelega lil $arg1';
-  }
-
-  @override
-  String get canReceiveDelegatedTasks => 'Jista\' jirċievi kompiti delegati';
-
-  @override
   String get cancel => 'Ikkanċella';
 
   @override
@@ -1900,10 +1880,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get cannotPreview => 'Ma tistax tipprevedi';
-
-  @override
-  String get cannotReceiveDelegatedTasks =>
-      'ma jistax jirċievi kompiti delegati';
 
   @override
   String get cannotRunYet => 'għadha ma tistax taħdem.';
@@ -2492,6 +2468,45 @@ class AppL10nMt extends AppL10n {
       'Ma setgħetx tiskonnettja NeoRecall.';
 
   @override
+  String get neocloudSetup => 'Konfigurazzjoni ta\' NeoCloud';
+
+  @override
+  String get connectYourNeocloudServer =>
+      'Qabbad is-server NeoCloud tiegħek. Fil-paġna tad-dħul ta\' NeoCloud tagħżel x\'jista\' jagħmel NeoAgent bil-fajls tiegħek u jekk jistax jibgħat dokumenti għall-firma.';
+
+  @override
+  String get useANeocloudUrlTheNeoagent =>
+      'Uża URL ta\' NeoCloud li s-server NeoAgent jista\' jilħaq. Il-PUBLIC_URL ta\' NeoAgent irid ikun aċċessibbli wkoll minn dan il-browser għall-callback OAuth.';
+
+  @override
+  String get connectedNeocloudUser => 'Utent NeoCloud konness';
+
+  @override
+  String get neocloudServerUrl => 'URL tas-server NeoCloud';
+
+  @override
+  String get neocloudServerUrlIsRequired =>
+      'Il-URL tas-server NeoCloud huwa meħtieġ.';
+
+  @override
+  String get couldNotSaveNeocloudSetup =>
+      'Ma setgħetx tiġi salvata l-konfigurazzjoni ta\' NeoCloud.';
+
+  @override
+  String get disconnectNeocloud => 'Tiskonnettja NeoCloud?';
+
+  @override
+  String get thisRemovesTheNeocloudServerUrl =>
+      'Dan ineħħi l-URL tas-server NeoCloud u l-kontijiet NeoCloud konnessi kollha għal dan l-aġent.';
+
+  @override
+  String get couldNotDisconnectNeocloud => 'Ma setgħetx tiskonnettja NeoCloud.';
+
+  @override
+  String get neocloudUrlHelperText =>
+      'URLs lokali u ta\' netwerk privat huma appoġġjati meta s-server NeoAgent jista\' jilħaqhom. Il-fajls f\'kaxxi forti kriptati qatt ma jiġu esposti lil NeoAgent.';
+
+  @override
   String get couldNotDisconnectNextcloud =>
       'Ma setgħetx tiskonnettja Nextcloud.';
 
@@ -2612,10 +2627,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get createPassword => 'Oħloq password';
-
-  @override
-  String get createSpecialistBotsWithSeparateMemory =>
-      'Oħloq bots speċjalizzati b\'memorja, settings, għodod, u assenjazzjonijiet tal-kontijiet separati.';
 
   @override
   String get createTheFirstAccount => 'Oħloq l-ewwel kont';
@@ -3743,9 +3754,6 @@ class AppL10nMt extends AppL10n {
   }
 
   @override
-  String get handlesDirectTasksItself => 'Mankijiet kompiti diretti innifsu';
-
-  @override
   String get handsFreeTalkFreelyInterruptAnytime =>
       'Idejn ħielsa (tkellem liberament, interrompi ghaċ)';
 
@@ -4159,6 +4167,12 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get keepTaskRunning => 'Żomm il-kompitu għaddej';
+
+  @override
+  String get saveForNextTime => 'Save for next time';
+
+  @override
+  String get resumeTask => 'Resume task';
 
   @override
   String get keepTheVaultAvailable => 'Żomm il-kaxxa-forti disponibbli';
@@ -5422,6 +5436,9 @@ class AppL10nMt extends AppL10n {
   String get notNow => 'Mhux issa';
 
   @override
+  String get dontAskAgain => 'Don\'t ask again';
+
+  @override
   String get notNow2 => 'Mhux Issa';
 
   @override
@@ -5504,7 +5521,7 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get onASignedInAndroidDevice =>
-      'Fuq apparat Android iffirmat, iftaħ Settings › Idħol u sigurtà, skennja dan il-kodiċi, u approva l-login.';
+      'Fuq telefon fejn dħalt, iftaħ Settings › Id-dħul u s-sigurtà, agħfas Skennja login QR u approva d-dħul.';
 
   @override
   String get onByDefaultForNewGroups =>
@@ -5566,7 +5583,7 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get openAccountSettingsOnASigned =>
-      'Iftaħ Settings › Idħol u sigurtà fuq apparat Android iffirmat, skennja dan il-kodiċi, u approva l-login.';
+      'Fuq telefon fejn dħalt, iftaħ Settings › Id-dħul u s-sigurtà, agħfas Skennja login QR, skennja dan il-kodiċi u approva d-dħul.';
 
   @override
   String get openComputer => 'Kompjuter miftuħ';
@@ -6368,9 +6385,6 @@ class AppL10nMt extends AppL10n {
   @override
   String get restoringThePreviousNeoagentRuntime =>
       'Ir-restawr tal-runtime NeoAgent preċedenti';
-
-  @override
-  String get restrictDelegationTargets => 'Irrestrinġi l-miri tad-delega';
 
   @override
   String get result => 'Riżultat';
@@ -7867,10 +7881,6 @@ class AppL10nMt extends AppL10n {
       'Dan il-kont se jiftaħ NeoAgent fuq din il-magna.';
 
   @override
-  String get thisAgentCanDelegateToAny =>
-      'Dan l-aġent jista’ jiddelega lil kwalunkwe aġent eliġibbli li jirċievi.';
-
-  @override
   String get thisAgentIsUsingAServer =>
       'Dan l-aġent qed juża ċavetta API Trello ġestita minn server. Għandek bżonn biss tawtorizza token tal-kont hawn taħt.';
 
@@ -8257,10 +8267,6 @@ class AppL10nMt extends AppL10n {
   String get turnTakingOff => 'Dawwar it-tluq';
 
   @override
-  String get turnThisOffToKeepThis =>
-      'Itfih biex iżżomm dan l-aġent kompletament separat minn aġenti oħra.';
-
-  @override
   String turnedOffByArg1(Object? arg1) {
     return 'Mitfi minn $arg1';
   }
@@ -8549,10 +8555,6 @@ class AppL10nMt extends AppL10n {
   @override
   String get useTheseForContextIfA =>
       'Uża dawn għall-kuntest. Jekk URI lokali ma jkunx aċċessibbli direttament mis-server, staqsini biex nipprovdi l-fajl permezz ta\' spazju tax-xogħol aċċessibbli.';
-
-  @override
-  String get useThisForOrchestratorAgentsLeave =>
-      'Uża dan għall-aġenti tal-orkestratur. Ħalli barra għal bots tax-xogħol iżolati li għandhom jispiċċaw messaġġi diretti huma stess.';
 
   @override
   String get useTlsFromTheStartOf =>
@@ -9431,13 +9433,6 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get addAccount => 'Żid Kont';
-
-  @override
-  String get canDelegateToAnyReceivingAgent =>
-      'Jista\' jiddelega lil kwalunkwe aġent li jirċievi';
-
-  @override
-  String get canReceiveDelegatedTasks2 => 'jistgħu jirċievu kompiti delegati';
 
   @override
   String get noSyncYet => 'S\'issa m\'hemmx sinkronizzazzjoni';
@@ -11590,6 +11585,13 @@ class AppL10nMt extends AppL10n {
       'Ismijiet, indirizzi tal-email u numri tat-telefon';
 
   @override
+  String get phoneAlarmTrigger => 'Phone alarm';
+
+  @override
+  String get phoneAlarmTriggerHint =>
+      'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.';
+
+  @override
   String get phoneSyncOtherAgent =>
       'Dan it-telefon qed jaqsam ma’ aġent ieħor. Jekk taqsam hawn jgħaddi għal dan l-aġent.';
 
@@ -12311,18 +12313,10 @@ class AppL10nMt extends AppL10n {
       'Used to address this agent. Suggested from the name; you can edit it.';
 
   @override
-  String get agentIdentifierInvalid =>
-      'Use 1–48 lowercase letters, numbers, hyphens or underscores.';
-
-  @override
   String get uxAdvancedSettings => 'Advanced settings';
 
   @override
   String get uxSelected => 'Selected';
-
-  @override
-  String get uxSelectedDelegationTargets =>
-      'Only selected agents can receive tasks from this agent.';
 
   @override
   String uxFieldRequired(String field) {
@@ -12375,13 +12369,6 @@ class AppL10nMt extends AppL10n {
   @override
   String get uxModelSkipHint =>
       'You can explore first, but chat and tasks need a model before they can run.';
-
-  @override
-  String get taskDeliveryBlockedBadge => 'Can\'t deliver';
-
-  @override
-  String get taskDeliveryBlockedDetail =>
-      'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.';
 
   @override
   String get taskDeliverySharedTitle => 'Shared accounts only reach you';
@@ -12483,4 +12470,581 @@ class AppL10nMt extends AppL10n {
 
   @override
   String get adminUpdateFailedTitle => 'The update did not finish';
+
+  @override
+  String get technicalDetails => 'Technical details';
+
+  @override
+  String get approvalReview => 'Irrevedi';
+
+  @override
+  String get approvalExpired =>
+      'Din it-talba skadiet, għalhekk ma tħaddem xejn.';
+
+  @override
+  String get requestTookTooLong => 'Dan ħa wisq żmien u twaqqaf. Erġa’ pprova.';
+
+  @override
+  String get usageLimitReached =>
+      'Wasalt il-limitu tal-użu tiegħi u ma nistax nwieġeb bħalissa.';
+
+  @override
+  String get tailscaleServiceAccess => 'Service access';
+
+  @override
+  String get tailscaleServiceAccessHelp =>
+      'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.';
+
+  @override
+  String get tailscaleServiceValidation =>
+      'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.';
+
+  @override
+  String get tailscalePeer => 'Peer';
+
+  @override
+  String get tailscaleExactPath => 'Exact path and query string';
+
+  @override
+  String get tailscaleSignInBrowser =>
+      'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.';
+
+  @override
+  String get tailscaleOpenSignIn => 'Open Tailscale sign-in';
+
+  @override
+  String get agentsPageIntro =>
+      'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.';
+
+  @override
+  String get agentsResponsibleFor => 'Responsible for';
+
+  @override
+  String agentsSetUpBy(Object? name) {
+    return 'Set up by $name';
+  }
+
+  @override
+  String agentsSetUpByWithReason(Object? name, Object? reason) {
+    return 'Set up by $name: $reason';
+  }
+
+  @override
+  String get agentsChat => 'Chat';
+
+  @override
+  String get agentsCreationTitle => 'New agents';
+
+  @override
+  String get agentsCreationLabel =>
+      'When an agent wants to set up another agent';
+
+  @override
+  String get agentsCreationNever => 'Never';
+
+  @override
+  String get agentsCreationAsk => 'Ask me';
+
+  @override
+  String get agentsCreationAllow => 'Allow';
+
+  @override
+  String get agentsCreationNeverHint => 'Only you add agents.';
+
+  @override
+  String get agentsCreationAskHint =>
+      'You approve each new agent first. Recommended.';
+
+  @override
+  String get agentsCreationAllowHint =>
+      'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.';
+
+  @override
+  String get agentsCreationCategory => 'Set up new agents';
+
+  @override
+  String get agentsCreationCategoryHint =>
+      'An agent creates another lasting agent on your account.';
+
+  @override
+  String get agentTasksTitle => 'Work between agents';
+
+  @override
+  String get agentTasksDescription =>
+      'What your agents handed to each other, open work first.';
+
+  @override
+  String get agentTasksEmpty => 'Nothing handed over yet';
+
+  @override
+  String get agentTasksEmptyHint =>
+      'When an agent passes work to a specialist, it shows up here.';
+
+  @override
+  String agentTaskAsked(Object? requester, Object? owner) {
+    return '$requester asked $owner';
+  }
+
+  @override
+  String agentTaskHandedOver(Object? requester, Object? owner) {
+    return '$requester handed over to $owner';
+  }
+
+  @override
+  String get agentTaskQueued => 'Queued';
+
+  @override
+  String get agentTaskWorking => 'Working';
+
+  @override
+  String get agentTaskWaiting => 'Waiting';
+
+  @override
+  String get agentTaskNeedsAnswer => 'Needs an answer';
+
+  @override
+  String get agentTaskDone => 'Done';
+
+  @override
+  String get agentTaskFailed => 'Failed';
+
+  @override
+  String get agentTaskCancelled => 'Stopped';
+
+  @override
+  String get agentTaskStop => 'Stop';
+
+  @override
+  String get agentTaskShowResult => 'Show result';
+
+  @override
+  String get agentTaskHideResult => 'Hide result';
+
+  @override
+  String agentTaskFrom(Object? name) {
+    return 'Task from $name';
+  }
+
+  @override
+  String agentTaskTakenOverFrom(Object? name) {
+    return 'Taken over from $name';
+  }
+
+  @override
+  String get agentsPermissionsTitle => 'What this agent may do';
+
+  @override
+  String get agentsPermissionsHint =>
+      'Only ever stricter than your account\'s tool permissions.';
+
+  @override
+  String get agentsPermissionAsAccount => 'As account';
+
+  @override
+  String get agentsPermissionAskFirst => 'Ask first';
+
+  @override
+  String get agentsPermissionNotAllowed => 'Not allowed';
+
+  @override
+  String agentsNotAllowedList(Object? list) {
+    return 'Not allowed: $list';
+  }
+
+  @override
+  String agentsAsksFirstList(Object? list) {
+    return 'Asks first: $list';
+  }
+
+  @override
+  String get agentsWorkingWithOthers => 'Working with other agents';
+
+  @override
+  String get agentsCanHandOff => 'Can pass work to other agents';
+
+  @override
+  String get agentsCanHandOffHint =>
+      'It decides for itself when another agent is the better fit.';
+
+  @override
+  String get agentsOnlyTheseAgents => 'Only to the agents I pick';
+
+  @override
+  String get agentsCanTakeWork => 'Other agents can give it work';
+
+  @override
+  String get agentsCanTakeWorkHint => 'Turn off to keep this agent to itself.';
+
+  @override
+  String get agentsResponsibilityHint =>
+      'What this agent takes care of. Other agents use it to decide what to give it.';
+
+  @override
+  String get agentsDescriptionHint =>
+      'Optional. One line on what it is good at.';
+
+  @override
+  String get skillsInstalled => 'Installati';
+
+  @override
+  String get skillsDiscover => 'Skopri';
+
+  @override
+  String get skillsOnSkillsSh => 'Fuq skills.sh';
+
+  @override
+  String get skillsBuiltinLibraries => 'Libreriji integrati';
+
+  @override
+  String get skillsBuiltinReinstall => 'Aġġorna';
+
+  @override
+  String get skillsSearchHint => 'Fittex ħiliet jew skills.sh';
+
+  @override
+  String get skillsNoneInstalled =>
+      'Għad m’hemmx ħiliet installati. Ġib waħda minn skills.sh hawn taħt, tella’ zip ta’ ħiliet, jew ikteb tiegħek.';
+
+  @override
+  String get skillsShelfPopular => 'Popolari';
+
+  @override
+  String get skillsShelfTrending => 'Fix-xejra';
+
+  @override
+  String get skillsTopicDocuments => 'Dokumenti';
+
+  @override
+  String get skillsTopicBrowser => 'Browser';
+
+  @override
+  String get skillsTopicResearch => 'Riċerka';
+
+  @override
+  String get skillsTopicWriting => 'Kitba';
+
+  @override
+  String get skillsTopicDesign => 'Disinn';
+
+  @override
+  String get skillsTopicCoding => 'Programmar';
+
+  @override
+  String get skillsTopicData => 'Data';
+
+  @override
+  String get skillsTopicMarketing => 'Marketing';
+
+  @override
+  String get skillsGet => 'Ġib';
+
+  @override
+  String get skillsOfficial => 'Uffiċjali';
+
+  @override
+  String get skillOriginBuiltIn => 'Inkorporata';
+
+  @override
+  String get skillOriginLearned => 'Mitgħallma';
+
+  @override
+  String get skillOriginYours => 'Tiegħek';
+
+  @override
+  String get skillDiscardTitle => 'Twarrab il-bidliet?';
+
+  @override
+  String skillDiscardBody(String name) {
+    return 'Il-bidliet tiegħek f’$name mhumiex salvati.';
+  }
+
+  @override
+  String get skillBuiltInEditHint =>
+      'Ħila inkorporata. Meta tissejvja bidla jkollok kopja tiegħek; ħaddieħor iżomm l-oriġinal.';
+
+  @override
+  String skillBuiltInDeleteBody(String name) {
+    return '$name titneħħa mill-ħiliet tiegħek. Nies oħra fuq din l-istanza jżommuha.';
+  }
+
+  @override
+  String get skillLibraryUpload => 'Tella’ librerija ta’ ħiliet';
+
+  @override
+  String get skillLibraryUploadSubtitle =>
+      'Zip ta’ folders tal-ħiliet, kull wieħed b’SKILL.md';
+
+  @override
+  String get skillLibraryUploadHint =>
+      'Agħmel zip ta’ folder tal-ħiliet, bħal folder .claude/skills jew repożitorju sħiħ. Kull folder b’SKILL.md isir ħila, u l-fajls ħdejh jiġu miegħu. Jekk ittella’ librerija mill-ġdid, tieħu postha.';
+
+  @override
+  String get skillLibraryChooseZip => 'Agħżel fajl .zip';
+
+  @override
+  String get skillLibraryChangeFile => 'Biddel';
+
+  @override
+  String get skillLibraryName => 'Isem il-librerija';
+
+  @override
+  String get skillLibraryNameHelp =>
+      'Ħallih vojt biex jintuża l-isem tal-fajl.';
+
+  @override
+  String get skillLibraryUnreadable =>
+      'Il-fajl ma setax jinqara. Ipprova agħżlu mill-ġdid.';
+
+  @override
+  String skillLibraryInstalledCount(int count) {
+    return 'Ħiliet installati: $count';
+  }
+
+  @override
+  String skillLibraryInstalledInto(int count, String library) {
+    return 'Installati f’$library: $count';
+  }
+
+  @override
+  String get skillLibraryRemovedTitle => 'Imneħħija, m’għadhomx fiz-zip';
+
+  @override
+  String get skillLibrarySkippedTitle => 'Maqbuża';
+
+  @override
+  String skillLibrarySkillCount(int count) {
+    return 'Ħiliet: $count';
+  }
+
+  @override
+  String skillLibraryOffCount(int count) {
+    return 'Mitfija: $count';
+  }
+
+  @override
+  String get skillLibraryDelete => 'Ħassar il-librerija';
+
+  @override
+  String skillLibraryDeleteBody(int count, String library) {
+    return 'Il-ħiliet kollha minn $library ($count) jitneħħew.';
+  }
+
+  @override
+  String get bitwardenVault => 'Kaxxa forti';
+
+  @override
+  String get bitwardenLock => 'Sakkar';
+
+  @override
+  String get integrationConfigured => 'Konfigurat';
+
+  @override
+  String get showMore => 'Uri aktar';
+
+  @override
+  String get showLess => 'Uri inqas';
+
+  @override
+  String get adminExtraModels => 'Mudelli addizzjonali';
+
+  @override
+  String adminExtraModelsIntro(String username) {
+    return 'Dawn il-mudelli huma mitfija għal kulħadd. Immarka dawk li $username jista’ juża xorta waħda. Il-ħidmiet bihom xorta jgħoddu għal-limiti ta’ dan il-kont.';
+  }
+
+  @override
+  String get adminExtraModelsEmpty =>
+      'L-ebda mudell mhu mitfi għal kulħadd, għalhekk m’hemm xejn żejjed x’tagħti.';
+
+  @override
+  String get adminExtraModelsSearch => 'Fittex mudelli';
+
+  @override
+  String adminExtraModelsCount(int count) {
+    return 'Mudelli addizzjonali: $count';
+  }
+
+  @override
+  String adminExtraModelsSaved(String username) {
+    return 'Il-mudelli addizzjonali għal $username ġew salvati';
+  }
+
+  @override
+  String auditModelsChanged(String actor, String subject) {
+    return '$actor biddel liema mudelli addizzjonali jista’ juża $subject';
+  }
+
+  @override
+  String get modelAdminGranted => 'Mogħti';
+
+  @override
+  String get modelAdminGrantedHint =>
+      'Amministratur tak dan il-mudell. Huwa mitfi għal kulħadd ieħor.';
+
+  @override
+  String get sharedWebPages => 'Shared web pages';
+
+  @override
+  String get sharedWebPagesDescription =>
+      'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.';
+
+  @override
+  String get allowWebPageSharing => 'Let the agent share web pages';
+
+  @override
+  String get allowWebPageSharingDescription =>
+      'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.';
+
+  @override
+  String get noSharedWebPages => 'Nothing is shared right now.';
+
+  @override
+  String get stopSharing => 'Stop sharing';
+
+  @override
+  String sharedWebPageStopped(String name) {
+    return 'Stopped sharing $name';
+  }
+
+  @override
+  String sharedWebPagePortArg1(Object port) {
+    return 'Port $port';
+  }
+
+  @override
+  String get sharedWebPagesOffline =>
+      'Your computer is off, so shared links show an offline page until it runs again.';
+
+  @override
+  String get sharedWebPagesUnsupported =>
+      'This server runs tools directly on its own machine, so there is no computer to share pages from.';
+
+  @override
+  String get adminWebSharing => 'Let agents share web pages';
+
+  @override
+  String get adminWebSharingDescription =>
+      'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.';
+
+  @override
+  String get pairPhone => 'Qabbad telefon';
+
+  @override
+  String get pairPhoneDescription =>
+      'Uri kodiċi QR li jdaħħal l-app NeoAgent fuq telefon f\'dan il-kont, mingħajr ma tittajpja l-indirizz tas-server jew password.';
+
+  @override
+  String get pairTitle => 'Qabbad telefon';
+
+  @override
+  String get pairInstructions =>
+      'Iftaħ l-app NeoAgent fuq it-telefon tiegħek, agħfas “Skennja kodiċi QR” fuq l-iskrin tad-dħul u ppunta l-kamera lejn dan il-kodiċi.';
+
+  @override
+  String get pairQrSemantics => 'Kodiċi QR biex tqabbad telefon';
+
+  @override
+  String get pairWaiting => 'Qed nistennew it-telefon';
+
+  @override
+  String pairExpiresIn(String time) {
+    return 'Jiskadi fi $time';
+  }
+
+  @override
+  String get pairExpired => 'Il-kodiċi skada';
+
+  @override
+  String get pairNewCode => 'Kodiċi ġdid';
+
+  @override
+  String pairPairedWith(String device) {
+    return 'Imqabbad ma\' $device ✓';
+  }
+
+  @override
+  String get pairUnknownDevice => 'it-telefon tiegħek';
+
+  @override
+  String get pairCantScan =>
+      'Ma tistax tiskennja? Iftaħ din il-link fuq it-telefon:';
+
+  @override
+  String get pairLandingTitle => 'Qabbad mal-app NeoAgent';
+
+  @override
+  String get pairLandingPhoneBody =>
+      'Din il-link iddaħħal l-app NeoAgent fuq dan it-telefon. Installa l-app jekk għadek ma għamiltx dan, imbagħad iftaħ il-link fiha. Il-kodiċi jaħdem għal ħames minuti.';
+
+  @override
+  String get pairLandingOpenApp => 'Iftaħ fl-app NeoAgent';
+
+  @override
+  String get pairLandingGetApp => 'Ikseb l-app';
+
+  @override
+  String get pairLandingComputerBody =>
+      'Din il-link hija għat-telefon tiegħek. Iftaħha hemm, jew skennja l-kodiċi QR bl-app NeoAgent.';
+
+  @override
+  String get pairLandingInvalid =>
+      'Din il-link tat-tqabbil mhijiex kompluta. Uri kodiċi ġdid taħt Settings › Id-dħul u s-sigurtà › Qabbad telefon.';
+
+  @override
+  String get pairLandingOpenNeoagent => 'Iftaħ NeoAgent';
+
+  @override
+  String get signInScanQr => 'Skennja kodiċi QR';
+
+  @override
+  String get signInScanQrHint =>
+      'Fuq kompjuter fejn dħalt, iftaħ Settings › Id-dħul u s-sigurtà › Qabbad telefon.';
+
+  @override
+  String get scanTitle => 'Skennja kodiċi QR';
+
+  @override
+  String get scanPrimeTitle => 'Uża l-kamera biex tiskennja';
+
+  @override
+  String get scanPrimeBody =>
+      'NeoAgent juża l-kamera biss biex jaqra l-kodiċi QR. Xejn ma jiġi rreġistrat jew imtella\'.';
+
+  @override
+  String get scanPrimeAllow => 'Ippermetti l-kamera';
+
+  @override
+  String get scanPairingHint =>
+      'Ippunta l-kamera lejn il-kodiċi QR taħt Settings › Id-dħul u s-sigurtà › Qabbad telefon';
+
+  @override
+  String get scanWrongPairingCode =>
+      'Dak mhuwiex kodiċi ta\' tqabbil ta\' NeoAgent';
+
+  @override
+  String get scanTorchOn => 'Ixgħel id-dawl';
+
+  @override
+  String get scanTorchOff => 'Itfi d-dawl';
+
+  @override
+  String get scanDeniedTitle => 'L-aċċess għall-kamera mitfi';
+
+  @override
+  String get scanDeniedBodyIos =>
+      'Ippermetti lil NeoAgent juża l-kamera f\'Settings, jew idħol bil-password tiegħek minflok.';
+
+  @override
+  String get scanDeniedBodyAndroid =>
+      'Ippermetti l-kamera meta tintalab, jew ixgħelha taħt Settings › Apps › NeoAgent › Permessi. Tista\' wkoll tidħol bil-password tiegħek.';
+
+  @override
+  String get scanOpenSettings => 'Iftaħ Settings';
+
+  @override
+  String get scanFailedTitle => 'Il-kamera ma bdietx';
+
+  @override
+  String get scanFailedBody =>
+      'Agħlaq apps oħra li jużaw il-kamera u erġa\' pprova.';
 }

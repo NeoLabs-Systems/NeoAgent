@@ -62,6 +62,19 @@ function assertDurableOAuthCredentials(provider, credentials) {
   }
 }
 
+// What can be done about a failed call, from the status the service gave. Without
+// it a refused call reads like a puzzle: the agent tried to do the same thing in the
+// shell, which sent it looking for credentials it never has.
+function failureGuidance(status) {
+  if (status === 401 || status === 403) {
+    return 'The service refused this account. Only the owner can change that, in the account or its organization; '
+      + 'connected accounts\' credentials are never available to you, so tell the owner what was refused.';
+  }
+  if (status === 404) return 'Nothing by those names or IDs: check them before trying again.';
+  if (status === 429 || status >= 500) return 'The service is busy or failing; it may work later.';
+  return '';
+}
+
 class IntegrationManager {
   constructor(options = {}) {
     this.app = options.app || null;
@@ -531,6 +544,14 @@ class IntegrationManager {
       throw new Error(`That ${provider.label} account is not connected to this agent.`);
     }
 
+    // Network integrations must fence new/queued calls and terminate local
+    // activity before remote revocation, which can fail independently.
+    if (typeof provider.beforeDisconnect === 'function') {
+      db.prepare("UPDATE integration_connections SET status = 'disconnecting' WHERE id = ? AND user_id = ? AND agent_id = ?")
+        .run(connection.id, userId, agentId);
+      await provider.beforeDisconnect(connection);
+    }
+
     // Apps connected with the same account share one stored token (see
     // persistSharedCredentials); revoking it would silently break the others.
     const accountEmail = String(connection.account_email || '').trim().toLowerCase();
@@ -558,9 +579,11 @@ class IntegrationManager {
   }
 
   updateConnectionTestMetadata(connection, status) {
+    const current = this.getConnectionById(connection.user_id, connection.id, connection.agent_id);
+    if (!current) return null;
     let metadata = {};
     try {
-      metadata = JSON.parse(connection.metadata_json || '{}') || {};
+      metadata = JSON.parse(current.metadata_json || '{}') || {};
     } catch {
       metadata = {};
     }
@@ -678,17 +701,17 @@ class IntegrationManager {
         agentId,
       });
       if (!env.configured) continue;
-      const connections = this.listConnections(userId, provider.key, agentId);
+      const connections = this.listConnections(userId, provider.key, agentId)
+        .filter((connection) => connection.status === 'connected');
       const connectedAppIds = Array.from(
         new Set(
           connections
-            .filter((connection) => connection.status === 'connected')
             .map((connection) => String(connection.app_key || '').trim())
             .filter(Boolean),
         ),
       );
       if (connectedAppIds.length === 0) continue;
-      definitions.push(...provider.getToolDefinitions({ connectedAppIds })
+      definitions.push(...provider.getToolDefinitions({ connectedAppIds, connections })
         .map((definition) => ({ ...definition, integration: provider.key })));
     }
     return definitions;
@@ -722,7 +745,10 @@ class IntegrationManager {
       .map((app) => app.id);
     const tools =
       env.configured && connectedAppIds.length > 0
-        ? provider.getToolDefinitions({ connectedAppIds })
+        ? provider.getToolDefinitions({
+          connectedAppIds,
+          connections: connections.filter((connection) => connection.status === 'connected'),
+        })
         : [];
     return {
       provider: provider.key,
@@ -842,12 +868,17 @@ class IntegrationManager {
       };
     }
 
+    const accountChoices = connections
+      .map((connection) =>
+        `${connection.account_email || 'account'} (connection_id ${connection.id})`)
+      .join(', ');
+
     const requestedConnectionId = Number(args?.connection_id);
     if (Number.isInteger(requestedConnectionId) && requestedConnectionId > 0) {
       const byId = connections.find((connection) => connection.id === requestedConnectionId);
       if (!byId) {
         return {
-          error: `No connected ${provider.label} ${appLabel} account matches connection_id ${requestedConnectionId}.`,
+          error: `No connected ${provider.label} ${appLabel} account matches connection_id ${requestedConnectionId}. Connected: ${accountChoices}.`,
         };
       }
       return { connection: byId };
@@ -862,7 +893,7 @@ class IntegrationManager {
       );
       if (!byEmail) {
         return {
-          error: `No connected ${provider.label} ${appLabel} account matches ${requestedEmail}.`,
+          error: `No connected ${provider.label} ${appLabel} account matches ${requestedEmail}. Connected: ${accountChoices}.`,
         };
       }
       return { connection: byEmail };
@@ -872,11 +903,8 @@ class IntegrationManager {
       return { connection: connections[0] };
     }
 
-    const accountEmails = connections
-      .map((connection) => connection.account_email || `connection ${connection.id}`)
-      .join(', ');
     return {
-      error: `Multiple ${provider.label} ${appLabel} accounts are connected (${accountEmails}). Re-run the tool with connection_id or account_email.`,
+      error: `Multiple ${provider.label} ${appLabel} accounts are connected: ${accountChoices}. Re-run the tool with connection_id or account_email.`,
     };
   }
 
@@ -967,6 +995,7 @@ class IntegrationManager {
         selection.connection.credentials_json,
       );
       const needsCredentialLock =
+        provider.requiresExclusiveExecution === true ||
         provider.requiresRefreshToken === true ||
         Boolean(storedCredentials.refresh_token);
       const releaseExecution = needsCredentialLock
@@ -1016,7 +1045,16 @@ class IntegrationManager {
               connectionId: connection.id,
             };
           }
-          return { error: err?.message || 'execution_error' };
+          // The status and any wait the service asked for stay with the error,
+          // so the loop can tell a refusal from an outage.
+          const retryAfterSeconds = Number(err?.headers?.get?.('retry-after'));
+          const next = failureGuidance(err?.status);
+          return {
+            error: err?.message || 'execution_error',
+            ...(Number.isInteger(err?.status) ? { status: err.status } : {}),
+            ...(retryAfterSeconds > 0 ? { retryAfterSeconds } : {}),
+            ...(next ? { next } : {}),
+          };
         }
         if (!execution) {
           return { error: 'execution_failed' };

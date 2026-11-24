@@ -2,6 +2,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const http = require('http');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -9,6 +10,7 @@ const { spawnSync } = require('child_process');
 const { RUNTIME_HOME, DATA_DIR } = require('../runtime/paths');
 const { coerceWritableText } = require('./services/workspace/text_edits');
 const { safeEqual } = require('./utils/security');
+const { GuestTailscale } = require('./services/integrations/tailscale/guest');
 
 const PORT = Number(process.env.NEOAGENT_GUEST_AGENT_PORT || 8421);
 function resolveGuestToken() {
@@ -55,6 +57,48 @@ ensureAgentDirectory(FILE_ROOT);
 ensureAgentDirectory(WORKSPACE_ROOT);
 
 const app = express();
+const tailscale = new GuestTailscale();
+
+// A web page the agent shared runs on a port inside this computer, and this
+// agent's port is the only one the server reaches, so shared pages come through
+// here. Bodies stream both ways, so this sits before the JSON parser. The server
+// decides what is shared and filters headers; this only relays.
+const HOP_BY_HOP_HEADERS = new Set([
+  'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+  'te', 'trailer', 'transfer-encoding', 'upgrade', 'authorization',
+]);
+
+function withoutHopByHop(headers) {
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => !HOP_BY_HOP_HEADERS.has(name.toLowerCase())));
+}
+
+app.use('/proxy', requireToken, (req, res) => {
+  const match = /^\/(\d{1,5})(\/.*)?$/s.exec(req.url);
+  const port = Number(match?.[1]);
+  if (!match || port < 1 || port > 65535 || port === PORT) {
+    return res.status(400).json({ error: 'Invalid port.' });
+  }
+  const upstream = http.request({
+    host: 'localhost',
+    port,
+    method: req.method,
+    path: match[2] || '/',
+    headers: { ...withoutHopByHop(req.headers), host: `localhost:${port}` },
+  }, (upstreamRes) => {
+    res.writeHead(upstreamRes.statusCode || 502, withoutHopByHop(upstreamRes.headers));
+    upstreamRes.pipe(res);
+  });
+  upstream.on('error', (err) => {
+    if (res.headersSent) return res.destroy(err);
+    // Nothing listening is the ordinary "app not started" case, told apart so
+    // the server can say the page is offline rather than broken.
+    const unreachable = ['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH'].includes(err.code);
+    res.status(502).set('x-neoagent-proxy', unreachable ? 'unreachable' : 'failed').json({ error: sanitizeError(err) });
+  });
+  res.on('close', () => upstream.destroy());
+  req.pipe(upstream);
+});
+
 app.use(express.json({ limit: '100mb' }));
 
 const cliExecutor = ['cli', 'browser_cli', 'android'].includes(GUEST_PROFILE)
@@ -125,7 +169,7 @@ function resolveWorkspacePath(value = '.', options = {}) {
   if (requested.includes('\0')) throw new Error('Workspace path contains invalid characters.');
   const candidate = path.resolve(WORKSPACE_ROOT, requested);
   const relative = path.relative(WORKSPACE_ROOT, candidate);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     throw new Error('Workspace path is outside the computer workspace.');
   }
   if (options.mustExist !== false && !fs.existsSync(candidate)) {
@@ -133,12 +177,39 @@ function resolveWorkspacePath(value = '.', options = {}) {
     error.code = 'ENOENT';
     throw error;
   }
+  assertRealPathInWorkspace(candidate);
   return candidate;
 }
 
 function relativeWorkspacePath(value) {
   const relative = path.relative(WORKSPACE_ROOT, value);
   return relative && relative !== '.' ? relative.split(path.sep).join('/') : '';
+}
+
+// A path can look inside and still lead out through a link in a cloned repository.
+function assertRealPathInWorkspace(target) {
+  let existing = target;
+  while (!fs.existsSync(existing) && path.dirname(existing) !== existing) existing = path.dirname(existing);
+  const relative = path.relative(fs.realpathSync(WORKSPACE_ROOT), fs.realpathSync(existing));
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('Workspace path is outside the computer workspace.');
+  }
+}
+
+function readWorkspaceBytes(filePath) {
+  const target = fs.realpathSync(filePath);
+  assertRealPathInWorkspace(target);
+  const fd = fs.openSync(target, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  try {
+    // Linux guests can check the opened object, not only the pre-open pathname.
+    if (process.platform === 'linux') assertRealPathInWorkspace(fs.realpathSync(`/proc/self/fd/${fd}`));
+    const stats = fs.fstatSync(fd);
+    if (!stats.isFile()) throw new Error('Workspace path is not a file.');
+    if (stats.size > MAX_WORKSPACE_FILE_BYTES) throw new Error('Workspace file is too large.');
+    return { stats, content: fs.readFileSync(fd) };
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function availableDiskBytes(target = WORKSPACE_ROOT) {
@@ -230,6 +301,7 @@ async function handleRequest(req, res, work) {
     if (!res.writableEnded) controller.abort('Guest runtime request disconnected.');
   };
   req.once('aborted', abort);
+  res.once('close', abort);
   try {
     const result = await work(controller.signal);
     if (!res.headersSent && !res.writableEnded) res.json(result);
@@ -239,6 +311,7 @@ async function handleRequest(req, res, work) {
     }
   } finally {
     req.removeListener('aborted', abort);
+    res.removeListener('close', abort);
   }
 }
 
@@ -255,6 +328,19 @@ app.get('/health', (_req, res) => {
 });
 
 app.use(requireToken);
+
+app.post('/integrations/tailscale', (req, res) => handleRequest(req, res,
+  (signal) => req.body?.action === 'login' ? tailscale.beginLogin(req.body, { signal }) : tailscale.run(req.body, { signal })));
+
+app.get('/integrations/tailscale/:operationId/login-status', (req, res) => {
+  res.json(tailscale.loginStatus(req.params.operationId));
+});
+
+app.post('/integrations/tailscale/:operationId/cancel', (req, res) => handleRequest(req, res,
+  async () => {
+    await tailscale.cancel(req.params.operationId);
+    return { canceled: true };
+  }));
 
 app.get('/system/boot-assets', async (_req, res) => {
   await handle(res, async () => {
@@ -474,12 +560,10 @@ app.get('/workspace/files', async (req, res) => {
 app.get('/workspace/files/content', async (req, res) => {
   await handle(res, async () => {
     const filePath = resolveWorkspacePath(req.query?.path || '');
-    const stats = fs.statSync(filePath);
-    if (!stats.isFile()) throw new Error('Workspace path is not a file.');
-    if (stats.size > MAX_WORKSPACE_FILE_BYTES) throw new Error('Workspace file is too large to edit.');
+    const { stats, content } = readWorkspaceBytes(filePath);
     return {
       path: relativeWorkspacePath(filePath),
-      content: fs.readFileSync(filePath, 'utf8'),
+      content: content.toString('utf8'),
       size: stats.size,
       modifiedAt: stats.mtime.toISOString(),
     };
@@ -498,13 +582,31 @@ app.put('/workspace/files/content', async (req, res) => {
     }
     assertDiskSafety(contentBytes);
     const filePath = resolveWorkspacePath(req.body?.path || '', { mustExist: false });
+    assertRealPathInWorkspace(filePath);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    // Writing must not change what kind of file it is: a script stays executable, and
+    // a link stays a link, with its target getting the new content.
+    let target = filePath;
+    let mode = 0o644;
+    if (fs.existsSync(filePath)) {
+      target = fs.realpathSync(filePath);
+      mode = fs.statSync(target).mode & 0o777;
+    }
+    assertRealPathInWorkspace(target);
     const temporary = path.join(
-      path.dirname(filePath),
-      `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`,
+      path.dirname(target),
+      `.${path.basename(target)}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`,
     );
-    fs.writeFileSync(temporary, content, binary ? { mode: 0o600 } : { encoding: 'utf8', mode: 0o600 });
-    fs.renameSync(temporary, filePath);
+    const fd = fs.openSync(temporary, 'wx', mode);
+    try {
+      fs.writeFileSync(fd, content);
+      fs.fchmodSync(fd, mode);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    try { fs.renameSync(temporary, target); }
+    finally { fs.rmSync(temporary, { force: true }); }
     return { success: true, path: relativeWorkspacePath(filePath) };
   });
 });
@@ -512,15 +614,13 @@ app.put('/workspace/files/content', async (req, res) => {
 app.get('/workspace/files/download', async (req, res) => {
   try {
     const filePath = resolveWorkspacePath(req.query?.path || '');
-    const stats = fs.statSync(filePath);
-    if (!stats.isFile()) throw new Error('Workspace path is not a file.');
-    if (stats.size > MAX_WORKSPACE_FILE_BYTES) throw new Error('Workspace file exceeds the download limit.');
+    const { stats, content } = readWorkspaceBytes(filePath);
     res.json({
       path: relativeWorkspacePath(filePath),
       filename: path.basename(filePath),
       contentType: 'application/octet-stream',
       encoding: 'base64',
-      content: fs.readFileSync(filePath).toString('base64'),
+      content: content.toString('base64'),
       size: stats.size,
     });
   } catch (err) {
@@ -1091,6 +1191,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 async function shutdown() {
+  await tailscale.shutdown();
   try {
     await browserController?.closeBrowser?.();
   } catch (err) {

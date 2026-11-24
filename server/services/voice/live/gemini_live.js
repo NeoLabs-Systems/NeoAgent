@@ -3,6 +3,7 @@
 const WebSocket = require('ws');
 const { createServiceLogger } = require('../../../utils/logger');
 const { parseMaybeJson } = require('../../../utils/text');
+const { renderFragment } = require('../../ai/prompts/registry');
 
 const logger = createServiceLogger('GeminiLiveVoice');
 const DEFAULT_ORIGIN = 'https://generativelanguage.googleapis.com';
@@ -69,7 +70,6 @@ const END_CALL_DECLARATION = Object.freeze({
   name: END_CALL,
   description: 'Hang up the call. Use it when the conversation is over or the owner wants to end the call, after you have said goodbye; nothing can be said after it. Tasks already running keep going and report in chat.',
 });
-const TASK_STARTED = 'The task is now running in the background. Nothing is done, saved, or sent yet. If you have not told the owner you are on it, do that briefly; otherwise say nothing more about it. Its outcome arrives later as a separate message; only then say what happened.';
 const NO_ANSWER = 'The task runtime could not answer this call.';
 
 
@@ -265,7 +265,7 @@ class GeminiLiveAdapter {
     const request = String(call.args?.request || '').trim();
     if (!request) return { error: 'Nothing was started: the request was empty. Ask the owner what they want done.' };
     const taskId = this.handlers.onDelegation({ handle: call.id, request });
-    return taskId ? { result: TASK_STARTED, task_id: taskId } : { error: NO_ANSWER };
+    return taskId ? { result: renderFragment('voice/task_started.md'), task_id: taskId } : { error: NO_ANSWER };
   }
 
   // A connection that never completed setup is reported through connect()'s

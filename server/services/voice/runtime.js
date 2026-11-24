@@ -3,6 +3,7 @@
 const { buildPlatformFormattingGuide } = require('../messaging/formatting_guides');
 const { getAiSettings } = require('../ai/settings');
 const { SENDER_IDENTITY_NOTE, buildSenderIdentityBlock } = require('../messaging/sender_identity');
+const { buildReplyContextBlock } = require('../messaging/reply_context');
 const { fenceUntrusted } = require('../../utils/untrusted_text');
 const { INTENT_DICTATION } = require('./voice_note');
 
@@ -23,6 +24,7 @@ function buildVoiceMessagingPrompt(msg = {}) {
   const transcript = String(msg.content || '').trim();
   const channel = String(msg.platform || 'voice').trim();
   const sttError = msg.voiceNote?.sttError;
+  const replyBlock = buildReplyContextBlock(msg);
 
   if (sttError) {
     return [
@@ -45,6 +47,7 @@ function buildVoiceMessagingPrompt(msg = {}) {
     '',
     'Transcribed speech content:',
     fenceUntrusted('external_spoken_request', transcript),
+    ...(replyBlock ? ['', replyBlock] : []),
     '',
     SENDER_IDENTITY_NOTE,
     msg.localMediaPath

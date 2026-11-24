@@ -18,6 +18,7 @@ class _NeoAgentAppState extends State<NeoAgentApp>
   _HomeWidgetSync? _homeWidgetSync;
   GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   String? _navigatorScopeSignature;
+  Brightness? _paintedBrightness;
   Menu? _trayMenu;
   HotKey? _assistantHotKey;
   Timer? _assistantHotKeyHoldTimer;
@@ -96,6 +97,11 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     final action = request.action;
     if (action == AppLaunchBridge.startCallAction) {
       _controller.requestVoiceCall();
+      return;
+    }
+    if (action == AppLaunchBridge.pairAction) {
+      final link = parsePairingLink(request.text ?? '');
+      if (link != null) unawaited(_controller.pairWithLink(link));
       return;
     }
     if (action == AppLaunchBridge.shareToChatAction) {
@@ -418,16 +424,20 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             '|auth:${_controller.isAuthenticated}'
             '|onboarding:${_controller.showOnboarding}'
             '|section:${_controller.selectedSection.name}'
-            '|theme:${_controller.themeMode.name}'
             '|assistantPopupMode:$_desktopAssistantPopupWindowMode'
             '|assistantPttActive:${_controller.isLiveVoiceCaptureActive}'
             '|assistantPttStarting:${_controller.isLiveVoiceCaptureStarting}';
+        // Theme is part of the widget key (so palette getters rebuild the whole
+        // tree) but not of the navigator scope, so a theme switch keeps the
+        // current route instead of resetting to the root screen.
         if (_navigatorScopeSignature != rootStateSignature) {
           _navigatorScopeSignature = rootStateSignature;
           _navigatorKey = GlobalKey<NavigatorState>();
         }
         return MaterialApp(
-          key: ValueKey<String>(rootStateSignature),
+          key: ValueKey<String>(
+            '$rootStateSignature|theme:${_controller.themeMode.name}',
+          ),
           navigatorKey: _navigatorKey,
           title: widget.mode == NeoAgentAppMode.launcher
               ? 'NeoAgent Launcher'
@@ -443,6 +453,14 @@ class _NeoAgentAppState extends State<NeoAgentApp>
             // Widgets that resolve their palette from the platform brightness
             // follow the theme picked in Settings too.
             final mediaQuery = MediaQuery.of(context);
+            final brightness = _appBrightness;
+            if (_paintedBrightness != null &&
+                _paintedBrightness != brightness) {
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => _repaintNavigatorTree(),
+              );
+            }
+            _paintedBrightness = brightness;
             return Stack(
               children: <Widget>[
                 if (child != null)
@@ -542,6 +560,20 @@ class _NeoAgentAppState extends State<NeoAgentApp>
     }
     _handlingDesktopClose = true;
     unawaited(_handleDesktopWindowClose());
+  }
+
+  // The navigator keeps its GlobalKey across a theme switch, so its routes are
+  // moved, not rebuilt, and widgets that read the palette getters (rather than
+  // Theme.of) would keep the old colors. Mark every one of them dirty.
+  void _repaintNavigatorTree() {
+    final navigatorContext = _navigatorKey.currentContext;
+    if (navigatorContext is! Element) return;
+    void markDirty(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(markDirty);
+    }
+
+    navigatorContext.visitChildren(markDirty);
   }
 
   Future<void> _handleDesktopWindowClose() async {
@@ -654,6 +686,9 @@ class NeoAgentRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (controller.pendingPairCode != null) {
+      return PairLandingView(controller: controller);
+    }
     if (controller.isBooting) {
       return const SplashView();
     }

@@ -66,11 +66,16 @@ function sanitizeMarkdownAware(text) {
     .join('');
 }
 
+// Reasoning written into the reply as tags. A stream cut short leaves a block
+// unclosed, and some chat templates drop the opening tag; either way everything
+// on the thought side of the tag stays out of the reply.
 function stripThoughtBlocks(text) {
   if (!/<\/?think(?:ing)?>/i.test(text)) return text;
   return text
     .replace(/[ \t]*<think>[\s\S]*?<\/think>[ \t]*/gi, '')
     .replace(/[ \t]*<thinking>[\s\S]*?<\/thinking>[ \t]*/gi, '')
+    .replace(/^[\s\S]*<\/think(?:ing)?>[ \t]*/i, '')
+    .replace(/[ \t]*<think(?:ing)?>[\s\S]*$/i, '')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\n+/, '')
     .replace(/\n+$/, '');
@@ -89,6 +94,23 @@ function sanitizeModelOutput(text, options = {}) {
   return sanitizeMarkdownAware(sanitized);
 }
 
+// A tool call a model wrote out as text instead of making it. It must never reach
+// a person as if it were the answer.
+const RAW_TOOL_MARKUP = /(?:^|\n)\s*(?:assistant\s+to=\S+|<\/?(?:tool_call|function_call|tool_use|invoke)\b|<function=|\[TOOL_CALLS\]|<\|tool)|<\/\w+:parameter>/;
+const RAW_TOOL_JSON = /^\s*(?:```(?:json)?\s*)?\{\s*"(?:name|tool|tool_name|function)"\s*:\s*"[\w.-]+"\s*,\s*"(?:arguments|parameters|args|input)"\s*:/;
+
+function isRawToolCall(text) {
+  const value = String(text || '');
+  return RAW_TOOL_MARKUP.test(value) || RAW_TOOL_JSON.test(value);
+}
+
+// While streaming only the start is known, and a tool call starts like one of these.
+function mayBeRawToolCall(text) {
+  return /^\s*(?:```(?:json)?\s*)?[{<]/.test(String(text || '')) || isRawToolCall(text);
+}
+
 module.exports = {
+  isRawToolCall,
+  mayBeRawToolCall,
   sanitizeModelOutput
 };

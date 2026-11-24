@@ -368,6 +368,12 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
   ),
   _SettingsEntry(
     SettingsPage.security,
+    'pairPhone',
+    () => appStrings.pairPhone,
+    keywords: const <String>['qr', 'phone', 'pair', 'device'],
+  ),
+  _SettingsEntry(
+    SettingsPage.security,
     'qrLogin',
     () => appStrings.approveQrLogin,
     keywords: const <String>['scan', 'qr'],
@@ -433,6 +439,13 @@ final List<_SettingsEntry> _settingsEntries = <_SettingsEntry>[
     'shell',
     () => appStrings.computerShell,
     keywords: const <String>['terminal', 'cli'],
+  ),
+  _SettingsEntry(
+    SettingsPage.computer,
+    'sharedWebPages',
+    () => appStrings.sharedWebPages,
+    keywords: const <String>['share', 'publish', 'link', 'website', 'host'],
+    visible: (controller) => controller.webShares['allowed'] != false,
   ),
   _SettingsEntry(
     SettingsPage.computer,

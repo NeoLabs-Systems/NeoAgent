@@ -79,6 +79,10 @@ function mergeMessage(target, msg) {
   target.message.timestamp = msg.timestamp || target.message.timestamp;
   target.message.wasMentioned = target.message.wasMentioned === true || msg.wasMentioned === true;
   target.message.repliedToAgent = target.message.repliedToAgent === true || msg.repliedToAgent === true;
+  if (msg.replyTo?.content) {
+    target.message.replyTo = msg.replyTo;
+    target.message.replyToMessageId = msg.replyToMessageId || null;
+  }
   target.message.behaviorTurnEpoch = Math.max(
     Number(target.message.behaviorTurnEpoch || 0),
     Number(msg.behaviorTurnEpoch || 0),

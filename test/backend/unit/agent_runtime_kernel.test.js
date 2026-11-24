@@ -106,14 +106,17 @@ test('final delivery CAS allows exactly one commit', () => {
   assert.equal(second.reason, 'already_committed');
   assert.equal(runtime.outbox.countFinalDeliveries('cas-run'), 0);
 
-  runtime.outbox.enqueue({
+  const reservation = {
     runId: 'cas-run',
     channel: 'web',
     messageKind: 'final',
+    purpose: 'final',
+    slot: 'final',
     payload: { content: 'done' },
-    sequence: 1,
-    idempotencyKey: 'cas-run:final:1',
-  });
+  };
+  assert.equal(runtime.outbox.reserve(reservation).fresh, true);
+  // The same slot cannot be reserved twice.
+  assert.equal(runtime.outbox.reserve(reservation).fresh, false);
   // Mark one delivered and ensure property holds via count helper.
   const entries = runtime.outbox.listForRun('cas-run', { messageKind: 'final' });
   assert.equal(entries.length, 1);
@@ -405,17 +408,70 @@ test('event store sequences are monotonic per run', () => {
   const a = bus.publish({
     runId: 'evt-run',
     userId,
-    eventType: runtime.EVENT_TYPES.RUN_ACCEPTED,
+    eventType: runtime.EVENT_TYPES.RUN_STARTED,
     payload: { n: 1 },
   });
   const b = bus.publish({
     runId: 'evt-run',
     userId,
-    eventType: runtime.EVENT_TYPES.RUN_STATE_CHANGED,
+    eventType: runtime.EVENT_TYPES.RUN_STATE,
     payload: { n: 2 },
   });
   assert.equal(a.sequenceIndex + 1, b.sequenceIndex);
   const listed = runtime.eventStore.listEvents('evt-run');
   assert.equal(listed.length >= 2, true);
   assert.ok(listed[0].sequenceIndex < listed[1].sequenceIndex);
+});
+
+test('progress reports only what finished since the last update, and less often each time', async () => {
+  insertRun('progress-cursor');
+  const executions = [];
+  const asked = [];
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    const broker = runtime.createProgressBroker({
+      engine: { emit() {}, markRunVisibleProgress() {} },
+      runId: 'progress-cursor',
+      userId,
+      collectDelta: (since) => ({
+        completed: executions.slice(since),
+        evidence: executions.slice(since).join('\n'),
+        through: executions.length,
+      }),
+      narrator: async ({ delta, previous }) => {
+        asked.push({ evidence: delta.evidence, previous });
+        return `update ${asked.length}`;
+      },
+      firstUpdateSeconds: 0,
+      repeatUpdateSeconds: 10,
+    });
+    broker.markAccepted();
+
+    executions.push('searched the repo');
+    assert.equal((await broker.maybePublish()).sent, true);
+
+    now += 5_000;
+    executions.push('read the config');
+    assert.equal((await broker.maybePublish()).reason, 'not_due');
+
+    now += 6_000;
+    assert.equal((await broker.maybePublish()).sent, true);
+    assert.deepEqual(asked[1], { evidence: 'read the config', previous: 'update 1' }, 'only the news, next to what was already said');
+
+    now += 25_000;
+    assert.equal((await broker.maybePublish()).sent, false, 'nothing finished since, so nothing to say');
+    assert.equal(asked.length, 2, 'and no model call to find that out');
+
+    executions.push('ran the tests');
+    assert.equal((await broker.maybePublish()).sent, true, 'the second gap was 20s');
+    now += 30_000;
+    executions.push('fixed the bug');
+    assert.equal((await broker.maybePublish()).reason, 'not_due', 'the third is 40s');
+    now += 11_000;
+    assert.equal((await broker.maybePublish()).sent, true);
+  } finally {
+    Date.now = realNow;
+  }
 });

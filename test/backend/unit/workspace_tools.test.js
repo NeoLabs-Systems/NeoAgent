@@ -69,7 +69,7 @@ test('workspace file tools accept the VM /workspace mount path', async () => {
   assert.equal(result.content, 'module.exports = true;\n');
 });
 
-test('file tool schemas expose compatibility aliases without over-requiring fields', () => {
+test('file tool schemas require the one path they act on, under one name', () => {
   ctx = createTestRuntime();
   const { getAvailableTools } = require('../../../server/services/ai/tools');
 
@@ -85,19 +85,21 @@ test('file tool schemas expose compatibility aliases without over-requiring fiel
   const listDirectory = tools.find((tool) => tool.name === 'list_directory');
   const searchFiles = tools.find((tool) => tool.name === 'search_files');
 
-  assert.equal(readFile.parameters.properties.file_path.type, 'string');
+  // A path that is only optional, or split across two names, was left out of
+  // long writes: the model wrote the content first and closed the call.
+  for (const tool of [readFile, writeFile, editFile, replaceRange]) {
+    assert.equal(tool.parameters.required[0], 'path', tool.name);
+    assert.equal(Object.keys(tool.parameters.properties)[0], 'path', tool.name);
+    assert.equal(tool.parameters.properties.file_path, undefined, tool.name);
+  }
   assert.equal(readFile.parameters.properties.line_start.type, 'number');
   assert.equal(readFile.parameters.properties.line_count.type, 'number');
-  assert.deepEqual(readFile.parameters.required, []);
   assert.equal(readFiles.parameters.properties.paths.type, 'array');
   assert.deepEqual(readFiles.parameters.required, []);
-  assert.equal(writeFile.parameters.properties.file_path.type, 'string');
-  assert.deepEqual(writeFile.parameters.required, ['content']);
-  assert.equal(editFile.parameters.properties.file_path.type, 'string');
-  assert.deepEqual(editFile.parameters.required, ['edits']);
-  assert.equal(replaceRange.parameters.properties.file_path.type, 'string');
+  assert.deepEqual(writeFile.parameters.required, ['path', 'content']);
+  assert.deepEqual(editFile.parameters.required, ['path', 'edits']);
   assert.equal(replaceRange.parameters.properties.startLine.type, 'number');
-  assert.deepEqual(replaceRange.parameters.required, ['content']);
+  assert.deepEqual(replaceRange.parameters.required, ['path', 'content']);
   assert.deepEqual(listDirectory.parameters.required, []);
   assert.deepEqual(searchFiles.parameters.required, ['query']);
   assert.equal(searchFiles.parameters.properties.maxDepth.type, 'number');
@@ -196,7 +198,7 @@ test('replace_file_range replaces known line spans without exact text matching',
   assert.equal(read.content, ['alpha', 'BETA', 'GAMMA', 'delta'].join('\n'));
 });
 
-test('write and edit tools accept common path and edit aliases', async () => {
+test('write and edit tools accept common edit and line range aliases', async () => {
   ctx = createTestRuntime();
   const user = await createTestUser(ctx.db, { username: 'write_edit_aliases' });
   const { WorkspaceManager } = require('../../../server/services/workspace/manager');
@@ -204,7 +206,7 @@ test('write and edit tools accept common path and edit aliases', async () => {
   const workspaceManager = new WorkspaceManager();
 
   const write = await executeTool('write_file', {
-    file_path: 'aliases.txt',
+    path: 'aliases.txt',
     content: 'alpha\nbeta\ngamma',
   }, {
     userId: user.userId,
@@ -214,7 +216,7 @@ test('write and edit tools accept common path and edit aliases', async () => {
   assert.equal(write.success, true);
 
   const edit = await executeTool('edit_file', {
-    file_path: 'aliases.txt',
+    path: 'aliases.txt',
     edits: [{ old_text: 'beta', new_text: 'BETA' }],
   }, {
     userId: user.userId,
@@ -224,7 +226,7 @@ test('write and edit tools accept common path and edit aliases', async () => {
   assert.equal(edit.success, true);
 
   const range = await executeTool('replace_file_range', {
-    file_path: 'aliases.txt',
+    path: 'aliases.txt',
     startLine: 3,
     endLine: 3,
     content: 'GAMMA',
@@ -350,7 +352,7 @@ test('file tool schemas expose batch read and line range edit', () => {
   assert.equal(readFiles.parameters.properties.files.type, 'array');
   assert.deepEqual(readFiles.parameters.required, []);
   assert.equal(replaceRange.parameters.properties.start_line.type, 'number');
-  assert.deepEqual(replaceRange.parameters.required, ['content']);
+  assert.deepEqual(replaceRange.parameters.required, ['path', 'content']);
 });
 
 test('read_file missing path fails explicitly instead of reading the workspace directory', async () => {
@@ -367,7 +369,7 @@ test('read_file missing path fails explicitly instead of reading the workspace d
     workspaceManager: new WorkspaceManager(),
   });
 
-  assert.match(result.error, /requires path or file_path/);
+  assert.match(result.error, /requires path/);
   assert.match(result.error, /workspace/);
   assert.doesNotMatch(result.error, /cat \/tmp/);
   assert.doesNotMatch(result.error, /EISDIR/);

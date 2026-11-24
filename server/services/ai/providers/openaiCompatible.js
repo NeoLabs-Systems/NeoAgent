@@ -7,20 +7,51 @@ function textField(value) {
   return typeof value === 'string' ? value : '';
 }
 
-// reasoning_content / reasoning is the model's private thought. A streaming
-// delta often carries only that field while the reply is still empty, so
-// treating it as the reply pastes the thought into the chat and then appends
-// the real answer after it. Use it only when the turn produced no reply text
-// at all: some endpoints put the whole answer in that field.
+// reasoning_content / reasoning is the model's private thought, never the reply:
+// not even when a turn has no reply text, since that is how a model says it has
+// nothing to add. An endpoint that puts its whole answer there looks like an
+// empty turn, which the loop recovers from by asking again or switching models;
+// passing the thought off as the answer showed it to the user.
 function replyText(part) {
   return textField(part?.content);
 }
 
-function thoughtText(part) {
-  return textField(part?.reasoning_content) || textField(part?.reasoning);
+// OpenRouter streams reasoning_details in pieces keyed by index. The sequence has
+// to go back exactly as it came, so pieces of one block are joined in place.
+function mergeReasoningDetails(details, incoming) {
+  for (const piece of Array.isArray(incoming) ? incoming : []) {
+    const index = Number.isInteger(piece?.index) ? piece.index : details.length;
+    const current = details[index];
+    if (!current) {
+      details[index] = { ...piece };
+      continue;
+    }
+    for (const field of ['text', 'summary', 'data']) {
+      if (typeof piece[field] === 'string') current[field] = `${current[field] || ''}${piece[field]}`;
+    }
+    if (piece.signature) current.signature = piece.signature;
+    if (piece.format) current.format = piece.format;
+  }
+  return details;
+}
+
+// A provider's reasoning, in the field it used, so it can go back the same way.
+// DeepSeek rejects a tool-call turn that comes back without it.
+function reasoningStateFrom({ reasoningContent = '', reasoning = '', reasoningDetails = [] }) {
+  const details = reasoningDetails.filter(Boolean);
+  if (details.length) return { reasoning_details: details };
+  if (reasoningContent) return { reasoning_content: reasoningContent };
+  if (reasoning) return { reasoning };
+  return null;
 }
 
 class OpenAICompatibleProvider extends BaseProvider {
+  prepareMessages(messages) {
+    return super.prepareMessages(messages.map((message) => (
+      message?.reasoningState ? { ...message, ...message.reasoningState } : message
+    )));
+  }
+
   async *readStream(stream, tools = []) {
     const contentGuard = createStreamGuard();
     const argumentGuards = [];
@@ -33,9 +64,12 @@ class OpenAICompatibleProvider extends BaseProvider {
         : null,
     ]));
     let content = '';
-    let reasoning = '';
+    let reasoningContent = '';
+    let reasoningPlain = '';
+    const reasoningDetails = [];
     let finishReason = null;
     let usage = null;
+    let servedModel = null;
 
     const check = (verdict, toolName = '') => {
       if (verdict) throw degenerateOutputError(this.name, verdict, toolName);
@@ -43,6 +77,7 @@ class OpenAICompatibleProvider extends BaseProvider {
 
     for await (const chunk of stream) {
       if (chunk.usage) usage = this.normalizeUsage(chunk.usage);
+      if (chunk.model) servedModel = chunk.model;
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
       const text = replyText(delta);
@@ -51,8 +86,9 @@ class OpenAICompatibleProvider extends BaseProvider {
         check(contentGuard.feed(text));
         yield { type: 'content', content: text };
       }
-      const thought = thoughtText(delta);
-      if (thought) reasoning += thought;
+      reasoningContent += textField(delta?.reasoning_content);
+      reasoningPlain += textField(delta?.reasoning);
+      if (delta?.reasoning_details) mergeReasoningDetails(reasoningDetails, delta.reasoning_details);
       for (const tc of delta?.tool_calls || []) {
         const index = Number.isInteger(tc.index) ? tc.index : toolCalls.length;
         if (!toolCalls[index]) {
@@ -75,7 +111,11 @@ class OpenAICompatibleProvider extends BaseProvider {
           toolCalls[index].function.arguments += tc.function.arguments;
           const name = toolCalls[index].function.name;
           if (!argumentJson[index].feed(tc.function.arguments)) {
-            check({ reason: argumentJson[index].reason, bytes: toolCalls[index].function.arguments.length }, name);
+            check({
+              reason: argumentJson[index].reason,
+              key: argumentJson[index].key,
+              bytes: toolCalls[index].function.arguments.length,
+            }, name);
           }
           check(argumentGuards[index].feed(tc.function.arguments), name);
         }
@@ -84,13 +124,9 @@ class OpenAICompatibleProvider extends BaseProvider {
     }
 
     const calls = toolCalls.filter(Boolean);
-    // No reply text and no tool call: the thought field is the answer.
-    // A thought next to a real reply or a tool call stays out of the chat.
-    if (!content && calls.length === 0 && reasoning) {
-      check(contentGuard.feed(reasoning));
-      content = reasoning;
-      yield { type: 'content', content };
-    }
+    const reasoningState = calls.length > 0
+      ? reasoningStateFrom({ reasoningContent, reasoning: reasoningPlain, reasoningDetails })
+      : null;
     yield {
       type: calls.length > 0 ? 'tool_calls' : 'done',
       content,
@@ -100,6 +136,8 @@ class OpenAICompatibleProvider extends BaseProvider {
       // done. Callers must not treat that as a finished answer.
       truncated: finishReason === 'length',
       usage,
+      ...(servedModel ? { model: servedModel } : {}),
+      ...(reasoningState ? { reasoningState } : {}),
     };
   }
 
@@ -116,7 +154,10 @@ class OpenAICompatibleProvider extends BaseProvider {
         ?? usage.input_tokens_details?.cached_tokens
         ?? usage.cachedReadTokens
         ?? 0,
-      cacheWriteTokens: usage.cacheWriteTokens ?? 0,
+      cacheWriteTokens: usage.prompt_tokens_details?.cache_write_tokens
+        ?? usage.input_tokens_details?.cache_write_tokens
+        ?? usage.cacheWriteTokens
+        ?? 0,
       promptTokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
       completionTokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
       totalTokens: usage.total_tokens ?? usage.totalTokens ?? 0,
@@ -129,8 +170,17 @@ class OpenAICompatibleProvider extends BaseProvider {
       throw new Error(`Provider '${this.name}' returned no choices in the response`);
     }
     const msg = choice.message || {};
+    const reasoningState = msg.tool_calls?.length
+      ? reasoningStateFrom({
+        reasoningContent: textField(msg.reasoning_content),
+        reasoning: textField(msg.reasoning),
+        reasoningDetails: Array.isArray(msg.reasoning_details) ? msg.reasoning_details : [],
+      })
+      : null;
     return {
-      content: replyText(msg) || (msg.tool_calls?.length ? '' : thoughtText(msg)),
+      content: replyText(msg),
+      // A router may answer with another model than the one asked for.
+      ...(response.model ? { model: response.model } : {}),
       toolCalls: (msg.tool_calls || [])
         .filter((tc) => tc?.function)
         .map((tc) => ({
@@ -141,6 +191,7 @@ class OpenAICompatibleProvider extends BaseProvider {
       finishReason: choice.finish_reason,
       truncated: choice.finish_reason === 'length',
       usage: this.normalizeUsage(response.usage),
+      ...(reasoningState ? { reasoningState } : {}),
     };
   }
 

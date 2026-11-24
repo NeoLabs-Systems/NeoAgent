@@ -8,6 +8,12 @@ const { scrubInvisible } = require('../../utils/untrusted_text');
 // search API names a skill by repo ("owner/repo") plus the skill's id; the
 // files themselves are fetched straight from GitHub.
 const SKILLS_SH_SEARCH_URL = 'https://skills.sh/api/search';
+const SKILLS_SH_URL = 'https://skills.sh';
+// The leaderboards have no JSON API; their pages embed the list they render.
+const FEATURED_PAGES = { popular: '/', trending: '/trending' };
+const FEATURED_LIMIT = 36;
+const FEATURED_CACHE_MS = 6 * 60 * 60 * 1000;
+const FEATURED_ENTRY_RE = /\{"source":"([^"]+)","skillId":"([^"]+)","name":"([^"]*)","installs":(\d+)(?:,"weeklyInstalls":\[[\d,]*\])?(?:,"isOfficial":(true|false))?/g;
 const GITHUB_API_URL = 'https://api.github.com';
 const GITHUB_RAW_URL = 'https://raw.githubusercontent.com';
 const REQUEST_TIMEOUT_MS = 15000;
@@ -83,6 +89,56 @@ async function searchSkillsSh(query) {
       name: String(skill.name || skill.skillId),
       installs: Number.isFinite(skill.installs) ? skill.installs : null,
     }));
+}
+
+const featuredCache = new Map();
+
+/** Reads the skill list a skills.sh leaderboard page renders. */
+function parseFeaturedPage(html) {
+  const text = String(html || '').replace(/\\"/g, '"');
+  const start = text.indexOf('"initialSkills":[');
+  if (start === -1) return [];
+  const pattern = new RegExp(FEATURED_ENTRY_RE.source, 'g');
+  pattern.lastIndex = start;
+  const seen = new Set();
+  const skills = [];
+  let match;
+  while ((match = pattern.exec(text)) && skills.length < FEATURED_LIMIT) {
+    const [, source, skillId, name, installs, official] = match;
+    const id = `${source}/${skillId}`;
+    if (!isRepoSource(source) || seen.has(id)) continue;
+    seen.add(id);
+    skills.push({
+      id,
+      source,
+      skillId,
+      name: name || skillId,
+      installs: Number(installs),
+      official: official === 'true',
+    });
+  }
+  return skills;
+}
+
+async function featuredSkillsSh(list = 'popular') {
+  const page = FEATURED_PAGES[list];
+  if (!page) {
+    const error = new Error(`Unknown skills.sh list '${list}'`);
+    error.status = 400;
+    throw error;
+  }
+  const cached = featuredCache.get(list);
+  if (cached && Date.now() - cached.at < FEATURED_CACHE_MS) return cached.skills;
+  try {
+    const skills = parseFeaturedPage(await fetchOk(`${SKILLS_SH_URL}${page}`));
+    if (skills.length === 0) throw new Error('skills.sh leaderboard had no skills');
+    featuredCache.set(list, { at: Date.now(), skills });
+    return skills;
+  } catch (error) {
+    // A stale list beats none when skills.sh is slow or changed its page.
+    if (cached) return cached.skills;
+    throw error;
+  }
 }
 
 // Top-level frontmatter keys only. Handles quoted values and YAML block
@@ -247,7 +303,9 @@ async function installSkillsShSkill(runner, userId, ref) {
 }
 
 module.exports = {
+  featuredSkillsSh,
   installSkillsShSkill,
+  parseFeaturedPage,
   parseFrontmatter,
   parseSkillsShRef,
   prependNeoAgentNotes,

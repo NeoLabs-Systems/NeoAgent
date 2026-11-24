@@ -4,7 +4,7 @@ const { createOAuthProvider } = require('../oauth_provider');
 const { parseJsonObject, requireText, trimText: text } = require('../../../utils/text');
 const store = require('./store');
 
-const LABEL = 'Phone calendar & contacts';
+const LABEL = 'Phone sharing';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // A phone with the app open makes a change within a second or two.
 const COMMAND_WAIT_MS = 12000;
@@ -19,6 +19,11 @@ const CONTACTS_APP = Object.freeze({
   label: 'Contacts',
   description: 'The contacts on the phone, shared by the NeoAgent app.',
 });
+const ALARMS_APP = Object.freeze({
+  id: 'alarms',
+  label: 'Alarms',
+  description: 'The next alarm clock registered on an Android phone.',
+});
 
 const EVENT_FIELDS = Object.freeze({
   title: { type: 'string', description: 'Event title.' },
@@ -30,6 +35,13 @@ const EVENT_FIELDS = Object.freeze({
 });
 
 const TOOLS = Object.freeze([
+  {
+    appId: ALARMS_APP.id,
+    name: 'phone_list_alarms',
+    access: 'read',
+    description: 'List the next shared Android alarm and recently due alarms.',
+    parameters: { type: 'object', properties: {} },
+  },
   {
     appId: CALENDAR_APP.id,
     name: 'phone_list_calendars',
@@ -172,6 +184,8 @@ function freshness(context) {
 
 function readTool(toolName, args, scope) {
   switch (toolName) {
+    case 'phone_list_alarms':
+      return { alarms: store.listAlarms(scope) };
     case 'phone_list_calendars':
       return { calendars: store.listCalendars(scope) };
     case 'phone_list_events': {
@@ -217,11 +231,11 @@ function createPhoneProvider(options = {}) {
   const provider = createOAuthProvider({
     key: store.PROVIDER_KEY,
     label: LABEL,
-    description: 'Calendars and contacts from your phone, shared by the NeoAgent app. Works with whatever accounts the phone already syncs, with no developer console.',
+    description: 'Calendars, contacts, and Android alarms shared by the NeoAgent phone app.',
     icon: 'phone',
-    apps: [CALENDAR_APP, CONTACTS_APP],
+    apps: [CALENDAR_APP, CONTACTS_APP, ALARMS_APP],
     toolDefinitions: TOOLS,
-    connectPrompt: 'Open NeoAgent on your phone and turn on calendar and contacts sharing.',
+    connectPrompt: 'Open NeoAgent on your phone to connect it.',
     supportsMultipleAccounts: true,
     connectionMethod: 'device',
     getEnvStatus() {

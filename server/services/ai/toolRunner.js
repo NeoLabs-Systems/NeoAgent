@@ -92,11 +92,22 @@ function parseMetadataJson(value) {
 class SkillRunner {
   constructor(options = {}) {
     this.skills = new Map();
+    // userId -> Map(skillName -> { enabled, hidden }) for skills the user
+    // doesn't own. Built-in skills are shared files, so a user's "off" or
+    // "delete" is recorded here instead of touching the file.
+    this.overrides = new Map();
     this.runtimeManager = options.runtimeManager || null;
   }
 
   async loadSkills() {
     this.skills.clear();
+    this.overrides.clear();
+    for (const row of db.prepare('SELECT user_id, skill_name, enabled, hidden FROM user_skill_overrides').all()) {
+      this._overridesFor(row.user_id).set(row.skill_name, {
+        enabled: row.enabled === null ? null : row.enabled !== 0,
+        hidden: row.hidden === 1,
+      });
+    }
     const dbSkills = db.prepare('SELECT * FROM skills').all();
     const dbSkillPaths = new Set(
       dbSkills
@@ -435,7 +446,7 @@ class SkillRunner {
     const skill = this.getSkill(name, ownerId);
     if (!skill) return { error: `Skill '${name}' not found` };
     if (!this._canEditSkill(skill, ownerId)) {
-      return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
+      return this._forkSkill(ownerId, skill, { description, instructions, metadata });
     }
 
     const newDesc = description !== undefined ? coerceWritableText(description) : skill.description;
@@ -493,8 +504,10 @@ class SkillRunner {
   setSkillEnabled(userId, name, enabled) {
     const skill = this.getSkill(name, userId);
     if (!skill) return { error: `Skill '${name}' not found` };
-    if (!this._canEditSkill(skill, normalizeRuntimeUserId(userId))) {
-      return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
+    const ownerId = normalizeRuntimeUserId(userId);
+    if (!this._canEditSkill(skill, ownerId)) {
+      this._writeOverride(ownerId, skill.name, { enabled: !!enabled });
+      return { success: true, name: skill.name };
     }
     const metadata = { ...skill.metadata, enabled: !!enabled };
     return this.updateSkill(userId, skill.name, { metadata, recordVersion: false });
@@ -504,8 +517,13 @@ class SkillRunner {
     const ownerId = normalizeRuntimeUserId(userId);
     const skill = this.getSkill(name, ownerId);
     if (!skill) return { error: `Skill '${name}' not found` };
+    // Deleting removes the skill from this user's list. A built-in one, or a
+    // built-in one this user's copy was shadowing, is hidden for them only.
+    if (this._hasSharedSkill(skill.name)) {
+      this._writeOverride(ownerId, skill.name, { hidden: true });
+    }
     if (!this._canEditSkill(skill, ownerId)) {
-      return { error: `Skill '${skill.name}' is read-only`, code: 'forbidden' };
+      return { success: true, deleted: skill.name };
     }
 
     try {
@@ -617,10 +635,69 @@ class SkillRunner {
         .filter((skill) => skill.ownerType === 'user' && skill.userId === ownerId)
         .map((skill) => skill.name),
     );
-    return visible.filter((skill) => {
-      if (skill.ownerType === 'user') return skill.userId === ownerId;
-      return !ownedNames.has(skill.name);
-    });
+    const overrides = this.overrides.get(ownerId);
+    return visible
+      .filter((skill) => {
+        if (skill.ownerType === 'user') return skill.userId === ownerId;
+        return !ownedNames.has(skill.name) && !overrides?.get(skill.name)?.hidden;
+      })
+      .map((skill) => {
+        const enabled = skill.ownerType === 'user' ? null : overrides?.get(skill.name)?.enabled;
+        if (typeof enabled !== 'boolean') return skill;
+        return { ...skill, metadata: { ...skill.metadata, enabled } };
+      });
+  }
+
+  _overridesFor(userId) {
+    if (!this.overrides.has(userId)) this.overrides.set(userId, new Map());
+    return this.overrides.get(userId);
+  }
+
+  _writeOverride(userId, name, patch) {
+    const current = this._overridesFor(userId).get(name) || { enabled: null, hidden: false };
+    const next = { ...current, ...patch };
+    db.prepare(
+      `INSERT INTO user_skill_overrides (user_id, skill_name, enabled, hidden, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(user_id, skill_name) DO UPDATE SET
+         enabled = excluded.enabled, hidden = excluded.hidden, updated_at = excluded.updated_at`,
+    ).run(userId, name, next.enabled === null ? null : (next.enabled ? 1 : 0), next.hidden ? 1 : 0);
+    this._overridesFor(userId).set(name, next);
+  }
+
+  _hasSharedSkill(name) {
+    for (const skill of this.skills.values()) {
+      if (skill.ownerType !== 'user' && skill.name === name) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Editing a built-in skill gives the user their own copy, files included,
+   * which then takes the built-in's place in their list.
+   */
+  _forkSkill(ownerId, skill, { description, instructions, metadata }) {
+    const inherited = { ...skill.metadata };
+    delete inherited.name;
+    delete inherited.description;
+    const result = this.createSkill(
+      ownerId,
+      skill.name,
+      description !== undefined ? description : skill.description,
+      instructions !== undefined ? instructions : skill.instructions,
+      metadata !== undefined ? metadata : inherited,
+    );
+    if (result.error) return result;
+    // Only a skill with a folder of its own carries files; a loose SKILL.md
+    // at the top of the skills folder shares it with every other skill.
+    if (path.basename(skill.filePath) === 'SKILL.md' && path.resolve(skill.dir) !== path.resolve(SKILLS_DIR)) {
+      const target = path.dirname(result.path);
+      for (const entry of fs.readdirSync(skill.dir, { withFileTypes: true })) {
+        if (entry.name === 'SKILL.md') continue;
+        fs.cpSync(path.join(skill.dir, entry.name), path.join(target, entry.name), { recursive: true });
+      }
+    }
+    return result;
   }
 
   _canEditSkill(skill, userId) {

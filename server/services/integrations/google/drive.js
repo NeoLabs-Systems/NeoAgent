@@ -32,13 +32,14 @@ const driveToolDefinitions = [
   {
     name: 'google_workspace_drive_upload_file',
     access: 'write',
-    description: 'Upload a local file to Google Drive.',
+    fileArgs: ['file_path'],
+    description: 'Upload a file from your workspace to Google Drive.',
     parameters: {
       type: 'object',
       properties: {
         file_path: {
           type: 'string',
-          description: 'Absolute local file path to upload.',
+          description: 'The file to upload: a path in your workspace or an owned artifact.',
         },
         name: { type: 'string', description: 'Optional Drive file name override.' },
         mime_type: { type: 'string', description: 'Optional MIME type override.' },

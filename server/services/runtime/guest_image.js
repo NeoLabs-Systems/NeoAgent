@@ -8,6 +8,7 @@ const { DATA_DIR } = require('../../../runtime/paths');
 const { createServiceLogger } = require('../../utils/logger');
 const { GUEST_HOME } = require('./guest_paths');
 const { guestPayloadDigest, normalizeRuntimeProfile, stageGuestPayload } = require('./guest_bootstrap');
+const { tailscaleInstallScript } = require('./tailscale_release');
 
 const logger = createServiceLogger('GuestImage');
 const BUILD_ROOT = path.join(DATA_DIR, 'runtime-containers', 'guest-image');
@@ -91,6 +92,8 @@ function dockerfileFor(profile) {
       : 'RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force',
     'COPY runtime ./runtime',
     'COPY server ./server',
+    'RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*',
+    `RUN set -eu; ${tailscaleInstallScript().split('\n').join(' ')}`,
     // The guest agent runs as the host uid:gid on Linux so files it writes into the
     // home volume stay readable by the server process, so its home and any baked
     // runtime state must be writable by an arbitrary uid.

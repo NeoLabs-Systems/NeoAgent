@@ -204,6 +204,32 @@ test('requestModelResponse hands a runaway tool call back as that call with disc
   assert.match(JSON.parse(call.function.arguments)._discarded, /degenerate repetition after 2049 bytes/);
 });
 
+test('a call stopped at an undeclared argument is handed back naming it and the arguments the tool has', async () => {
+  const engine = new AgentEngine(null);
+  const result = await engine.requestModelResponse({
+    provider: {
+      async *stream() {
+        const err = new Error('stopped');
+        err.code = 'MODEL_DEGENERATE_OUTPUT';
+        err.reason = 'unknown_argument_key';
+        err.outputBytes = 12;
+        err.toolName = 'write_file';
+        err.argumentKey = 'file_path';
+        throw err;
+      },
+    },
+    providerName: 'test',
+    model: 'test-model',
+    messages: [{ role: 'user', content: 'Write it.' }],
+    tools: [{ name: 'write_file', parameters: { type: 'object', properties: { path: {}, content: {}, mode: {} } } }],
+    options: { stream: true, userId: 1, retry: { maxAttempts: 5, baseDelayMs: 0, maxDelayMs: 0 } },
+    runId: 'unknown-key-run',
+    iteration: 2,
+  });
+  const reason = JSON.parse(result.response.toolCalls[0].function.arguments)._discarded;
+  assert.match(reason, /write_file has no argument "file_path"; its arguments are path, content, mode/);
+});
+
 test('requestModelResponse still fails when runaway output was not a tool call', async () => {
   const engine = new AgentEngine(null);
   await assert.rejects(

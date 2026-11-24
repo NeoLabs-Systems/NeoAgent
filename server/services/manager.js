@@ -31,6 +31,7 @@ const { SkillLearningService } = require('./skills/learning_service');
 const { CapabilityAuditService } = require('./security/capability_audit');
 const { ToolPolicyService } = require('./security/tool_policy_service');
 const { ApprovalGateService } = require('./security/approval_gate_service');
+const { ChatApprovals } = require('./messaging/chat_approvals');
 const { registerToolSecurityHooks } = require('./security/tool_security_hook');
 const { TimelineService } = require('./timeline/service');
 const { WearableService } = require('./wearable/service');
@@ -44,6 +45,7 @@ const {
 } = require('./bootstrap_helpers');
 const { startSetupDiscovery } = require('./setup/discovery');
 const { resumeInterruptedRuns } = require('./ai/runtime/restart_resume');
+const { resumeAgentTasks } = require('./ai/loop/agent_tasks');
 const { DEFAULT_NEOAGENT_PORT } = require('../../lib/setup/contract');
 
 function registerLocal(app, key, value) {
@@ -82,6 +84,7 @@ function createTimelineService(app) {
 function createMemoryManager(app) {
   const memoryManager = registerLocal(app, 'memoryManager', new MemoryManager());
   memoryManager.startEmbeddingIndexBackfill();
+  memoryManager.startEmbeddingRefresh();
   const reconcile = () => {
     const users = db.prepare('SELECT id FROM users').all();
     for (const user of users) {
@@ -249,6 +252,9 @@ function createAgentEngine(
   try {
     const { recoverOrphanedRuns } = require('./ai/runtime/recovery_startup');
     recoverOrphanedRuns();
+    const { pruneExpiredCaptures } = require('./ai/runtime/run_capture');
+    pruneExpiredCaptures();
+    setInterval(pruneExpiredCaptures, 6 * 60 * 60 * 1000).unref();
   } catch (err) {
     console.error('[Runtime] Orphaned run recovery failed:', getErrorMessage(err));
   }
@@ -456,7 +462,7 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     const toolPolicyService = registerLocal(app, 'toolPolicyService', new ToolPolicyService({
       securityModeOverride: process.env.NEOAGENT_TOOL_SECURITY_MODE || null,
     }));
-    const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io }));
+    const approvalGateService = registerLocal(app, 'approvalGateService', new ApprovalGateService({ io, toolPolicyService }));
     registerToolSecurityHooks(toolPolicyService, approvalGateService);
     logServiceReady('Tool security hooks registered');
     createMultiStep(app, agentEngine, io);
@@ -471,6 +477,12 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     });
 
     const messagingManager = createMessagingManager(app, io, agentEngine);
+    messagingManager.chatApprovals = new ChatApprovals({ manager: messagingManager, gate: approvalGateService });
+    approvalGateService.setChatDelivery(messagingManager.chatApprovals);
+    messagingManager.on('incoming_call', (call) => {
+      void agentCallCoordinator.callBack(call)
+        .catch((err) => console.error('[Messaging] Call-back failed:', getErrorMessage(err)));
+    });
     createSocialVideoService(app);
     createSocialReachService(app);
     createWearableService(app);
@@ -511,7 +523,10 @@ async function startServices(app, io, { resumeRuns = false } = {}) {
     // A resumed messaging run delivers through its platform, so it waits for
     // the connections to come back.
     if (resumeRuns) {
-      void messagingRestored.then(() => resumeInterruptedRuns(agentEngine)).catch((err) => {
+      void messagingRestored.then(() => {
+        resumeInterruptedRuns(agentEngine, { taskRuntime });
+        resumeAgentTasks(agentEngine);
+      }).catch((err) => {
         console.error('[Runtime] Resuming interrupted runs failed:', getErrorMessage(err));
       });
     }
@@ -592,6 +607,7 @@ async function stopServices(app) {
   }
   if (app.locals.memoryManager) {
     app.locals.memoryManager.stopEmbeddingIndexBackfill();
+    app.locals.memoryManager.stopEmbeddingRefresh();
   }
   if (app.locals.memoryReconciliationTimer) {
     clearInterval(app.locals.memoryReconciliationTimer);

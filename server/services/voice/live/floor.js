@@ -13,7 +13,9 @@ const REPLY_TIMEOUT_MS = 6000;
 const WORKING_TIMEOUT_MS = 30 * 1000;
 
 class LiveFloor {
-  constructor() {
+  constructor({ onReplyMissed = null } = {}) {
+    // Called when the model owed a reply and the owner heard nothing at all.
+    this.onReplyMissed = onReplyMissed;
     this.held = [];
     this.connected = false;
     this.speaking = false;
@@ -23,6 +25,9 @@ class LiveFloor {
     // Tool results and told messages the model answers, a turn each.
     this.repliesDue = 0;
     this.spokeThisTurn = false;
+    // The model has made a sound since the owner last spoke or it was last
+    // told something. It may answer before its tool call as well as after it.
+    this.heard = false;
     this.working = false;
     this.lastSpeechAt = 0;
     this.replyTimer = null;
@@ -44,6 +49,10 @@ class LiveFloor {
     return this.free && Date.now() - this.lastSpeechAt >= QUIET_LINE_MS;
   }
 
+  get silentForMs() {
+    return Date.now() - this.lastSpeechAt;
+  }
+
   whenFree(deliver) {
     this.held.push(deliver);
     this.#release();
@@ -54,6 +63,8 @@ class LiveFloor {
   setConnected(connected) {
     this.connected = connected;
     if (!connected) {
+      // A button released while the line was down is never reported.
+      this.inputHeld = false;
       this.speaking = false;
       this.spokeThisTurn = false;
       this.#settleReplies();
@@ -66,6 +77,7 @@ class LiveFloor {
   // playbackEndsAt.
   modelSpeaking(playbackEndsAt) {
     this.speaking = true;
+    this.heard = true;
     this.spokeThisTurn = true;
     this.lastSpeechAt = Math.max(Date.now(), playbackEndsAt);
   }
@@ -74,6 +86,7 @@ class LiveFloor {
   // and answers nothing.
   droppedSpeech() {
     this.speaking = true;
+    this.heard = true;
   }
 
   modelSilent() {
@@ -93,6 +106,7 @@ class LiveFloor {
 
   ownerSpoke() {
     this.lastSpeechAt = Date.now();
+    this.heard = false;
     this.ownerWaiting = true;
     this.#armReplyTimeout();
   }
@@ -106,7 +120,8 @@ class LiveFloor {
 
   // The model was handed something it answers in a turn of its own: a tool
   // result, or a delivery it is told to speak.
-  expectReply() {
+  expectReply({ told = false } = {}) {
+    if (told) this.heard = false;
     this.repliesDue += 1;
     this.#armReplyTimeout();
   }
@@ -120,6 +135,13 @@ class LiveFloor {
       this.repliesDue = Math.max(0, this.repliesDue - 1);
     }
     this.#release();
+  }
+
+  // A reply the model has not started yet can be given up on: a new turn replaces it.
+  dropUnstartedReply() {
+    if (this.speaking || this.heard || this.ownerWaiting) return false;
+    this.#settleReplies();
+    return true;
   }
 
   // Gemini's extended-thinking models end turns while they go on thinking or
@@ -146,7 +168,9 @@ class LiveFloor {
   #armReplyTimeout() {
     clearTimeout(this.replyTimer);
     this.replyTimer = setTimeout(() => {
+      const missed = this.repliesDue > 0 && !this.heard && !this.working;
       this.#settleReplies();
+      if (missed) this.onReplyMissed?.();
       this.#release();
     }, REPLY_TIMEOUT_MS);
     this.replyTimer.unref?.();

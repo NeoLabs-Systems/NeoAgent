@@ -39,7 +39,15 @@ Future<void> _openTaskModelEditor(
       home: Scaffold(body: TasksPanel(controller: controller)),
     ),
   );
+  // Edit lives in the task card's ⋯ menu.
+  await tester.tap(find.byTooltip('More actions'));
+  await tester.pumpAndSettle();
   await tester.tap(find.text('Edit'));
+  await tester.pumpAndSettle();
+
+  // The override lives behind the advanced settings.
+  await tester.ensureVisible(find.text('Advanced settings'));
+  await tester.tap(find.text('Advanced settings'));
   await tester.pumpAndSettle();
 
   expect(find.text('Model Override'), findsOneWidget);

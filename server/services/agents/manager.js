@@ -1,5 +1,10 @@
+'use strict';
+
 const { randomUUID } = require('crypto');
 const db = require('../../db/database');
+const { renderFragment } = require('../ai/prompts/registry');
+const { clampRunContext } = require('../ai/messagingFallback');
+const { normalizeToolRestrictions } = require('./tool_restrictions');
 
 const MAIN_AGENT_SLUG = 'main';
 
@@ -47,6 +52,9 @@ function serializeAgent(row) {
     canDelegate: row.can_delegate === 1 || row.can_delegate === true,
     canBeDelegatedTo: row.can_be_delegated_to !== 0 && row.can_be_delegated_to !== false,
     delegateTargets: parseDelegateTargets(row.delegate_targets_json),
+    toolRestrictions: normalizeToolRestrictions(row.tool_restrictions_json),
+    createdByAgentId: row.created_by_agent_id || null,
+    creationReason: row.creation_reason || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -151,9 +159,7 @@ function listAgents(userId, { includeArchived = false } = {}) {
 function createAgent(userId, input = {}) {
   const slug = normalizeSlug(input.slug || input.displayName || input.name);
   if (!slug) throw new Error('Agent slug or display name is required.');
-  if (slug === MAIN_AGENT_SLUG && getAgentBySlug(userId, MAIN_AGENT_SLUG)) {
-    throw new Error('The main agent already exists.');
-  }
+  if (getAgentBySlug(userId, slug)) throw new Error(`An agent with the identifier "${slug}" already exists.`);
   const displayName = String(input.displayName || input.name || slug).trim().slice(0, 120);
   const isDefault = slug === MAIN_AGENT_SLUG ? 1 : 0;
   const defaultCanDelegate = slug === MAIN_AGENT_SLUG;
@@ -162,8 +168,9 @@ function createAgent(userId, input = {}) {
   db.prepare(
     `INSERT INTO agents (
       id, user_id, slug, display_name, description, responsibilities, instructions,
-      status, is_default, can_delegate, can_be_delegated_to, delegate_targets_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      status, is_default, can_delegate, can_be_delegated_to, delegate_targets_json,
+      tool_restrictions_json, created_by_agent_id, creation_reason
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     userId,
@@ -177,6 +184,9 @@ function createAgent(userId, input = {}) {
     boolFromInput(input.canDelegate ?? input.can_delegate, defaultCanDelegate) ? 1 : 0,
     boolFromInput(input.canBeDelegatedTo ?? input.can_be_delegated_to, defaultCanBeDelegatedTo) ? 1 : 0,
     JSON.stringify(parseDelegateTargets(input.delegateTargets ?? input.delegate_targets ?? input.delegate_targets_json)),
+    JSON.stringify(normalizeToolRestrictions(input.toolRestrictions)),
+    input.createdByAgentId || null,
+    String(input.creationReason || '').trim().slice(0, 1000) || null,
   );
   if (isDefault) {
     db.prepare('UPDATE agents SET is_default = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE user_id = ?')
@@ -207,11 +217,18 @@ function updateAgent(userId, agentId, input = {}) {
   const delegateTargets = input.delegateTargets != null || input.delegate_targets != null || input.delegate_targets_json != null
     ? parseDelegateTargets(input.delegateTargets ?? input.delegate_targets ?? input.delegate_targets_json)
     : parseDelegateTargets(existing.delegate_targets_json);
+  const toolRestrictions = input.toolRestrictions == null
+    ? normalizeToolRestrictions(existing.tool_restrictions_json)
+    : normalizeToolRestrictions(input.toolRestrictions);
+  if (slug !== existing.slug && getAgentBySlug(userId, slug)) {
+    throw new Error(`An agent with the identifier "${slug}" already exists.`);
+  }
 
   db.prepare(
     `UPDATE agents
      SET slug = ?, display_name = ?, description = ?, responsibilities = ?, instructions = ?,
-         status = ?, can_delegate = ?, can_be_delegated_to = ?, delegate_targets_json = ?, updated_at = datetime('now')
+         status = ?, can_delegate = ?, can_be_delegated_to = ?, delegate_targets_json = ?,
+         tool_restrictions_json = ?, updated_at = datetime('now')
      WHERE user_id = ? AND id = ?`
   ).run(
     slug,
@@ -223,6 +240,7 @@ function updateAgent(userId, agentId, input = {}) {
     canDelegate ? 1 : 0,
     canBeDelegatedTo ? 1 : 0,
     JSON.stringify(delegateTargets),
+    JSON.stringify(toolRestrictions),
     userId,
     agentId,
   );
@@ -284,19 +302,19 @@ function getDelegationTargets(userId, sourceAgentId) {
     }));
 }
 
+// One short card per agent this one may hand work to: enough to pick the right
+// owner, none of its context.
 function buildAgentRosterPrompt(userId, activeAgentId) {
   const roster = getDelegationTargets(userId, activeAgentId);
   if (!roster.length) return '';
-  const lines = roster.map((agent) => {
-    const responsibilities = agent.responsibilities || agent.description || 'No specific responsibility described.';
-    return `- ${agent.slug} (${agent.name}): ${responsibilities}`;
+  const cards = roster.map((agent) => {
+    const responsibility = clampRunContext(agent.responsibilities || agent.description || 'No responsibility described.', 300);
+    const description = agent.responsibilities && agent.description ? ` ${clampRunContext(agent.description, 160)}` : '';
+    return `- ${agent.slug} (${agent.name}): ${responsibility}${description}`;
   });
-  return [
-    '[Available specialist agents]',
-    'Delegate only when a specialist clearly matches the task. If uncertain, handle the task yourself.',
-    ...lines,
-  ].join('\n');
+  return renderFragment('runtime/agent_roster.md', { cards: cards.join('\n') });
 }
+
 
 module.exports = {
   MAIN_AGENT_SLUG,

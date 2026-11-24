@@ -123,7 +123,7 @@ class _ServerPanelState extends State<ServerPanel> {
     } on Object catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = formatCaughtError(error);
+        _errorMessage = rawErrorText(error);
         _viewingLogs = false;
       });
       return;

@@ -5,6 +5,7 @@ const { getAiSettings } = require('../settings');
 const { getProviderForUser } = require('../provider_selector');
 const { inferTaskKind, normalizeTaskModels } = require('../task_models');
 const { neoRouterTaskSelection } = require('../model_router');
+const { dropReasoningState } = require('./reasoning_state');
 
 // After a tool turn, moves the run onto the model the user pinned for the
 // kind of work those tools show, and back to the run's own model when the work
@@ -43,6 +44,8 @@ async function applyTaskModel(session, toolCalls) {
       session.unroutableTaskModels.add(wanted);
       return;
     }
+    // Reasoning signatures belong to the model that wrote them.
+    dropReasoningState(session.messages);
     session.model = {
       provider: selected.provider,
       providerName: selected.providerName,

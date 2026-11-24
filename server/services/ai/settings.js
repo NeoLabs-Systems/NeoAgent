@@ -45,6 +45,8 @@ function createDefaultAiSettings() {
     tool_replay_budget_command_chars: null,
     max_consecutive_read_only_iterations: null,
     max_consecutive_tool_failures: null,
+    // Share of successful runs whose full prompts are kept for inspection.
+    // Failed runs and runs marked "capture next" are always kept.
     subagent_max_children_per_run: 10,
     assistant_behavior_notes: '',
     auto_skill_learning: true,

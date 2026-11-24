@@ -480,6 +480,22 @@ class MessagingManager extends EventEmitter {
     return `${userId}:${agentId}:${platformName}`;
   }
 
+  // A chat known to be the owner's own on this platform, or null. Two things prove
+  // it: a shared-bot link, made with a code the owner sent from their own direct
+  // chat, and a connection that knows its account is the owner's (the platform's
+  // ownerChatId). The last chat someone wrote from proves nothing: it may be a
+  // group, or another person the owner allowed.
+  ownerDestination(userId, agentId, platformName) {
+    const resolvedAgentId = this._agentId(userId, { agentId });
+    const route = this.platforms.get(this._key(userId, resolvedAgentId, platformName));
+    if (!route) return null;
+    if (route.isSharedRoute) {
+      const link = require('./shared_store').findLinkForUser(platformName, userId);
+      return link?.chat_id ? String(link.chat_id) : null;
+    }
+    return typeof route.ownerChatId === 'function' ? route.ownerChatId() || null : null;
+  }
+
   _clearReconnect(key, { resetAttempts = true } = {}) {
     const timer = this.reconnectTimers.get(key);
     if (timer) clearTimeout(timer);
@@ -834,11 +850,22 @@ class MessagingManager extends EventEmitter {
 
     platform.on('message', (msg) => {
       if (this.isShuttingDown) return;
+      if (this.chatApprovals?.handleInboundText(userId, agentId, platformName, msg)) return;
       void this.ingestMessage(userId, platformName, msg, { agentId }).catch((error) => {
         if (!this.isShuttingDown) {
           console.error('[Messaging] Failed to persist or dispatch inbound message:', error?.message || error);
         }
       });
+    });
+
+    platform.on('approval_response', (response) => {
+      if (this.isShuttingDown) return;
+      this.chatApprovals?.handleResponse({ ...response, userId, agentId, platformName });
+    });
+
+    platform.on('incoming_call', (call) => {
+      if (this.isShuttingDown) return;
+      this.emit('incoming_call', { ...call, userId, agentId, platform: platformName });
     });
 
     for (const membershipEvent of ['member_joined', 'member_left']) {
@@ -912,22 +939,35 @@ class MessagingManager extends EventEmitter {
     const agentId = this._agentId(userId, mediaPathOrOptions || {});
     const key = this._key(userId, agentId, platformName);
     const platform = this.platforms.get(key);
-    if (!platform) throw new Error(`Platform ${platformName} not connected`);
+    if (!platform) {
+      const error = new Error(`Platform ${platformName} not connected`);
+      // Nothing was sent, so sending again later cannot duplicate anything.
+      error.safeToRetry = true;
+      throw error;
+    }
 
     const sendOptions =
       mediaPathOrOptions && typeof mediaPathOrOptions === 'object' && !Array.isArray(mediaPathOrOptions)
         ? mediaPathOrOptions
         : { mediaPath: mediaPathOrOptions };
     const mediaReference = sendOptions.mediaPath || null;
-    const mediaPath = mediaReference
-      ? resolveUserFileReference({
-          userId,
-          reference: mediaReference,
-          artifactStore: this.artifactStore,
-          workspaceManager: this.workspaceManager,
-          label: 'Message attachment',
-        })
-      : null;
+    let mediaPath = null;
+    try {
+      mediaPath = mediaReference
+        ? resolveUserFileReference({
+            userId,
+            reference: mediaReference,
+            artifactStore: this.artifactStore,
+            workspaceManager: this.workspaceManager,
+            label: 'Message attachment',
+          })
+        : null;
+    } catch (error) {
+      // Nothing left for the platform: a fixed attachment can be sent without a
+      // duplicate, so this is a failure, not a maybe-sent.
+      error.safeToRetry = true;
+      throw error;
+    }
     const platformSendOptions = {
       ...sendOptions,
       mediaPath,
@@ -957,7 +997,12 @@ class MessagingManager extends EventEmitter {
         sendOptions,
         `${platformName} message delivery`,
         (signal) => platform.sendMessage(to, part, { ...partOptions, signal }),
-      );
+      ).catch((error) => {
+        // Earlier parts already reached the chat, so this message cannot be
+        // sent again from the start.
+        if (index > 0) error.deliveryAmbiguous = true;
+        throw error;
+      });
       this._assertRunning();
       throwIfAborted(sendOptions.signal, 'Message delivery aborted.');
       if (partResult?.success === false) {
@@ -965,6 +1010,7 @@ class MessagingManager extends EventEmitter {
         const error = new Error(`Platform ${platformName} delivery failed: ${reason}`);
         error.code = 'MESSAGING_DELIVERY_FAILED';
         error.deliveryResult = partResult;
+        error.deliveryAmbiguous = index > 0;
         throw error;
       }
       result ??= partResult;
@@ -974,7 +1020,7 @@ class MessagingManager extends EventEmitter {
       .run(userId, agentId, runId, 'assistant', normalizedContent, platformName, result?.messageId || null, to, mediaReference, metadata ? JSON.stringify(metadata) : null);
 
     if (persistConversation) {
-      const conversationId = this.getOrCreateConversation(userId, platformName, to, { agentId });
+      const conversationId = await this.getOrCreateConversation(userId, platformName, to, { agentId });
       db.prepare('INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, ?, ?)')
         .run(conversationId, 'assistant', normalizedContent);
       db.prepare("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?")
@@ -1009,16 +1055,38 @@ class MessagingManager extends EventEmitter {
     return { success: true, result };
   }
 
-  getOrCreateConversation(userId, platformName, chatId, options = {}) {
+  // Every address the platform knows for this chat, in the order a
+  // conversation is looked up. On WhatsApp a person writes under a LID while
+  // deliveries may go to the number; both are one chat.
+  async conversationChatIds(userId, platformName, chatId, options = {}) {
     const agentId = this._agentId(userId, options);
-    let conversation = db
-      .prepare('SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?')
-      .get(userId, agentId, platformName, chatId);
+    const platform = this.platforms.get(this._key(userId, agentId, platformName));
+    const aliases = await Promise.resolve(platform?.conversationChatIds?.(chatId)).catch(() => null);
+    return [...new Set([...(Array.isArray(aliases) ? aliases : []), String(chatId || '')].filter(Boolean))];
+  }
 
-    if (conversation) {
-      return conversation.id;
-    }
+  _conversationsFor(userId, agentId, platformName, chatIds) {
+    if (!chatIds.length) return [];
+    const rows = db.prepare(
+      `SELECT id, platform_chat_id FROM conversations
+       WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id IN (${chatIds.map(() => '?').join(', ')})`
+    ).all(userId, agentId, platformName, ...chatIds);
+    return chatIds.flatMap((id) => rows.filter((row) => row.platform_chat_id === id).map((row) => row.id));
+  }
 
+  // The chat's conversations, in address order.
+  async findConversations(userId, platformName, chatId, options = {}) {
+    const chatIds = await this.conversationChatIds(userId, platformName, chatId, options);
+    return this._conversationsFor(userId, this._agentId(userId, options), platformName, chatIds);
+  }
+
+  async getOrCreateConversation(userId, platformName, chatId, options = {}) {
+    const agentId = this._agentId(userId, options);
+    const chatIds = await this.conversationChatIds(userId, platformName, chatId, options);
+    const [existing] = this._conversationsFor(userId, agentId, platformName, chatIds);
+    if (existing) return existing;
+
+    const [preferredChatId] = chatIds;
     const conversationId = randomUUID();
     db.prepare(
       'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
@@ -1027,8 +1095,8 @@ class MessagingManager extends EventEmitter {
       userId,
       agentId,
       platformName,
-      chatId,
-      `${platformName} — ${chatId}`
+      preferredChatId,
+      options.title || `${platformName} — ${chatId}`
     );
 
     return conversationId;

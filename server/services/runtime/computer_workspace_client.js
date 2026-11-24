@@ -1,7 +1,7 @@
 'use strict';
 
 const { applyTextEdits, coerceWritableText } = require('../workspace/text_edits');
-const { toGuestWorkspacePath } = require('./guest_paths');
+const { fromGuestWorkspacePath, toGuestWorkspacePath } = require('./guest_paths');
 
 class ComputerWorkspaceClient {
   constructor(options = {}) {
@@ -23,6 +23,24 @@ class ComputerWorkspaceClient {
     return {
       ...result,
       content: coerceWritableText(result.content),
+    };
+  }
+
+  // The bytes of one workspace file, for a tool that sends or uploads it.
+  async downloadFile(userId, filePath, options = {}) {
+    const result = await this.#request(
+      userId,
+      'GET',
+      // Relative to the workspace, which every computer maps to its own.
+      `/workspace/files/download?path=${encodeURIComponent(fromGuestWorkspacePath(filePath))}`,
+      undefined,
+      options,
+    );
+    return {
+      path: toGuestWorkspacePath(result.path),
+      filename: result.filename,
+      content: Buffer.from(String(result.content || ''), 'base64'),
+      size: Number(result.size || 0),
     };
   }
 
@@ -107,7 +125,13 @@ class ComputerWorkspaceClient {
     if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
       return { success: false, error: 'Invalid line range.', path: current.path };
     }
-    lines.splice(start - 1, end - start + 1, ...String(options.content ?? '').split('\n'));
+    if (start > lines.length) {
+      return { success: false, error: `Line ${start} is past the end of the file (${lines.length} lines).`, path: current.path };
+    }
+    // The lines between the two ends are replaced: a trailing newline in the new text
+    // is not one more line, and empty text removes them.
+    const replacement = String(options.content ?? '').replace(/\r?\n$/, '');
+    lines.splice(start - 1, end - start + 1, ...(String(options.content ?? '') === '' ? [] : replacement.split('\n')));
     return this.writeFile(userId, {
       path: options.path,
       content: lines.join('\n'),

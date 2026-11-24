@@ -4,7 +4,7 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const { isMainAgent, resolveAgentId } = require('../agents/manager');
-const { isRefusedSharedRecipient } = require('../messaging/shared_route');
+const { isRefusedSharedRecipient, reachableSharedTarget } = require('../messaging/shared_route');
 const taskAdapters = require('./adapters');
 const {
   POLLED_TRIGGER_TYPES,
@@ -26,6 +26,9 @@ const { normalizeJsonObject } = require('./utils');
 const { fenceUntrusted } = require('../../utils/untrusted_text');
 const { getUserTimeZone } = require('../account/timezone');
 const { normalizeOutgoingMessageForPlatform } = require('../messaging/formatting_guides');
+const { commitDelivery } = require('../ai/runtime/delivery/delivery_worker');
+const { createRunDelivery, markSent } = require('../ai/runtime/delivery/run_delivery');
+const { loadRun } = require('../ai/runtime/run_state_machine');
 const { isTransientError } = require('../ai/providerRetry');
 const { getFailureDisposition } = require('../ai/model_failure_cache');
 const { isAbortError, throwIfAborted } = require('../../utils/abort');
@@ -44,7 +47,7 @@ const TASK_OUTPUT_DEFAULTS = [
   '- Say each thing once. No repetition, no restating the task, no summary of a summary.',
   '- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.',
   '- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).',
-  '- If nothing is relevant, do not message the user.',
+  '- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.',
   '- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.',
 ].join('\n');
 const MAX_RECURRING_TASK_START_DELAY_MS = 90 * 1000;
@@ -273,6 +276,8 @@ class TaskRuntime {
     );
     const normalized = await this._normalizeTaskInput(userId, input);
     const taskId = this.taskRepository.createTask(userId, normalized);
+    const initialCheckpoint = this.triggerRegistry.get(normalized.triggerType)?.poll?.initialCheckpoint;
+    if (initialCheckpoint) this.taskRepository.markTaskTriggerCheckpoint(taskId, initialCheckpoint(), userId);
     if (normalized.enabled) {
       await this._registerTask(this.taskRepository.getTaskById(taskId, userId));
     }
@@ -308,6 +313,11 @@ class TaskRuntime {
     });
 
     this.taskRepository.updateTask(taskId, userId, normalized);
+    const updated = this.taskRepository.getTaskById(taskId, userId);
+    const initialCheckpoint = this.triggerRegistry.get(normalized.triggerType)?.poll?.initialCheckpoint;
+    if (initialCheckpoint && (!updated.last_trigger_fingerprint || (!existing.enabled && normalized.enabled))) {
+      this.taskRepository.markTaskTriggerCheckpoint(taskId, initialCheckpoint(), userId);
+    }
     this._unregisterTask(taskId);
     if (normalized.enabled) {
       await this._registerTask(this.taskRepository.getTaskById(taskId, userId));
@@ -355,6 +365,21 @@ class TaskRuntime {
       console.error(`[Tasks] Manual task ${taskId} error:`, error.message);
     });
     return { running: true };
+  }
+
+  // A run of this task that a restart cut off, started again for the same
+  // occurrence (restart_resume). It started on time, so it is not a late start.
+  resumeInterruptedTask({ taskId, userId, scheduledAt, triggerSource, runId, resumedFromRunId, note }) {
+    return this._executeTask(taskId, userId, {
+      scheduledAt,
+      manual: triggerSource === 'manual',
+      oneTime: false,
+      triggerType: 'schedule',
+      triggerSource,
+      runId,
+      resumedFromRunId,
+      resumeNote: note,
+    });
   }
 
   async fireTaskFromTrigger(taskId, userId, triggerPayload = {}) {
@@ -659,6 +684,7 @@ class TaskRuntime {
     const isLateRecurringRun = (
       executionMeta.manual !== true
       && executionMeta.oneTime !== true
+      && !executionMeta.resumedFromRunId
       && executionMeta.triggerType === 'schedule'
       && Number.isFinite(scheduledAtMs)
       && (Date.now() - scheduledAtMs) > MAX_RECURRING_TASK_START_DELAY_MS
@@ -719,15 +745,7 @@ class TaskRuntime {
 
     let normalizedConfig = taskConfig;
     const taskName = task.name || `Task ${taskId}`;
-    const deliveryState = {
-      messagingSent: false,
-      noResponse: false,
-      proactiveMessageStaged: false,
-      stagedProactiveMessage: null,
-      lastSentMessage: '',
-      sentMessages: [],
-      notifyTarget: null,
-    };
+    const delivery = createRunDelivery();
     let completedRunId = null;
     try {
       normalizedConfig = this._dropLegacyCallConfig(userId, taskConfig, taskId);
@@ -738,13 +756,14 @@ class TaskRuntime {
         normalizedConfig,
         executionMeta.triggerPayload,
       );
-      deliveryState.notifyTarget = notifyTarget;
+      delivery.notifyTarget = notifyTarget;
       const triggerSummary = this._summarizeTrigger(task.trigger_type, triggerConfig);
       let notifyHint = '';
-      const manualRun = executionMeta.manual === true;
 
       if (notifyTarget) {
-        notifyHint = `\n\nIf your task result is worth notifying the user about, send it proactively via send_message to platform="${notifyTarget.platform}" to="${notifyTarget.to}" and set purpose="final_result" for a concrete useful outcome or purpose="blocker" for a real issue the user should know about. If nothing important or actionable changed, call send_message with purpose="no_response" and content="[NO RESPONSE]" exactly; never leave content blank for no_response. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.${manualRun ? '' : ' For this automatic run, plain assistant text is internal only and is NOT delivered. You MUST end the run with exactly one explicit send_message decision (purpose="final_result", "blocker", or "no_response") — if you produce a real result, deliver it with send_message or it is lost.'}`;
+        // The final answer is the delivery: one path, and silence is a control
+        // token rather than a second tool call to remember.
+        notifyHint = `\n\nYour final answer is delivered to the user on platform="${notifyTarget.platform}" to="${notifyTarget.to}" when this run ends; do not send it yourself with send_message. If nothing is worth telling them, answer exactly [NO RESPONSE] and nothing else: it is a control token, never translated or combined with other text. When a tool result already gives you summary fields or flags that answer the task, decide from that evidence instead of re-running nearby variants of the same lookup.`;
       }
 
       // The payload is whatever the email, webhook, or chat said: data for
@@ -766,7 +785,9 @@ class TaskRuntime {
         task.task_type === 'agent_prompt'
           ? (normalizedConfig.prompt || `You have been triggered to run the background task "${taskName}".`)
           : '',
-        buildLastRunNote(this.taskRepository.getLastTaskRun(userId, taskId)),
+        // A resumed run's own occurrence is in its resume note, not here.
+        buildLastRunNote(this.taskRepository.getLastTaskRun(userId, taskId, executionMeta.resumedFromRunId)),
+        executionMeta.resumeNote || '',
         triggerPayloadText.trim(),
         notifyHint,
       ].filter(Boolean).join('\n\n');
@@ -774,12 +795,14 @@ class TaskRuntime {
       const conversationId = this._getTaskConversation(userId, taskId, taskName, agentId);
       // History comes from the chat the task reports to; the task's own
       // conversation only repeats this prompt run after run.
-      const { priorMessages, priorSummary } = buildTaskChatContext({
+      const { priorMessages, priorSummary } = await buildTaskChatContext({
         taskRepository: this.taskRepository,
+        messagingManager: this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null,
         userId,
         agentId: resolveAgentId(userId, agentId),
         notifyTarget,
       });
+      const triggerSource = executionMeta.triggerSource || task.trigger_type || 'schedule';
       let attempt = 0;
       let recoveryNote = '';
       while (attempt <= MAX_AUTONOMOUS_RETRIES) {
@@ -787,14 +810,14 @@ class TaskRuntime {
         const runOptions = {
           title: taskName,
           triggerType: task.trigger_type || 'schedule',
-          triggerSource: executionMeta.triggerSource || task.trigger_type || 'schedule',
+          triggerSource,
           agentId,
           app: this.app,
           conversationId,
           taskId,
           scheduledAt: executionInstant,
           bypassUserRateLimits: true,
-          deliveryState,
+          delivery,
           allowMultipleProactiveMessages: normalizedConfig.allowMultipleMessages === true || normalizedConfig.allow_multiple_messages === true,
           stageProactiveMessages: true,
           skipGlobalRecall: true,
@@ -804,6 +827,14 @@ class TaskRuntime {
           stream: false,
           context: executionMeta.triggerPayload || {},
           signal,
+          ...(attempt === 0 && executionMeta.runId ? { runId: executionMeta.runId } : {}),
+          ...(executionMeta.resumedFromRunId ? { resumedFromRunId: executionMeta.resumedFromRunId } : {}),
+          // A restart that cuts this run off starts it again once. A one-time task
+          // stays until it runs, and an event's payload is not kept, so neither is named.
+          ...(executionMeta.oneTime !== true && !executionMeta.triggerPayload
+            && (executionMeta.triggerType === 'schedule' || executionMeta.manual === true)
+            ? { resumableTask: { taskId, scheduledAt: executionInstant, triggerSource } }
+            : {}),
         };
         try {
           const result = typeof this.agentEngine.runWithModel === 'function'
@@ -818,8 +849,7 @@ class TaskRuntime {
             agentId,
             taskId,
             result,
-            deliveryState,
-            allowPlainResultFallback: manualRun,
+            delivery,
           });
           if (fallbackDelivery && result && typeof result === 'object') {
             result.taskDelivery = fallbackDelivery;
@@ -830,8 +860,8 @@ class TaskRuntime {
             throw deliveryError;
           }
           if (
-            !deliveryState.messagingSent
-            && !deliveryState.noResponse
+            !delivery.sent.length
+            && !delivery.noResponse
             && !stringifyTaskResult(result).trim()
           ) {
             throw new Error(
@@ -912,8 +942,7 @@ class TaskRuntime {
             result: {
               content: failureMessage,
             },
-            deliveryState,
-            allowPlainResultFallback: true,
+            delivery,
           });
         }
       }
@@ -977,7 +1006,10 @@ class TaskRuntime {
     if (!name) throw new Error('Task name is required.');
     const triggerType = String(input.triggerType || input.trigger_type || existingTask?.trigger_type || '').trim() || 'schedule';
     const adapter = this.triggerRegistry.get(triggerType);
-    if (!adapter) throw new Error(`Unsupported trigger type: ${triggerType}`);
+    if (!adapter) {
+      const known = this.triggerRegistry.list().map((entry) => entry.type).join(', ');
+      throw new Error(`Unsupported trigger type: ${triggerType}. Use one of: ${known}. A time, once or repeating, is "schedule" with config.mode "one_time" or "recurring".`);
+    }
 
     const existingTaskConfig = this._normalizeJson(existingTask?.task_config);
     const taskType = String(input.taskType || input.task_type || existingTask?.task_type || 'agent_prompt').trim() || 'agent_prompt';
@@ -1040,7 +1072,11 @@ class TaskRuntime {
     delete taskConfig.callTo;
     delete taskConfig.callGreeting;
     const agentId = row.agent_id || resolveAgentId(userId, null);
-    const notifyTarget = normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo });
+    const notifyTarget = this._configuredNotifyTarget(userId, agentId, taskConfig);
+    if (notifyTarget) {
+      taskConfig.notifyPlatform = notifyTarget.platform;
+      taskConfig.notifyTo = notifyTarget.to;
+    }
     const triggerSummary = this._summarizeTrigger(triggerType, triggerConfig);
     // Reported for every schedule task, not only those already compensating for
     // their duration, so the editor can preview what a head start would do.
@@ -1055,9 +1091,6 @@ class TaskRuntime {
       triggerSummary,
       nextRun: triggerType === 'schedule' ? scheduleAdapter.nextRun(triggerConfig, getUserTimeZone(userId)) : null,
       averageRunSeconds: averageRunSeconds === null ? null : Math.round(averageRunSeconds),
-      // Its saved destination can't be reached any more, so results won't arrive.
-      deliveryBlocked: Boolean(notifyTarget)
-        && isRefusedSharedRecipient(userId, agentId, notifyTarget.platform, notifyTarget.to),
       enabled: !!row.enabled,
       lastRun: row.last_run_started_at || row.last_run || null,
       lastRunId: row.last_run_id || null,
@@ -1129,11 +1162,16 @@ class TaskRuntime {
     return status?.status === 'connected' ? target : null;
   }
 
+  _configuredNotifyTarget(userId, agentId, taskConfig) {
+    const target = normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo });
+    return target && reachableSharedTarget(userId, agentId, target);
+  }
+
   // Where this run reports: the configured target, then the event's own thread,
   // then the agent's latest chat. It holds for this run only; storing it would
   // turn "use default channel" into a fixed target.
   _resolveNotifyTarget(userId, agentId, task, taskConfig, triggerPayload) {
-    return normalizeNotifyTarget({ platform: taskConfig.notifyPlatform, to: taskConfig.notifyTo })
+    return this._configuredNotifyTarget(userId, agentId, taskConfig)
       || this._originNotifyTarget(userId, agentId, task.trigger_type, triggerPayload)
       || this._latestChatTarget(userId, agentId);
   }
@@ -1183,47 +1221,22 @@ class TaskRuntime {
     agentId,
     taskId,
     result,
-    deliveryState,
-    allowPlainResultFallback = true,
+    delivery,
   }) {
     throwIfAborted(this.abortController.signal, 'Task runtime is stopping.');
-    if (deliveryState?.messagingSent || deliveryState?.noResponse) return null;
+    if (delivery?.sent?.length || delivery?.noResponse) return null;
     // The run's target is authoritative: never redirect to the chat the model
     // picked or to another chat, so a broken target fails visibly.
-    const target = deliveryState?.notifyTarget;
+    const target = delivery?.notifyTarget;
     if (!target) return null;
     const resultText = stringifyTaskResult(result).trim();
-    const resultLooksLikeError = Boolean(result?.error);
+    const staged = delivery?.staged || null;
     const stagedMessage = normalizeOutgoingMessageForPlatform(
-      deliveryState?.stagedProactiveMessage?.platform,
-      deliveryState?.stagedProactiveMessage?.content || '',
+      staged?.platform,
+      staged?.content || '',
       { stripNoResponseMarker: false },
     );
-    const explicitStagedDelivery = deliveryState?.proactiveMessageStaged === true && Boolean(stagedMessage);
-    // A forced terminal wrap-up (read-only/blocked hard-stop) is the model's final
-    // answer produced WITHOUT the ability to call send_message itself. Gating it
-    // would silently drop a stuck scheduled task's result, so deliver it even on an
-    // automatic run. Ordinary mid-run plain text (model had send_message available
-    // and chose not to use it) is still gated below.
-    const forcedTerminal = deliveryState?.terminalWrapup === true && Boolean(resultText);
-    if (!allowPlainResultFallback && !resultLooksLikeError && !forcedTerminal && !explicitStagedDelivery) {
-      // Automatic run produced substantive text but never made an explicit
-      // send_message decision (a deliberate no_response would have short-circuited
-      // above). We suppress to avoid recurring-check spam, but surface it so a
-      // genuinely dropped notification is visible rather than silently lost.
-      if (resultText) {
-        console.warn(
-          `[Tasks] Task ${taskId} produced an undelivered result on an automatic run `
-          + `(no explicit send_message decision): ${resultText.slice(0, 140)}`
-        );
-      }
-      return {
-        sent: false,
-        skipped: true,
-        reason: 'explicit_delivery_required',
-      };
-    }
-
+    const explicitStagedDelivery = Boolean(stagedMessage);
     const manager = this.app?.locals?.messagingManager || this.agentEngine?.messagingManager || null;
     if (!manager) {
       return {
@@ -1246,21 +1259,37 @@ class TaskRuntime {
       if (!status || status.status !== 'connected') {
         throw new Error(`Platform ${target.platform} is not connected on this server.`);
       }
-      const sendResult = await manager.sendMessage(userId, target.platform, target.to, message, {
+      const send = () => manager.sendMessage(userId, target.platform, target.to, message, {
         agentId,
-        mediaPath: explicitStagedDelivery ? deliveryState.stagedProactiveMessage.mediaPath || null : null,
+        mediaPath: explicitStagedDelivery ? staged.mediaPath || null : null,
         runId: result?.runId || null,
         persistConversation: true,
         signal: this.abortController.signal,
       });
-      deliveryState.messagingSent = true;
-      deliveryState.proactiveMessageStaged = false;
-      deliveryState.stagedProactiveMessage = null;
-      deliveryState.lastSentMessage = message;
-      if (!Array.isArray(deliveryState.sentMessages)) {
-        deliveryState.sentMessages = [];
+      let sendResult = null;
+      // The task's result is one more message on the run's ledger, so a retry of
+      // this step can never send it twice.
+      const run = result?.runId ? loadRun(result.runId) : null;
+      if (run) {
+        const commit = await commitDelivery({
+          run,
+          channel: 'messaging',
+          recipient: `${target.platform}:${target.to}`,
+          purpose: 'final',
+          slot: 'task_result',
+          content: message,
+          metadata: { platform: target.platform, taskId },
+          transmit: async () => {
+            sendResult = await send();
+            return { ok: true, platformMessageId: sendResult?.result?.messageId || null };
+          },
+        });
+        if (!commit.ok) throw commit.thrown || new Error(commit.error || commit.reason);
+      } else {
+        sendResult = await send();
       }
-      deliveryState.sentMessages.push(message);
+      delivery.staged = null;
+      markSent(delivery, message);
 
       return {
         sent: true,

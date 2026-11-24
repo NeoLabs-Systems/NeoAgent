@@ -1,6 +1,46 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { BaseProvider } = require('./base');
 
+const CACHE_BREAKPOINT = Object.freeze({ type: 'ephemeral' });
+
+// Tools, then the stable system block, then the newest turn: tools rarely change,
+// the stable block holds across runs, and the last breakpoint moves forward with
+// the run so each turn reads what the one before it wrote. Thinking blocks cannot
+// carry a breakpoint, and a prompt below the model's minimum simply isn't cached.
+function applyCacheBreakpoints(params) {
+  if (params.tools?.length) {
+    const last = params.tools.length - 1;
+    params.tools[last] = { ...params.tools[last], cache_control: CACHE_BREAKPOINT };
+  }
+  if (params.system?.length) {
+    params.system[0] = { ...params.system[0], cache_control: CACHE_BREAKPOINT };
+  }
+  const lastMessage = params.messages?.[params.messages.length - 1];
+  if (lastMessage) {
+    const blocks = Array.isArray(lastMessage.content)
+      ? lastMessage.content
+      : [{ type: 'text', text: String(lastMessage.content ?? '') }];
+    for (let index = blocks.length - 1; index >= 0; index -= 1) {
+      const block = blocks[index];
+      if (block.type === 'thinking' || block.type === 'redacted_thinking') continue;
+      if (block.type === 'text' && !block.text) continue;
+      const next = [...blocks];
+      next[index] = { ...block, cache_control: CACHE_BREAKPOINT };
+      params.messages[params.messages.length - 1] = { ...lastMessage, content: next };
+      break;
+    }
+  }
+  return params;
+}
+
+// Anthropic's input_tokens leaves out what the cache served. Every other provider
+// counts it, so this is the one place that makes the numbers mean the same thing.
+function promptTokensOf(usage) {
+  return Number(usage.input_tokens || 0)
+    + Number(usage.cache_read_input_tokens || 0)
+    + Number(usage.cache_creation_input_tokens || 0);
+}
+
 class AnthropicProvider extends BaseProvider {
   constructor(config = {}) {
     super(config);
@@ -22,6 +62,11 @@ class AnthropicProvider extends BaseProvider {
 
   getContextWindow(model) {
     return 200000;
+  }
+
+  // convertMessages reads the content blocks itself and sends nothing else.
+  prepareMessages(messages) {
+    return messages;
   }
 
   formatTools(tools) {
@@ -88,16 +133,24 @@ class AnthropicProvider extends BaseProvider {
 
   convertMessages(messages) {
     const system = [];
+    // A note added mid-run must not change the system block, or every cached turn
+    // after it would be lost. Later notes travel as text in the conversation.
+    let toolTurnSeen = false;
     const converted = [];
 
     for (const msg of messages) {
       if (msg.role === 'system') {
+        if (toolTurnSeen) {
+          converted.push({ role: 'user', content: [{ type: 'text', text: String(msg.content || '') }] });
+          continue;
+        }
         system.push({
           type: 'text',
           text: String(msg.content || ''),
         });
         continue;
       }
+      if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length) toolTurnSeen = true;
 
       if (msg.role === 'tool') {
         converted.push({
@@ -164,6 +217,7 @@ class AnthropicProvider extends BaseProvider {
 
     if (system.length > 0) params.system = system;
     if (tools.length > 0) params.tools = this.formatTools(tools);
+    applyCacheBreakpoints(params);
     const response = await this.client.messages.create(params, { signal: options.signal });
     const responseBlocks = Array.isArray(response?.content)
       ? response.content
@@ -191,7 +245,7 @@ class AnthropicProvider extends BaseProvider {
     // A truncated or error-shaped response can omit usage entirely; a missing
     // token count must not abort the run.
     const usage = response.usage || {};
-    const inputTokens = Number(usage.input_tokens || 0);
+    const inputTokens = promptTokensOf(usage);
     const outputTokens = Number(usage.output_tokens || 0);
 
     return {
@@ -226,6 +280,7 @@ class AnthropicProvider extends BaseProvider {
 
     if (system.length > 0) params.system = system;
     if (tools.length > 0) params.tools = this.formatTools(tools);
+    applyCacheBreakpoints(params);
     const stream = await this.client.messages.stream(params, { signal: options.signal });
 
     let content = '';
@@ -237,14 +292,14 @@ class AnthropicProvider extends BaseProvider {
     for await (const event of stream) {
       if (event.type === 'message_start' && event.message?.usage) {
         finalUsage = {
-          inputTokens: event.message.usage.input_tokens || 0,
+          inputTokens: promptTokensOf(event.message.usage),
           outputTokens: event.message.usage.output_tokens || 0,
           reasoningTokens: 0,
           cachedReadTokens: event.message.usage.cache_read_input_tokens || 0,
           cacheWriteTokens: event.message.usage.cache_creation_input_tokens || 0,
-          promptTokens: event.message.usage.input_tokens || 0,
+          promptTokens: promptTokensOf(event.message.usage),
           completionTokens: event.message.usage.output_tokens || 0,
-          totalTokens: (event.message.usage.input_tokens || 0) + (event.message.usage.output_tokens || 0),
+          totalTokens: promptTokensOf(event.message.usage) + (event.message.usage.output_tokens || 0),
         };
       } else if (event.type === 'content_block_start') {
         if (event.content_block.type === 'thinking') {

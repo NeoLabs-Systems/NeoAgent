@@ -167,6 +167,7 @@ The confirmation and notification switches apply only once SMTP is configured.
 | `NEOAGENT_COMPUTER_MAX_DISK_GIB` | `12` | Largest disk per computer |
 | `NEOAGENT_COMPUTER_STORAGE_RESERVE_PERCENT` | `20` | Free disk space kept for the host |
 | `NEOAGENT_VM_IDLE_TIMEOUT_MS` | `600000` | Idle time before a computer shuts down |
+| `NEOAGENT_WEB_SHARING` | `true` | Whether agents may [share web pages](devices.md#shared-web-pages); `false` hides the option from everyone and takes every shared link down. Also under **Admin › Config › Cloud computers** |
 
 | `TERMINAL_ENV` | Isolation | Trade-offs |
 | --- | --- | --- |

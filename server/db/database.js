@@ -823,6 +823,18 @@ db.exec(`
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
 
+  -- A user's choices about skills they don't own (built-in and legacy ones):
+  -- switched off, or removed from their list.
+  CREATE TABLE IF NOT EXISTS user_skill_overrides (
+    user_id INTEGER NOT NULL,
+    skill_name TEXT NOT NULL,
+    enabled INTEGER,
+    hidden INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, skill_name),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS agent_settings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -990,15 +1002,6 @@ function interruptStaleAgentRuns(reason = STALE_RUN_INTERRUPTED_ERROR) {
     `UPDATE agent_steps
      SET status = 'interrupted',
          error = COALESCE(NULLIF(error, ''), ?),
-         completed_at = COALESCE(completed_at, datetime('now'))
-     WHERE status = 'running'`
-  ).run(normalizedReason);
-
-  db.prepare(
-    `UPDATE agent_delegations
-     SET status = 'interrupted',
-         error = COALESCE(NULLIF(error, ''), ?),
-         updated_at = datetime('now'),
          completed_at = COALESCE(completed_at, datetime('now'))
      WHERE status = 'running'`
   ).run(normalizedReason);
@@ -1877,6 +1880,19 @@ function migrateUsersDisplayName() {
 }
 migrateUsersDisplayName();
 
+// Models an admin granted to this account on top of the server-wide list, as a
+// JSON array of model ids. NULL means none.
+function migrateUserAllowedModels() {
+  try {
+    const columns = db.pragma('table_info(users)');
+    if (!columns.some((c) => c.name === 'allowed_models')) {
+      db.exec('ALTER TABLE users ADD COLUMN allowed_models TEXT');
+    }
+  } catch (err) {
+    console.warn('Could not add allowed_models column:', err.message);
+  }
+}
+
 function migrateUserRateLimits() {
   try {
     const columns = db.pragma('table_info(users)');
@@ -1893,6 +1909,7 @@ function migrateUserRateLimits() {
   }
 }
 migrateUserRateLimits();
+migrateUserAllowedModels();
 
 function migrateIngestionDocumentsConnectionId() {
   // connection_id was initially nullable; NULL breaks the UNIQUE dedup constraint.

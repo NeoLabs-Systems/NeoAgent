@@ -693,6 +693,16 @@ class LocalVmExecutionBackend {
     };
   }
 
+  // Where the guest agent of a computer that is already up answers, or null.
+  // Never boots one: shared pages are only reachable while the computer runs.
+  runningGuest(userId) {
+    const key = String(userId || '').trim();
+    if (!key || this.shuttingDown || this.vmManager?.hasVm?.(key) === false) return null;
+    const session = this.vmManager?.instances?.get?.(key);
+    if (!session?.baseUrl || session.state !== 'ready') return null;
+    return { baseUrl: session.baseUrl, token: session.guestToken || this.token };
+  }
+
   async isGuestAgentReadyForUser(userId, timeoutMs = 1000) {
     if (!this.vmManager) {
       return false;

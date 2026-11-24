@@ -1796,12 +1796,183 @@ class VoiceAssistantLiveState {
   }
 }
 
+/// A run's summary from its ledger: how long each part took and what happened.
+class RunDiagnostic {
+  const RunDiagnostic({
+    required this.code,
+    required this.count,
+    required this.share,
+    required this.tokens,
+    required this.tools,
+  });
+
+  factory RunDiagnostic.fromJson(Map<dynamic, dynamic> json) {
+    final tools = json['tools'];
+    return RunDiagnostic(
+      code: json['code']?.toString() ?? '',
+      count: _asInt(json['count']),
+      share: (json['share'] as num?)?.toDouble() ?? 0,
+      tokens: _asInt(json['tokens']),
+      tools: tools is List
+          ? tools.map((tool) => tool.toString()).toList()
+          : const <String>[],
+    );
+  }
+
+  final String code;
+  final int count;
+  final double share;
+  final int tokens;
+  final List<String> tools;
+}
+
+class RunHarnessMetrics {
+  const RunHarnessMetrics({
+    this.taskOutcome = '',
+    this.filesChanged = 0,
+    this.testsRun = 0,
+    required this.promptVersion,
+    required this.taskClass,
+    required this.durationMs,
+    required this.firstActionMs,
+    required this.queueMs,
+    required this.modelMs,
+    required this.toolMs,
+    required this.sandboxMs,
+    required this.deliveryMs,
+    required this.turns,
+    required this.retries,
+    required this.toolCalls,
+    required this.toolsFailed,
+    required this.toolsSuppressed,
+    required this.inputTokens,
+    required this.outputTokens,
+    required this.cachedTokens,
+    required this.memoryRecalls,
+    required this.memoryTokens,
+    required this.compactions,
+    required this.recoveries,
+    required this.checkpoints,
+    required this.deliverySent,
+    required this.deliveryFailed,
+    required this.deliverySuppressed,
+  });
+
+  factory RunHarnessMetrics.fromJson(Map<dynamic, dynamic> json) {
+    final latency = _jsonMap(json['latency']);
+    final tools = _jsonMap(json['tools']);
+    final tokens = _jsonMap(json['tokens']);
+    final memory = _jsonMap(json['memory']);
+    final delivery = _jsonMap(json['delivery']);
+    final outcome = _jsonMap(json['outcome']);
+    final evidence = _jsonMap(outcome['evidence']);
+    return RunHarnessMetrics(
+      taskOutcome: outcome['task_outcome']?.toString() ?? '',
+      filesChanged: _asInt(evidence['files_changed']),
+      testsRun: _asInt(evidence['tests_run']),
+      promptVersion: json['prompt_version']?.toString() ?? '',
+      taskClass: json['task_class']?.toString() ?? '',
+      durationMs: _asInt(json['duration_ms']),
+      firstActionMs: json['first_action_ms'] == null
+          ? null
+          : _asInt(json['first_action_ms']),
+      queueMs: _asInt(latency['queue_ms']),
+      modelMs: _asInt(latency['model_ms']),
+      toolMs: _asInt(latency['tool_ms']),
+      sandboxMs: _asInt(latency['sandbox_ms']),
+      deliveryMs: _asInt(latency['delivery_ms']),
+      turns: _asInt(json['turns']),
+      retries: _asInt(json['retries']),
+      toolCalls: _asInt(tools['calls']),
+      toolsFailed: _asInt(tools['failed']),
+      toolsSuppressed: _asInt(tools['suppressed']),
+      inputTokens: _asInt(tokens['input']),
+      outputTokens: _asInt(tokens['output']),
+      cachedTokens: _asInt(tokens['cachedRead']),
+      memoryRecalls: _asInt(memory['recalls']),
+      memoryTokens: _asInt(memory['tokens']),
+      compactions: _asInt(json['compactions']),
+      recoveries: _asInt(json['recoveries']),
+      checkpoints: _asInt(json['checkpoints']),
+      deliverySent: _asInt(delivery['sent']),
+      deliveryFailed: _asInt(delivery['failed']),
+      deliverySuppressed: _asInt(delivery['suppressed']),
+    );
+  }
+
+  final String taskOutcome;
+  final int filesChanged;
+  final int testsRun;
+  final String promptVersion;
+  final String taskClass;
+  final int durationMs;
+  final int? firstActionMs;
+  final int queueMs;
+  final int modelMs;
+  final int toolMs;
+  final int sandboxMs;
+  final int deliveryMs;
+  final int turns;
+  final int retries;
+  final int toolCalls;
+  final int toolsFailed;
+  final int toolsSuppressed;
+  final int inputTokens;
+  final int outputTokens;
+  final int cachedTokens;
+  final int memoryRecalls;
+  final int memoryTokens;
+  final int compactions;
+  final int recoveries;
+  final int checkpoints;
+  final int deliverySent;
+  final int deliveryFailed;
+  final int deliverySuppressed;
+}
+
+/// The record a multi-step run keeps of its own task.
+class RunTaskLedger {
+  const RunTaskLedger({
+    required this.goal,
+    required this.steps,
+    required this.verifiedFacts,
+    required this.blockers,
+  });
+
+  factory RunTaskLedger.fromJson(Map<dynamic, dynamic> json) {
+    List<String> texts(dynamic value) => value is List
+        ? value.map((item) => item.toString()).toList()
+        : const <String>[];
+    return RunTaskLedger(
+      goal: json['goal']?.toString() ?? '',
+      steps: _jsonMapList(json['steps'])
+          .map(
+            (step) => (
+              id: step['id']?.toString() ?? '',
+              status: step['status']?.toString() ?? 'pending',
+            ),
+          )
+          .toList(),
+      verifiedFacts: texts(json['observations'] ?? json['verified_facts']),
+      blockers: texts(json['blockers']),
+    );
+  }
+
+  final String goal;
+  final List<({String id, String status})> steps;
+  final List<String> verifiedFacts;
+  final List<String> blockers;
+}
+
 class RunDetailSnapshot {
   const RunDetailSnapshot({
     required this.run,
     required this.steps,
     required this.events,
     required this.response,
+    this.metrics,
+    this.diagnostics = const <RunDiagnostic>[],
+    this.ledger,
   });
 
   factory RunDetailSnapshot.fromJson(Map<dynamic, dynamic> json) {
@@ -1816,6 +1987,18 @@ class RunDetailSnapshot {
         fallbackToMapValues: true,
       ).map(RunEventItem.fromJson).toList(),
       response: json['response']?.toString() ?? '',
+      metrics: json['metrics'] is Map
+          ? RunHarnessMetrics.fromJson(json['metrics'] as Map<dynamic, dynamic>)
+          : null,
+      diagnostics: json['diagnostics'] is List
+          ? (json['diagnostics'] as List<dynamic>)
+                .whereType<Map<dynamic, dynamic>>()
+                .map(RunDiagnostic.fromJson)
+                .toList()
+          : const <RunDiagnostic>[],
+      ledger: json['ledger'] is Map
+          ? RunTaskLedger.fromJson(json['ledger'] as Map<dynamic, dynamic>)
+          : null,
     );
   }
 
@@ -1823,6 +2006,9 @@ class RunDetailSnapshot {
   final List<RunStepItem> steps;
   final List<RunEventItem> events;
   final String response;
+  final List<RunDiagnostic> diagnostics;
+  final RunHarnessMetrics? metrics;
+  final RunTaskLedger? ledger;
 
   int get completedTools => steps
       .where((step) => step.toolName.isNotEmpty && step.status == 'completed')
@@ -2017,68 +2203,48 @@ class RunEventItem {
 
   String get title {
     switch (eventType) {
-      case 'deliverable_workflow_selected':
-        return appStrings.deliverableSelected;
-      case 'deliverable_execution_started':
-        return appStrings.deliverableExecutionStarted;
-      case 'deliverable_artifact_produced':
-        return appStrings.deliverableArtifactProduced;
-      case 'deliverable_validation_started':
-        return appStrings.deliverableValidationStarted;
-      case 'deliverable_validation_failed':
-        return appStrings.deliverableValidationFailed;
-      case 'deliverable_completed':
-        return appStrings.deliverableCompleted;
-      case 'run_started':
+      case 'run.started':
         return appStrings.runStarted;
-      case 'memory_injected':
-        return appStrings.memoryInjected;
-      case 'model_turn_started':
-        return appStrings.modelTurnStarted;
-      case 'model_turn_completed':
-        return appStrings.modelTurnCompleted;
-      case 'tool_started':
-        return appStrings.toolStarted;
-      case 'tool_completed':
-        return appStrings.toolCompleted;
-      case 'tool_failed':
-        return appStrings.toolFailed;
-      case 'run_completed':
+      case 'run.completed':
         return appStrings.runCompleted;
-      case 'run_failed':
+      case 'run.failed':
         return appStrings.runFailed;
-      case 'run_stopped':
+      case 'run.cancelled':
         return appStrings.runStopped;
+      case 'tool.call':
+        return appStrings.toolStarted;
+      case 'tool.result':
+        return outcomeStatus == 'failed'
+            ? appStrings.toolFailed
+            : appStrings.toolCompleted;
       default:
-        return _titleCase(eventType.replaceAll('_', ' '));
+        return _titleCase(eventType.replaceAll('.', ' ').replaceAll('_', ' '));
     }
   }
 
+  String get toolName =>
+      payload['tool'] is Map ? (payload['tool'] as Map)['name']?.toString() ?? '' : '';
+
+  String get outcomeStatus => payload['outcome'] is Map
+      ? (payload['outcome'] as Map)['status']?.toString() ?? ''
+      : '';
+
+  int get durationMs => _asInt(payload['duration_ms']);
+
   String get detail {
-    final toolName = payload['toolName']?.toString() ?? '';
     if (toolName.trim().isNotEmpty) return toolName;
-    final preview =
-        payload['contentPreview']?.toString() ??
-        payload['recallPreview']?.toString() ??
-        '';
-    if (preview.trim().isNotEmpty) return preview;
     final error = payload['error']?.toString() ?? '';
     if (error.trim().isNotEmpty) return error;
-    final artifactLabel = payload['artifact'] is Map
-        ? (payload['artifact']['label']?.toString() ??
-              payload['artifact']['path']?.toString() ??
-              payload['artifact']['uri']?.toString() ??
-              '')
-        : '';
-    if (artifactLabel.trim().isNotEmpty) return artifactLabel;
-    final titleValue = payload['title']?.toString() ?? '';
-    return titleValue;
+    return payload['reason']?.toString() ?? '';
   }
 
   String get createdAtLabel =>
       createdAt == null ? '' : _formatTimestamp(createdAt!);
 
-  bool get isFailure => eventType == 'tool_failed' || eventType == 'run_failed';
+  bool get isFailure =>
+      outcomeStatus == 'failed' ||
+      eventType == 'run.failed' ||
+      eventType == 'delivery.failed';
 }
 
 class RunStepItem {
@@ -2319,7 +2485,20 @@ class ChatEntry {
 
   String get createdAtLabel => _formatTimestamp(createdAt);
 
+  /// Set on a message an agent wrote as the result of a task another agent
+  /// handed it.
+  ({String requester, String goal, bool handoff})? get agentTask {
+    final task = metadata['agentTask'];
+    if (task is! Map) return null;
+    return (
+      requester: task['requester']?.toString() ?? '',
+      goal: task['goal']?.toString() ?? '',
+      handoff: task['mode'] == 'handoff',
+    );
+  }
+
   String? get platformTag {
+    if (platform == 'agent_task') return null;
     if (platform == 'live') {
       return 'LIVE';
     }
@@ -2407,6 +2586,9 @@ class AgentProfile {
     required this.canDelegate,
     required this.canBeDelegatedTo,
     required this.delegateTargets,
+    this.toolRestrictions = const <String, String>{},
+    this.createdByAgentId,
+    this.creationReason = '',
   });
 
   factory AgentProfile.fromJson(Map<dynamic, dynamic> json) {
@@ -2445,6 +2627,11 @@ class AgentProfile {
         json['delegateTargets'] ?? json['delegate_targets'],
         fallbackToMapValues: true,
       ),
+      toolRestrictions: _jsonMap(json['toolRestrictions']).map(
+        (category, level) => MapEntry(category, level.toString()),
+      ),
+      createdByAgentId: _optionalId(json['createdByAgentId']),
+      creationReason: json['creationReason']?.toString() ?? '',
     );
   }
 
@@ -2460,11 +2647,76 @@ class AgentProfile {
   final bool canBeDelegatedTo;
   final List<String> delegateTargets;
 
+  /// Tool categories this agent is held tighter on than the account:
+  /// 'require_approval' (asks first) or 'deny' (not allowed).
+  final Map<String, String> toolRestrictions;
+
+  /// The agent that set this one up, when an agent did.
+  final String? createdByAgentId;
+  final String creationReason;
+
   bool get isMain => slug == 'main';
   bool get isArchived => status == 'archived';
   String get label => isDefault ? appStrings.arg1Default2(displayName) : displayName;
-  bool get delegatesToAnyEligibleAgent =>
-      canDelegate && delegateTargets.isEmpty;
+}
+
+String? _optionalId(dynamic value) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? null : text;
+}
+
+/// Work one agent handed to another.
+class AgentTask {
+  const AgentTask({
+    required this.id,
+    required this.mode,
+    required this.goal,
+    required this.status,
+    required this.result,
+    required this.error,
+    required this.awaitingReply,
+    required this.requesterId,
+    required this.requesterName,
+    required this.ownerId,
+    required this.ownerName,
+    required this.updatedAt,
+  });
+
+  factory AgentTask.fromJson(Map<dynamic, dynamic> json) {
+    final requester = _jsonMap(json['requester']);
+    final owner = _jsonMap(json['owner']);
+    return AgentTask(
+      id: json['id']?.toString() ?? '',
+      mode: json['mode']?.toString() ?? 'delegate',
+      goal: json['goal']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
+      result: json['result']?.toString() ?? '',
+      error: json['error']?.toString() ?? '',
+      awaitingReply: json['awaitingReply'] == true,
+      requesterId: requester['id']?.toString() ?? '',
+      requesterName: requester['name']?.toString() ?? '',
+      ownerId: owner['id']?.toString() ?? '',
+      ownerName: owner['name']?.toString() ?? '',
+      updatedAt: _parseTimestamp(json['updatedAt']?.toString()),
+    );
+  }
+
+  final String id;
+  final String mode;
+  final String goal;
+  final String status;
+  final String result;
+  final String error;
+  final bool awaitingReply;
+  final String requesterId;
+  final String requesterName;
+  final String ownerId;
+  final String ownerName;
+  final DateTime updatedAt;
+
+  bool get isOpen =>
+      status == 'pending' || status == 'working' || status == 'waiting';
+  bool get isHandoff => mode == 'handoff';
 }
 
 class ModelMeta {
@@ -2480,6 +2732,7 @@ class ModelMeta {
     this.priceTier,
     this.isByok = false,
     this.byokLabel = '',
+    this.adminGranted = false,
   });
 
   factory ModelMeta.fromJson(Map<dynamic, dynamic> json) {
@@ -2495,6 +2748,7 @@ class ModelMeta {
       priceTier: json['priceTier']?.toString(),
       isByok: json['isByok'] == true,
       byokLabel: json['byokLabel']?.toString() ?? '',
+      adminGranted: json['adminGranted'] == true,
     );
   }
 
@@ -2514,6 +2768,9 @@ class ModelMeta {
   /// provider credentials rather than the server's shared ones.
   final bool isByok;
   final String byokLabel;
+
+  /// Switched off for everyone else; an admin granted it to this account.
+  final bool adminGranted;
 }
 
 class AiProviderMeta {
@@ -2871,6 +3128,9 @@ class SkillItem {
     required this.draft,
     required this.category,
     required this.source,
+    this.builtIn = false,
+    this.skillsShId = '',
+    this.library = '',
   });
 
   factory SkillItem.fromJson(Map<dynamic, dynamic> json) {
@@ -2881,6 +3141,9 @@ class SkillItem {
       draft: json['draft'] == true,
       category: json['category']?.toString().ifEmpty('general') ?? 'general',
       source: json['source']?.toString().ifEmpty('local') ?? 'local',
+      builtIn: json['readOnly'] == true,
+      skillsShId: json['skillsShId']?.toString() ?? '',
+      library: json['library']?.toString() ?? '',
     );
   }
 
@@ -2890,6 +3153,106 @@ class SkillItem {
   final bool draft;
   final String category;
   final String source;
+
+  /// Shipped with the instance rather than written or installed by this user.
+  /// Switching it off or deleting it only affects this user; editing it saves
+  /// the user's own copy.
+  final bool builtIn;
+
+  /// The skills.sh id (`owner/repo/skill`) this skill was installed from.
+  final String skillsShId;
+
+  /// The uploaded skill library this skill came in, or empty.
+  final String library;
+
+  SkillItem withEnabled(bool value) => SkillItem(
+    name: name,
+    description: description,
+    enabled: value,
+    draft: draft,
+    category: category,
+    source: source,
+    builtIn: builtIn,
+    skillsShId: skillsShId,
+    library: library,
+  );
+}
+
+/// A skill library shipped with the server, installed as one library.
+class BuiltinSkillLibrary {
+  const BuiltinSkillLibrary({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.homepage,
+    required this.license,
+    required this.skillNames,
+  });
+
+  factory BuiltinSkillLibrary.fromJson(Map<dynamic, dynamic> json) {
+    final skills = json['skills'];
+    return BuiltinSkillLibrary(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      homepage: json['homepage']?.toString() ?? '',
+      license: json['license']?.toString() ?? '',
+      skillNames: skills is List
+          ? skills
+                .whereType<Map>()
+                .map((skill) => skill['name']?.toString() ?? '')
+                .where((name) => name.isNotEmpty)
+                .toList()
+          : const <String>[],
+    );
+  }
+
+  /// Also the `library` tag its installed skills carry.
+  final String id;
+  final String title;
+  final String description;
+  final String homepage;
+  final String license;
+  final List<String> skillNames;
+}
+
+/// What uploading a skill library zip did.
+class SkillLibraryUploadResult {
+  const SkillLibraryUploadResult({
+    required this.library,
+    required this.installed,
+    required this.skipped,
+    required this.removed,
+  });
+
+  factory SkillLibraryUploadResult.fromJson(Map<dynamic, dynamic> json) {
+    List<String> names(Object? value) => value is List
+        ? value.map((item) => item.toString()).toList()
+        : const <String>[];
+    final skipped = json['skipped'];
+    return SkillLibraryUploadResult(
+      library: json['library']?.toString() ?? '',
+      installed: names(json['installed']),
+      removed: names(json['removed']),
+      skipped: skipped is List
+          ? skipped
+                .whereType<Map>()
+                .map(
+                  (item) => (
+                    name: item['name']?.toString() ?? '',
+                    reason: item['reason']?.toString() ?? '',
+                  ),
+                )
+                .toList()
+          : const <({String name, String reason})>[],
+    );
+  }
+
+  /// Empty when the zip held a single skill, which installs on its own.
+  final String library;
+  final List<String> installed;
+  final List<({String name, String reason})> skipped;
+  final List<String> removed;
 }
 
 /// A search hit from skills.sh. [installedName] is the local skill name when
@@ -2902,6 +3265,7 @@ class SkillsShItem {
     required this.name,
     required this.installs,
     required this.installedName,
+    this.official = false,
   });
 
   factory SkillsShItem.fromJson(Map<dynamic, dynamic> json) {
@@ -2912,6 +3276,7 @@ class SkillsShItem {
       name: json['name']?.toString() ?? '',
       installs: (json['installs'] as num?)?.toInt(),
       installedName: json['installedName']?.toString() ?? '',
+      official: json['official'] == true,
     );
   }
 
@@ -2921,6 +3286,9 @@ class SkillsShItem {
   final String name;
   final int? installs;
   final String installedName;
+
+  /// Published by the maker of the tool the skill is for.
+  final bool official;
 }
 
 class OfficialIntegrationAppItem {
@@ -3574,7 +3942,6 @@ class TaskItem {
     required this.lastRunStatus,
     required this.lastRunError,
     required this.averageRunSeconds,
-    this.deliveryBlocked = false,
   });
 
   factory TaskItem.fromJson(Map<dynamic, dynamic> json) {
@@ -3600,7 +3967,6 @@ class TaskItem {
         ? Map<String, dynamic>.from(taskConfig['loopBudget'] as Map)
         : const <String, dynamic>{};
     return TaskItem(
-      deliveryBlocked: json['deliveryBlocked'] == true,
       id: _asInt(json['id']),
       agentId: json['agentId']?.toString() ?? json['agent_id']?.toString(),
       name: json['name']?.toString() ?? 'Task',
@@ -3660,7 +4026,6 @@ class TaskItem {
   final int? averageRunSeconds;
 
   /// The saved destination can't be reached any more, so results won't arrive.
-  final bool deliveryBlocked;
 
   String get scheduleLabel =>
       triggerSummary.trim().isEmpty ? appStrings.taskTrigger : triggerSummary;
@@ -4248,6 +4613,55 @@ class QrLoginScanPayload {
   final String challengeId;
   final String secret;
   final String version;
+}
+
+/// A QR pairing code this screen shows (server/services/account/pairing.js).
+class PairingTicket {
+  const PairingTicket({
+    required this.code,
+    required this.expiresAt,
+    required this.server,
+    required this.qrPayload,
+  });
+
+  factory PairingTicket.fromJson(Map<dynamic, dynamic> json) {
+    return PairingTicket(
+      code: json['code']?.toString() ?? '',
+      expiresAt:
+          _parseOptionalTimestamp(json['expiresAt']?.toString()) ??
+          DateTime.now(),
+      server: json['server']?.toString() ?? '',
+      qrPayload: json['qrPayload']?.toString() ?? '',
+    );
+  }
+
+  final String code;
+  final DateTime expiresAt;
+  final String server;
+  final String qrPayload;
+}
+
+enum PairingState { pending, used, expired }
+
+class PairingStatus {
+  const PairingStatus({required this.state, this.deviceName});
+
+  factory PairingStatus.fromJson(Map<dynamic, dynamic> json) {
+    final device = json['device'];
+    return PairingStatus(
+      state: switch (json['status']?.toString()) {
+        'used' => PairingState.used,
+        'expired' => PairingState.expired,
+        _ => PairingState.pending,
+      },
+      deviceName: device is Map ? device['name']?.toString() : null,
+    );
+  }
+
+  final PairingState state;
+
+  /// What the phone called itself, once it redeemed the code.
+  final String? deviceName;
 }
 
 class ActiveRunState {

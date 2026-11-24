@@ -24,7 +24,6 @@ const {
 } = require('./settings');
 const {
     createModelSelectionId,
-    modelMatchesConfiguredId,
     parseModelSelectionId,
     toSelectableModel,
 } = require('./model_identity');
@@ -38,6 +37,7 @@ const {
     refreshReferenceCatalog,
 } = require('./model_reference');
 const { getDisabledModelIds } = require('./model_visibility');
+const { getGrantedModelIds, modelAccess } = require('./model_grants');
 const { getModelHealthSnapshot, isHealthBlocked } = require('./model_failure_cache');
 const { fetchResponseText } = require('../network/http');
 const { createAbortError, isAbortError, throwIfAborted } = require('../../utils/abort');
@@ -447,6 +447,9 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
 
     const globalDisabledIds = getDisabledModelIds();
     const globalDisabledSet = globalDisabledIds.length ? new Set(globalDisabledIds) : null;
+    // An admin can grant one account a model that is off for everyone else.
+    const grantedIds = globalDisabledSet ? getGrantedModelIds(userId) : [];
+    const grantedSet = grantedIds.length ? new Set(grantedIds) : null;
     const runtimeHealth = getModelHealthSnapshot(userId, agentId);
 
     return all.map((model) => {
@@ -459,7 +462,8 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
         const priceTier = model.priceTier ?? priceTierForCost(inputCostPerM);
 
         let available = provider?.available !== false;
-        if (available && modelMatchesConfiguredId(selectableModel, globalDisabledSet)) {
+        const { blocked, adminGranted } = modelAccess(selectableModel, globalDisabledSet, grantedSet);
+        if (available && blocked) {
             available = false;
         }
         const runtimeUnavailable = isHealthBlocked(runtimeHealth, { ...selectableModel, priceTier });
@@ -480,7 +484,8 @@ async function getSupportedModels(userId, agentId = null, options = {}) {
             providerStatus: provider?.status || 'unknown',
             providerStatusLabel: provider?.statusLabel || 'Unknown',
             isByok: Boolean(provider?.isByok),
-            byokLabel: provider?.customLabel || ''
+            byokLabel: provider?.customLabel || '',
+            adminGranted,
         };
     });
 }

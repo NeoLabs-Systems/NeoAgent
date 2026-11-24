@@ -191,18 +191,26 @@ esp_err_t pairing_manager_set_challenge(pairing_manager_t *manager, const neoage
     return ESP_OK;
 }
 
-esp_err_t pairing_manager_create_challenge(pairing_manager_t *manager, const char *server_url, const char *device_label) {
+esp_err_t pairing_manager_create_challenge(pairing_manager_t *manager, const char *server_url, const char *device_label, const char *device_platform) {
     if (manager == NULL || server_url == NULL || server_url[0] == '\0') {
         return ESP_ERR_INVALID_ARG;
     }
     char url[NEOAGENT_SERVER_URL_MAX + 64];
-    char body[256];
     http_capture_t capture;
     int status_code = 0;
     build_endpoint_url(server_url, "/api/auth/qr-login/challenge", url, sizeof(url));
-    snprintf(body, sizeof(body), "{\"requestMetadata\":{\"deviceType\":\"wearable\",\"platform\":\"esp32-s3-amoled\",\"deviceLabel\":\"%s\"}}",
-             device_label != NULL ? device_label : "NeoAgent wearable");
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) return ESP_ERR_NO_MEM;
+    cJSON *metadata = cJSON_AddObjectToObject(root, "requestMetadata");
+    if (metadata == NULL) { cJSON_Delete(root); return ESP_ERR_NO_MEM; }
+    cJSON_AddStringToObject(metadata, "deviceType", "wearable");
+    cJSON_AddStringToObject(metadata, "platform", device_platform);
+    cJSON_AddStringToObject(metadata, "deviceLabel", device_label != NULL ? device_label : "NeoAgent wearable");
+    char *body = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (body == NULL) return ESP_ERR_NO_MEM;
     esp_err_t err = perform_json_post(url, body, &capture, &status_code);
+    cJSON_free(body);
     if (err != ESP_OK || status_code < 200 || status_code >= 300) {
         ESP_LOGE(TAG, "challenge request failed err=%s status=%d body=%s", esp_err_to_name(err), status_code, capture.body);
         return err != ESP_OK ? err : ESP_FAIL;

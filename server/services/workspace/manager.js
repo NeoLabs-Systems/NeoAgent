@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { AGENT_DATA_DIR } = require('../../../runtime/paths');
@@ -27,6 +28,38 @@ function globToRegExp(pattern) {
     .replace(/\\\*/g, '.*')
     .replace(/\\\?/g, '.');
   return new RegExp(`^${escaped}$`, 'i');
+}
+
+// Never leaves a partial file at the destination: the data is on disk under a
+// temporary name in the same directory before a rename puts it in place. A rename
+// would otherwise replace a symlink and drop the file's mode, so the link's target
+// is what gets written and its mode carries over. A read-only file stays refused.
+// A link pointing nowhere is replaced in place, not followed out of the workspace.
+function writeFileAtomicSync(filePath, content) {
+  let target = filePath;
+  let mode = null;
+  if (fs.existsSync(filePath)) {
+    target = fs.realpathSync.native(filePath);
+    fs.accessSync(target, fs.constants.W_OK);
+    mode = fs.statSync(target).mode & 0o7777;
+  }
+  const temporary = path.join(
+    path.dirname(target),
+    `.${path.basename(target)}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`,
+  );
+  const descriptor = fs.openSync(temporary, 'wx', mode ?? 0o666);
+  try {
+    fs.writeFileSync(descriptor, content);
+    // The mode given to open passes through umask; the file's own mode must not.
+    if (mode !== null) fs.fchmodSync(descriptor, mode);
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    fs.renameSync(temporary, target);
+  } catch (err) {
+    try { fs.closeSync(descriptor); } catch { /* Already closed. */ }
+    fs.rmSync(temporary, { force: true });
+    throw err;
+  }
 }
 
 class WorkspaceManager {
@@ -209,9 +242,10 @@ class WorkspaceManager {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       const content = coerceWritableText(options.content);
       if (String(options.mode || '').toLowerCase() === 'append') {
-        fs.appendFileSync(filePath, content);
+        const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath) : Buffer.alloc(0);
+        writeFileAtomicSync(filePath, Buffer.concat([existing, Buffer.from(content)]));
       } else {
-        fs.writeFileSync(filePath, content, 'utf8');
+        writeFileAtomicSync(filePath, content);
       }
       return { success: true, path: this._publicPath(userId, filePath) };
     } catch (err) {
@@ -228,7 +262,7 @@ class WorkspaceManager {
       }
       const { content, modified, report } = applyTextEdits(fs.readFileSync(filePath, 'utf8'), options.edits);
       if (modified) {
-        fs.writeFileSync(filePath, content, 'utf8');
+        writeFileAtomicSync(filePath, content);
       }
       return { success: modified, report, path: this._publicPath(userId, filePath) };
     } catch (err) {
@@ -276,7 +310,7 @@ class WorkspaceManager {
         : replacementText.replace(/\n$/, '').split('\n');
       lines.splice(start - 1, end - start + 1, ...replacementLines);
       const next = `${lines.join('\n')}${hadFinalNewline ? '\n' : ''}`;
-      fs.writeFileSync(filePath, next, 'utf8');
+      writeFileAtomicSync(filePath, next);
       return {
         success: true,
         path: this._publicPath(userId, filePath),

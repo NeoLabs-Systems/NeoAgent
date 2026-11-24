@@ -54,6 +54,7 @@ class VoiceRuntimeManager {
     originConversationId = null,
     agentInitiated = false,
     inputMode = null,
+    devicePlatform = null,
   } = {}) {
     if (this.shuttingDown) throw runtimeStoppedError();
     const existing = this.getSession(sessionId);
@@ -81,6 +82,7 @@ class VoiceRuntimeManager {
       userId,
       agentId,
       platform,
+      devicePlatform,
       sink,
       agentEngine: this.agentEngine,
       memoryManager: this.memoryManager,

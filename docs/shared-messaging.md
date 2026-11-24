@@ -15,7 +15,7 @@ Nothing here is needed on a single-person install. Until an admin sets up a shar
 | Platform | Shared | Personal | Why |
 | --- | --- | --- | --- |
 | Telegram | ✅ | ✅ | One bot serves any number of people, and a deep link verifies them in one tap |
-| WhatsApp | ✅ | ✅ | A dedicated number people simply message. Use a number you do not mind automating; WhatsApp can ban automated numbers |
+| WhatsApp | ✅ | ✅ | A dedicated number people message. Use a number you do not mind automating; WhatsApp can ban automated numbers |
 | Discord | — | ✅ | A bot can only DM people it shares a server with, so everyone would have to join one server and could see each other. User-installed apps only get slash commands, not a chat |
 | Slack | — | ✅ | A Slack app belongs to a workspace, so one global bot cannot span unrelated workspaces |
 | Everything else | — | ✅ | Connected per agent, as before |

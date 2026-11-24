@@ -31,9 +31,11 @@ description: The integration registry, tool execution path, memory ingestion, an
 | `nextcloud` | `files`, `calendar`, `contacts` |
 | `home_assistant` | `home_assistant` |
 | `neorecall` | `recall` |
+| `neocloud` | `files` |
 | `bitwarden` | `password_manager` |
 | `whatsapp_personal` | `personal` |
 | `news`, `weather` | `headlines`, `forecast` |
+| `tailscale` | `tailnet` |
 
 ## Connecting an account
 
@@ -53,7 +55,7 @@ The shared callback also serves two other flows, told apart by the `state` prefi
 
 - **Model sign-in.** `provider_sign_in/index.js` keeps PKCE flows in memory for 10 minutes; `openrouter.js` is the only method today.
 - **Scope.** Connections belong to a user, agent, provider and account (`account_email`).
-- **Config-based providers.** Nextcloud, Home Assistant, Trello, Bitwarden, NeoRecall and news use a user-entered config instead of, or before, OAuth.
+- **Config-based providers.** Nextcloud, Home Assistant, Trello, Bitwarden, NeoRecall, NeoCloud and news use a user-entered config instead of, or before, OAuth.
 
 ## Tool execution
 
@@ -66,6 +68,29 @@ The shared callback also serves two other flows, told apart by the `state` prefi
 
 - **Usage notes.** `summarizeConnectedProviders()` sends each integration's notes once per run, alongside its tools.
 - **Access mode.** `read_write` or `read_only` per connection, set with `accessMode`; enforced in code, never by prompt wording.
+
+## Outbound Tailscale transport
+
+Tailscale uses the existing interactive connection-session contract. A session is
+bound to its initiating user and agent. The client opens the Tailscale-hosted node
+authorization URL and polls the scoped session endpoint; no server-wide OAuth app
+or tailnet identity is shared. The session response never includes node keys.
+
+The provider owns snapshots and tool definitions; `sessions.js` owns authorization;
+`policy.js` validates service grants; `runtime.js` dispatches only to the user's
+isolated cloud VM. Guest client lifecycle, private LocalAPI transport and peer HTTP
+transport live in `guest.js`, `guest_api.js` and `guest_network.js`. The guest
+validates grants again and resolves exact peer IDs from its own node's status.
+The LocalAPI dial stream is consumed directly; Dial-Self is refused.
+
+Operations on a connection are serialized to preserve rotated node state. The
+guest also serializes clients across connections to bound resource use to one
+client per VM. Normal clients have a 45-second operation deadline and an independent
+50-second OS lifetime limit. Interactive authorization has a five-minute deadline.
+Disconnect fences the database row before canceling guest work, so queued calls
+cannot restart the connection. State snapshots are encrypted in
+`integration_connections`; temporary files reside in the guest's private shared
+memory directory and are removed after the client exits.
 
 ## Memory ingestion
 
@@ -84,6 +109,18 @@ The shared callback also serves two other flows, told apart by the `state` prefi
 | Limits | Tools use NeoRecall's local hybrid search; none calls NeoRecall Ask or fetches audio |
 
 When NeoRecall is connected, `neorecall_list_daily_summaries`, `neorecall_search` and `neorecall_list_conversations` start active in every run.
+
+## NeoCloud
+
+| Aspect | Behavior |
+|---|---|
+| Setup | The user enters the NeoCloud URL; NeoAgent requires `/api/health` `status: ok` and `/api/version` `product: neocloud`, then OAuth bootstrap returns a client ID |
+| Auth | PKCE (`S256`), requests `files:read`, `files:write`, `signing:read`, `signing:write`; the user narrows them on NeoCloud's consent page; refresh tokens rotate |
+| Granted scopes | Stored on the connection (`scopes_json`). The provider's `filterToolDefinitions` hook offers a tool only when a connection granted its `scope` and, for writes, isn't read-only; execution re-checks the scope |
+| Tools | `neocloud_list_files`, `neocloud_search_files`, `neocloud_read_file`, `neocloud_create_file`, `neocloud_update_file`, `neocloud_create_folder`, `neocloud_move_file`, `neocloud_delete_file`, `neocloud_create_pdf`, `neocloud_request_signatures`, `neocloud_list_signature_requests`, `neocloud_get_signature_request`, `neocloud_remind_signers`, `neocloud_new_signing_link`, `neocloud_cancel_signature_request` |
+| Data | Queried on demand over `/api/v1`; never copied into NeoAgent memory |
+
+`createOAuthProvider` accepts `filterToolDefinitions(tools, connections)`; the manager passes the connected rows when it lists tools for a run, and other callers get the full set.
 
 ## Messaging platforms
 

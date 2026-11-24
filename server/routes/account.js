@@ -6,7 +6,11 @@ const bcrypt = require('bcrypt');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
+const { sendJsonError } = require('../http/errors');
+const { publicBaseUrlForRequest } = require('../utils/public_url');
+const { getPairingStatus, startPairing } = require('../services/account/pairing');
 const { sanitizeError } = require('../utils/security');
+const { publicErrorCode } = require('../utils/http_error');
 const { requireValidEmail } = require('../services/account/email');
 const {
   evaluatePasswordStrength,
@@ -106,7 +110,15 @@ function sendRouteError(res, err) {
   if (statusCode >= 500) {
     console.error('[Account] Route error:', err);
   }
-  res.status(statusCode).json({ error: sanitizeError(err) });
+  // A throttled confirmation (429 LOGIN_LOCKED) says how many seconds to wait.
+  const retryAfter = statusCode === 429 && Number.isInteger(err?.retryAfter) ? err.retryAfter : null;
+  if (retryAfter) res.set('Retry-After', String(retryAfter));
+  const code = statusCode < 500 ? publicErrorCode(err) : null;
+  return res.status(statusCode).json({
+    error: sanitizeError(err),
+    ...(code ? { code } : {}),
+    ...(retryAfter ? { retryAfter } : {}),
+  });
 }
 
 function normalizeDisplayName(value) {
@@ -398,6 +410,24 @@ router.post('/qr-login/approve', accountLimiter, (req, res) => {
     }));
   } catch (err) {
     sendRouteError(res, err);
+  }
+});
+
+// QR pairing: this screen shows a code for a phone to redeem at
+// POST /api/auth/pair, and polls whether one did.
+router.post('/pairing', accountLimiter, (req, res) => {
+  try {
+    res.json(startPairing(req.session.userId, publicBaseUrlForRequest(req)));
+  } catch (err) {
+    sendJsonError(res, err);
+  }
+});
+
+router.get('/pairing/:code', (req, res) => {
+  try {
+    res.json(getPairingStatus(req.session.userId, req.params.code));
+  } catch (err) {
+    sendJsonError(res, err);
   }
 });
 

@@ -116,7 +116,7 @@ test('only top-level web and messaging runs record a resume envelope, with plain
     context: { rawUserMessage: 'fix the build', socialIntelligence: { message: { chatId: '42' } } },
     signal: new AbortController().signal,
     onBackground: () => {},
-    deliveryState: { messagingSent: false },
+    delivery: { sent: [] },
     priorMessages: [{ role: 'user', content: 'earlier' }],
     app: { locals: {} },
     runId: 'old-run',
@@ -145,6 +145,45 @@ test('only top-level web and messaging runs record a resume envelope, with plain
   ]) {
     assert.equal(resume.buildResumeEnvelope('task', options), null, JSON.stringify(options));
   }
+});
+
+test('a task run the task runtime named records only the task and occurrence', () => {
+  const resumableTask = { taskId: 7, scheduledAt: '2026-11-06T06:00:00.000Z', triggerSource: 'schedule' };
+  assert.deepEqual(
+    resume.buildResumeEnvelope('[SYSTEM: Executing Background Task] ...', { triggerSource: 'schedule', taskId: 7, resumableTask, signal: {} }),
+    { task: resumableTask },
+  );
+  assert.equal(resume.buildResumeEnvelope('p', { taskId: 7, resumableTask, resumedFromRunId: 'cut' }), null);
+});
+
+test('a cut-off task run goes back to the task runtime, and waits for one', () => {
+  insertInterruptedRun('cut-task', {
+    envelope: { task: { taskId: 7, scheduledAt: '2026-11-06T06:00:00.000Z', triggerSource: 'schedule' } },
+  });
+  ctx.db.prepare(
+    `INSERT INTO agent_steps (id, run_id, step_index, type, description, status)
+     VALUES ('t1', 'cut-task', 1, 'tool', 'google_calendar_list: {}', 'completed')`,
+  ).run();
+
+  const engine = fakeEngine();
+  assert.equal(resume.resumeInterruptedRuns(engine), 0, 'no task runtime: left for a boot that has one');
+  assert.ok(metadataOf('cut-task').resume);
+
+  const resumed = [];
+  const taskRuntime = { resumeInterruptedTask: async (args) => { resumed.push(args); } };
+  assert.equal(resume.resumeInterruptedRuns(engine, { taskRuntime }), 1);
+  assert.equal(engine.runs.length, 0, 'not started as a chat run');
+  const [args] = resumed;
+  assert.equal(args.taskId, 7);
+  assert.equal(args.scheduledAt, '2026-11-06T06:00:00.000Z');
+  assert.equal(args.resumedFromRunId, 'cut-task');
+  assert.equal(args.runId, metadataOf('cut-task').resumedAs);
+  assert.match(args.note, /^\[Resumed after a restart\]/);
+  assert.match(args.note, /same occurrence of the task/);
+  assert.match(args.note, /done: google_calendar_list/);
+
+  assert.equal(resume.resumeInterruptedRuns(engine, { taskRuntime }), 0, 'once');
+  ctx.db.prepare("DELETE FROM agent_runs WHERE id = 'cut-task'").run();
 });
 
 test('a run keeps its envelope only when a shutdown ends it', async () => {
@@ -234,7 +273,7 @@ test('a resumable run is claimed once, with what it already did in the continuat
   const metadata = metadataOf('cut-run');
   assert.equal(metadata.resume, undefined);
   assert.equal(metadata.resumedAs, options.runId);
-  assert.deepEqual(engine.events, [{ runId: 'cut-run', type: 'run_resumed', payload: { resumedAs: options.runId } }]);
+  assert.deepEqual(engine.events, [{ runId: 'cut-run', type: 'run.state', payload: { to_state: 'resumed', resumed_as: options.runId } }]);
 
   assert.equal(resume.countResumableRuns(), 0);
   assert.equal(resume.resumeInterruptedRuns(engine), 0);

@@ -85,20 +85,8 @@ class _LauncherHomeViewState extends State<LauncherHomeView> {
       return;
     }
 
-    final scanned = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => const _QrLoginScannerDialog(),
-    );
-    if (!mounted || scanned == null || scanned.trim().isEmpty) {
-      return;
-    }
-
-    final payload = QrLoginScanPayload.tryParse(scanned);
-    if (payload == null) {
-      _showLauncherActionError(appStrings.thatQrCodeIsNotA2);
-      return;
-    }
+    final payload = await scanQrLoginRequest(context);
+    if (!mounted || payload == null) return;
 
     final scannedBackend = controller._normalizeBackendUrl(payload.backendUrl);
     final currentBackend = controller._normalizeBackendUrl(

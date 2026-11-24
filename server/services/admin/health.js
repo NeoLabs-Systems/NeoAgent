@@ -4,6 +4,10 @@ const db = require('../../db/database');
 const { getVersionInfo } = require('../../utils/version');
 const { readUpdateStatus } = require('../../utils/update_status');
 const { getRuntimeValidation } = require('../runtime/validation');
+const { listAgents } = require('../agents/manager');
+const { getProviderHealthCatalog } = require('../ai/models');
+
+const RECENT_FAILURE_MS = 24 * 60 * 60 * 1000;
 
 // Non-secret runtime settings, shown read-only on the admin page.
 const ENVIRONMENT_KEYS = [
@@ -47,25 +51,32 @@ function checkDatabase() {
   }
 }
 
-function configuredProviderNames() {
-  const names = [];
-  if (process.env.ANTHROPIC_API_KEY) names.push('Anthropic');
-  if (process.env.OPENAI_API_KEY) names.push('OpenAI');
-  if (process.env.OPENAI_COMPATIBLE_API_KEY && process.env.OPENAI_COMPATIBLE_BASE_URL) {
-    names.push('Custom OpenAI-compatible');
+// Providers are set up per account and per agent, so the server's own keys are
+// only part of the answer. The catalog already counts both.
+async function availableProviderNames(userId) {
+  const names = new Set();
+  for (const agent of listAgents(userId)) {
+    const providers = await getProviderHealthCatalog(userId, agent.id);
+    for (const provider of providers) {
+      if (provider.available) names.add(provider.customLabel || provider.label);
+    }
   }
-  if (process.env.XAI_API_KEY) names.push('xAI');
-  if (process.env.GOOGLE_AI_KEY) names.push('Google');
-  if (process.env.OPENROUTER_API_KEY) names.push('OpenRouter');
-  return names;
+  return [...names];
 }
 
-function runHealthChecks(runtimeManager) {
+// An old failed run is history, not a fault: only a recent one is flagged.
+function updateFailedRecently(status) {
+  if (status.state !== 'failed') return false;
+  const finished = Date.parse(status.completedAt || status.updatedAt || '');
+  return Number.isFinite(finished) && Date.now() - finished < RECENT_FAILURE_MS;
+}
+
+async function runHealthChecks(runtimeManager, userId) {
   const version = getVersionInfo();
   const updateStatus = readUpdateStatus();
   const runtimeValidation = getRuntimeValidation(runtimeManager);
   const runtimeReady = Boolean(runtimeValidation?.ready);
-  const providers = configuredProviderNames();
+  const providers = await availableProviderNames(userId);
 
   const results = [
     { id: 'backend', label: 'Backend server', passed: true, detail: 'Running' },
@@ -79,7 +90,7 @@ function runHealthChecks(runtimeManager) {
     {
       id: 'update',
       label: 'Update status',
-      passed: updateStatus.state !== 'failed',
+      passed: !updateFailedRecently(updateStatus),
       detail: updateStatus.state === 'idle'
         ? 'No update running'
         : `${updateStatus.state} — ${updateStatus.message || ''}`.trim(),
@@ -94,7 +105,7 @@ function runHealthChecks(runtimeManager) {
       id: 'ai_providers',
       label: 'AI providers',
       passed: providers.length > 0,
-      detail: providers.length > 0 ? providers.join(', ') : 'No providers configured',
+      detail: providers.length > 0 ? providers.join(', ') : 'No providers available to this account',
     },
   ];
   if (process.env.DEEPGRAM_API_KEY) {

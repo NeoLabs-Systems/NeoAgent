@@ -10,15 +10,18 @@ const { test } = require('node:test');
 
 const {
   PINNED_IMAGES,
+  INSTANCE_ROOT,
   QemuVMManager,
   buildQemuArgs,
   findOrphanedVmPids,
   parseAccelerators,
   selectAccelerators,
   getSparseDiskLiabilityBytes,
+  instanceSocketAddress,
   normalizeArchitecture,
   resolveQemuImgBinary,
   waitForSocket,
+  userDirectoryKey,
 } = require('../../../server/services/runtime/qemu_vm_manager');
 const { isProcessAlive } = require('../../../server/services/runtime/vm_session');
 
@@ -135,7 +138,73 @@ test('retired system disks are not charged against the host storage reserve', (t
   }
 });
 
-test('QMP falls back to loopback when a UNIX socket path would be too long', () => {
+test('VM restart reserves running disks without charging unrelated stopped computers', async (t) => {
+  const qemuImg = resolveQemuImgBinary();
+  if (!qemuImg) return t.skip('qemu-img is required');
+  const { getComputerResourceProfile } = require('../../../server/services/runtime/resource_profile');
+  const target = crypto.randomUUID();
+  const other = crypto.randomUUID();
+  const targetDir = path.join(INSTANCE_ROOT, userDirectoryKey(target));
+  const otherDir = path.join(INSTANCE_ROOT, userDirectoryKey(other));
+  const baseImage = path.join(targetDir, 'base.img');
+  const manager = new QemuVMManager({
+    qemuBinary: null,
+    qemuImgBinary: qemuImg,
+    baseImagePath: baseImage,
+    resourceProfile: getComputerResourceProfile({
+      totalMemoryBytes: 16 * 1024 ** 3,
+      logicalCpuCount: 8,
+      storageReservePercent: 20,
+    }),
+  });
+  t.after(() => {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+    fs.rmSync(otherDir, { recursive: true, force: true });
+  });
+  for (const directory of [targetDir, otherDir]) {
+    fs.mkdirSync(directory, { recursive: true });
+    for (const [name, size] of [['system.qcow2', '8G'], ['data.qcow2', '12G']]) {
+      const result = spawnSync(qemuImg, ['create', '-f', 'qcow2', path.join(directory, name), size]);
+      assert.equal(result.status, 0, String(result.stderr));
+    }
+  }
+  fs.writeFileSync(baseImage, 'unused fixture image');
+  t.mock.method(manager, 'getReadiness', () => ({ ready: true }));
+  let availableGiB = 47.3;
+  const statfs = fs.statfsSync;
+  t.mock.method(fs, 'statfsSync', (directory, ...args) => directory === INSTANCE_ROOT
+    ? { bavail: Math.floor(availableGiB * 1024 ** 3), bsize: 1, blocks: 100 * 1024 ** 3 }
+    : statfs(directory, ...args));
+  const admitted = new Error('storage admission passed; stop before provisioning');
+  const writeFile = fs.writeFileSync;
+  t.mock.method(fs, 'writeFileSync', (file, ...args) => {
+    if (file === path.join(targetDir, 'base-build')) throw admitted;
+    return writeFile(file, ...args);
+  });
+
+  // Both persisted computers together have ~40 GiB of unwritten capacity. Only
+  // the one being started needs a growth reservation, so this restart can proceed.
+  await assert.rejects(manager.ensureVm(target), (error) => error === admitted);
+
+  // Starting the same computer alongside another live 20 GiB computer must fail.
+  manager.instances.set(other, {
+    instanceDir: otherDir,
+    process: { pid: process.pid, killed: false, exitCode: null },
+    resources: { memoryMb: 1536, cpus: 1 },
+  });
+  await assert.rejects(manager.ensureVm(target), { code: 'COMPUTER_STORAGE_CAPACITY' });
+  manager.instances.clear();
+
+  // The existing computer also cannot start when its own growth exceeds headroom,
+  // or when filesystem capacity is unavailable. Nothing is deleted to make room.
+  for (availableGiB of [10, 0]) {
+    await assert.rejects(manager.ensureVm(target), { code: 'COMPUTER_STORAGE_CAPACITY' });
+  }
+  assert.ok(fs.existsSync(path.join(targetDir, 'data.qcow2')));
+  assert.ok(fs.existsSync(path.join(otherDir, 'data.qcow2')));
+});
+
+test('QMP uses a loopback port only when given one, as on Windows hosts', () => {
   const shortPath = '/runtime/user/qmp.sock';
   const longPath = `/${'deep-runtime-home/'.repeat(6)}instance/qmp.sock`;
   assert.ok(Buffer.byteLength(longPath) >= 104);
@@ -156,6 +225,32 @@ test('QMP falls back to loopback when a UNIX socket path would be too long', () 
 
   assert.match(argsFor(shortPath), /-qmp unix:\/runtime\/user\/qmp\.sock/);
   assert.match(argsFor(17009), /-qmp tcp:127\.0\.0\.1:17009,server=on,wait=off/);
+});
+
+test('a deep runtime home moves sockets to a private short directory, never a loopback port', async (t) => {
+  if (process.platform === 'win32') {
+    t.skip('POSIX hosts only');
+    return;
+  }
+  const shortRoot = fs.mkdtempSync(path.join('/tmp', 'nsk-'));
+  t.after(() => fs.rmSync(shortRoot, { recursive: true, force: true }));
+  const instanceDir = `/${'deep-runtime-home/'.repeat(6)}0123456789abcdef01234567`;
+  const noPort = () => { throw new Error('no loopback port may be used'); };
+
+  const address = await instanceSocketAddress(instanceDir, 'qmp.sock', noPort, shortRoot);
+  assert.equal(typeof address, 'string');
+  assert.ok(Buffer.byteLength(address) < 104);
+  const privateRoot = path.join(shortRoot, `neoagent-${process.getuid()}`);
+  assert.equal(address, path.join(privateRoot, '0123456789abcdef01234567', 'qmp.sock'));
+  assert.equal(fs.statSync(privateRoot).mode & 0o777, 0o700);
+
+  // Another account could have made the shared path first; it is refused, not used.
+  fs.chmodSync(privateRoot, 0o777);
+  await assert.rejects(instanceSocketAddress(instanceDir, 'qmp.sock', noPort, shortRoot), /not a private directory/);
+  fs.rmSync(privateRoot, { recursive: true, force: true });
+  const elsewhere = fs.mkdtempSync(path.join(shortRoot, 'elsewhere-'));
+  fs.symlinkSync(elsewhere, privateRoot);
+  await assert.rejects(instanceSocketAddress(instanceDir, 'qmp.sock', noPort, shortRoot), /not a private directory/);
 });
 
 test('every process still serving an instance is reclaimed, and only those', (t) => {

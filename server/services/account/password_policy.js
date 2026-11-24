@@ -120,8 +120,7 @@ function evaluatePasswordStrength(password, context = {}) {
       && score >= MIN_PASSWORD_SCORE
       && !containsPersonalInfo
       && !usesCommonPattern
-      && !sequential
-      && !repeatedRuns,
+      && !sequential,
     feedback,
   };
 }

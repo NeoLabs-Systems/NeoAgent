@@ -95,7 +95,6 @@ describe('agent profile, agent run, and MCP routes', () => {
         abortController: new AbortController(),
         toolPids: new Set(),
         activeTools: [],
-        progressLedger: { currentPhase: 'model' },
       });
 
       await request(app).post(`/api/agents/${runId}/pause`).send({}).expect(401);

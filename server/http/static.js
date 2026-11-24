@@ -44,6 +44,8 @@ function registerStaticRoutes(app) {
     });
   });
 
+  require('../analytics').registerAnalytics(app, { appWebRoot: FLUTTER_WEB_DIR, landingRoot: LANDING_DIR });
+
   // Flutter app at /app
   app.use(
     '/app',

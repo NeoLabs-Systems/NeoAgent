@@ -185,13 +185,39 @@ async function findVncPort() {
   throw new Error('No loopback VNC display is available.');
 }
 
-// The guest reaches host loopback through 10.0.2.2, so QEMU's control and display sockets
-// live in the instance directory where no guest can connect. sockaddr_un caps a UNIX socket
-// path at 104 bytes, and QEMU refuses to start when the instance directory pushes it past
-// that, so a deep runtime home falls back to a loopback port.
-async function instanceSocketAddress(instanceDir, name, findFallbackPort) {
-  const socketPath = path.join(instanceDir, name);
-  if (process.platform === 'win32' || Buffer.byteLength(socketPath) >= 104) return findFallbackPort();
+const MAX_SOCKET_PATH_BYTES = 104;
+
+// A fixed path in a shared directory, so it is only used once it is shown to be this
+// process's own private directory and not something another account created first.
+function privateShortSocketDirectory(instanceDir, shortRoot) {
+  const root = path.join(shortRoot, `neoagent-${process.getuid()}`);
+  try {
+    fs.mkdirSync(root, { mode: 0o700 });
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err;
+  }
+  const stat = fs.lstatSync(root);
+  if (!stat.isDirectory() || stat.uid !== process.getuid() || (stat.mode & 0o077) !== 0) {
+    throw new Error(`${root} is not a private directory owned by this account; remove it and start the computer again.`);
+  }
+  const directory = path.join(root, path.basename(instanceDir));
+  fs.mkdirSync(directory, { mode: 0o700, recursive: true });
+  return directory;
+}
+
+// The guest reaches host loopback through 10.0.2.2, and QEMU's VNC and QMP sockets have no
+// authentication, so on POSIX hosts they are always UNIX sockets no guest can connect to.
+// sockaddr_un caps a socket path at 104 bytes, so a deep runtime home moves them to a short
+// private directory instead of a loopback port.
+async function instanceSocketAddress(instanceDir, name, findFallbackPort, shortRoot = '/tmp') {
+  if (process.platform === 'win32') return findFallbackPort();
+  let socketPath = path.join(instanceDir, name);
+  if (Buffer.byteLength(socketPath) >= MAX_SOCKET_PATH_BYTES) {
+    socketPath = path.join(privateShortSocketDirectory(instanceDir, shortRoot), name);
+  }
+  if (Buffer.byteLength(socketPath) >= MAX_SOCKET_PATH_BYTES) {
+    throw new Error(`The computer's socket path ${socketPath} is too long.`);
+  }
   fs.rmSync(socketPath, { force: true });
   return socketPath;
 }
@@ -314,14 +340,15 @@ function readVirtualDiskInfo(qemuImgBinary, diskPath) {
   }
 }
 
-// Only disks a running guest can still grow into are a liability. Retired system disks are
-// frozen copies, and a disk that is about to be retired stops growing the moment it is
-// replaced, so neither may be charged against the host storage reserve.
-function getSparseDiskLiabilityBytes(qemuImgBinary, directory, retiringDisk = null) {
+// Reserve potential growth only for admitted computers, not every persisted computer.
+// Stopped computers consume actual host space already reflected by statfs; their unused
+// virtual capacity is admitted when they next start. Retired system disks cannot grow.
+function getSparseDiskLiabilityBytes(qemuImgBinary, directories, retiringDisk = null) {
   const isFrozen = (diskPath) => (
     path.basename(diskPath) === 'system.previous.qcow2' || diskPath === retiringDisk
   );
-  return walkVirtualDisks(directory).filter((diskPath) => !isFrozen(diskPath)).reduce((total, diskPath) => {
+  const disks = new Set([].concat(directories).flatMap(walkVirtualDisks));
+  return Array.from(disks).filter((diskPath) => !isFrozen(diskPath)).reduce((total, diskPath) => {
     const info = readVirtualDiskInfo(qemuImgBinary, diskPath);
     if (!info) return total;
     const virtualSize = Math.max(0, Number(info['virtual-size'] || 0));
@@ -675,6 +702,7 @@ async function requestQmpPowerdown(qmpSocket) {
 class QemuVMManager {
   instances = new Map();
   #starts = new VmStartTracker();
+  #startingDirectories = new Set();
 
   constructor(options = {}) {
     this.architecture = normalizeArchitecture(options.architecture);
@@ -932,7 +960,15 @@ class QemuVMManager {
     const existing = this.instances.get(key);
     if (existing && isProcessAlive(existing.process)) return existing;
     if (existing) this.instances.delete(key);
-    return this.#starts.begin(key, () => this.#startVm(key));
+    return this.#starts.begin(key, async () => {
+      const directory = path.join(INSTANCE_ROOT, userDirectoryKey(key));
+      this.#startingDirectories.add(directory);
+      try {
+        return await this.#startVm(key);
+      } finally {
+        this.#startingDirectories.delete(directory);
+      }
+    });
   }
 
   async #startVm(key) {
@@ -966,9 +1002,13 @@ class QemuVMManager {
     const replaceSystemDisk = fs.existsSync(systemDisk) && previousBuild !== GUEST_IMAGE_REVISION;
     const createsSystemDisk = !fs.existsSync(systemDisk) || replaceSystemDisk;
     const diskCapacity = getDiskCapacity(INSTANCE_ROOT);
+    const admittedDirectories = new Set(this.#startingDirectories);
+    for (const session of this.instances.values()) {
+      if (isProcessAlive(session.process)) admittedDirectories.add(session.instanceDir);
+    }
     const sparseLiabilityBytes = getSparseDiskLiabilityBytes(
       this.qemuImgBinary,
-      INSTANCE_ROOT,
+      Array.from(admittedDirectories),
       replaceSystemDisk ? systemDisk : null,
     );
     const newSystemLiabilityBytes = createsSystemDisk ? 8 * 1024 ** 3 : 0;
@@ -976,13 +1016,13 @@ class QemuVMManager {
       ...diskCapacity,
       sparseLiabilityBytes: sparseLiabilityBytes + newSystemLiabilityBytes,
     };
-    if (getStorageHeadroomBytes(this.resourceProfile, storage) < 0) {
+    if (diskCapacity.availableBytes <= 0 || getStorageHeadroomBytes(this.resourceProfile, storage) < 0) {
       const gibibytes = (bytes) => (bytes / 1024 ** 3).toFixed(1);
       const error = new Error(
         'Starting this cloud computer needs more free storage: '
         + `${gibibytes(diskCapacity.availableBytes)} GiB free, `
         + `${this.resourceProfile.storageReservePercent}% held back for the host, and `
-        + `${gibibytes(storage.sparseLiabilityBytes)} GiB still unwritten in existing computer disks.`,
+        + `${gibibytes(storage.sparseLiabilityBytes)} GiB reserved for disk growth in running and starting computers.`,
       );
       error.code = 'COMPUTER_STORAGE_CAPACITY';
       error.status = 507;
@@ -1206,6 +1246,7 @@ module.exports = {
   buildQemuArgs,
   findOrphanedVmPids,
   getSparseDiskLiabilityBytes,
+  instanceSocketAddress,
   normalizeArchitecture,
   parseAccelerators,
   resolveQemuImgBinary,

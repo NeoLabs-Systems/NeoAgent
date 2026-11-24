@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const db = require('../db/database');
-const { TOOL_CATEGORIES, getCategoryForTool } = require('../services/security/tool_categories');
+const { TOOL_CATEGORIES } = require('../services/security/tool_categories');
 const { describeManagerLocks } = require('../services/access/summary');
 
 router.use(requireAuth);
@@ -62,22 +62,12 @@ router.post('/approvals/:approvalId', (req, res) => {
   const normalizedScope = ['once', 'session', 'always'].includes(scope) ? scope : 'once';
 
   const { approvalGateService } = req.app.locals;
-  const resolved = approvalGateService.resolve(
+  const resolved = approvalGateService.decide(
     approvalId,
     req.session.userId,
     decision,
     normalizedScope,
   );
-  if (resolved && decision === 'approved' && normalizedScope === 'always') {
-    const category = getCategoryForTool(resolved.toolName, resolved.toolArgs);
-    if (category) {
-      try {
-        req.app.locals.toolPolicyService.setPolicy(req.session.userId, category, 'allow');
-      } catch (err) {
-        console.warn('[Security] Failed to save always-allow policy:', err.message);
-      }
-    }
-  }
   if (!resolved) {
     const storedApproval = approvalGateService.getStoredApproval?.(
       approvalId,

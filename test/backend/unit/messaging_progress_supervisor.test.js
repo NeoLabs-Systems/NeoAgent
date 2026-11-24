@@ -1,5 +1,7 @@
 'use strict';
 
+const { createRunDelivery } = require('../../../server/services/ai/runtime/delivery/run_delivery');
+
 const assert = require('node:assert/strict');
 const { afterEach, beforeEach, describe, test } = require('node:test');
 
@@ -30,13 +32,13 @@ describe('messaging progress supervisor', () => {
   let ctx;
   let user;
   let AgentEngine;
-  let listRunEvents;
+  let listEvents;
 
   beforeEach(async () => {
     ctx = createTestRuntime();
     user = await createTestUser(ctx.db);
     ({ AgentEngine } = require('../../../server/services/ai/engine'));
-    ({ listRunEvents } = require('../../../server/services/ai/runEvents'));
+    ({ listEvents } = require('../../../server/services/ai/runtime/events/run_event_store'));
   });
 
   afterEach(() => {
@@ -67,30 +69,12 @@ describe('messaging progress supervisor', () => {
     const startedAt = Number(extra.startedAt || Date.now());
     const startedAtIso = extra.startedAtIso || new Date(startedAt).toISOString();
     const interimMessages = Array.isArray(extra.interimMessages) ? extra.interimMessages.slice() : [];
-    const progressLedger = {
-      currentStep: null,
-      currentTool: null,
-      currentStepStartedAt: null,
-      lastVerifiedProgressAt: startedAtIso,
-      lastUserVisibleUpdateAt: null,
-      lastFinalDeliveryAt: null,
-      heartbeatCount: 0,
-      stallNotifiedAt: null,
-      progressState: 'active',
-      currentPhase: 'idle',
-      ...(extra.progressLedger || {}),
-    };
     const runMeta = {
       userId: user.userId,
       agentId: null,
       status: 'running',
       aborted: false,
-      messagingSent: false,
-      noResponse: false,
-      explicitMessageSent: false,
-      finalDeliverySent: false,
-      lastSentMessage: '',
-      sentMessages: [],
+      delivery: createRunDelivery(),
       triggerType: 'user',
       triggerSource: 'messaging',
       startedAt,
@@ -99,8 +83,6 @@ describe('messaging progress supervisor', () => {
       lastToolTarget: null,
       lastInterimMessage: interimMessages[interimMessages.length - 1]?.content || '',
       interimMessages,
-      interimSignatures: new Set(),
-      terminalInterim: null,
       voiceSessionId: null,
       // Simulates the agent loop authoring a dynamic progress line.
       composeProgressUpdate: async () => 'still working through the current step',
@@ -112,13 +94,9 @@ describe('messaging progress supervisor', () => {
         platform: 'whatsapp',
         chatId: 'chat-1',
       },
-      progressLedger,
       ...extra,
     };
     engine.activeRuns.set(runId, runMeta);
-    engine.persistRunMetadata(runId, {
-      progressLedger: engine.buildProgressLedgerSnapshot(runMeta),
-    });
     return { runId, runMeta };
   }
 
@@ -137,9 +115,7 @@ describe('messaging progress supervisor', () => {
         deferFollowUp: false,
         createdAt: interimAt,
       }],
-      progressLedger: {
-        lastUserVisibleUpdateAt: interimAt,
-      },
+      lastUserVisibleAt: interimAt,
     });
 
     assert.equal(
@@ -163,9 +139,8 @@ describe('messaging progress supervisor', () => {
     assert.equal(result.sent, true);
     assert.equal(messagingManager.sent.length, 1);
     assert.equal(messagingManager.sent[0].content, 'Here is the finished answer.');
-    assert.equal(engine.getRunMeta(runId).messagingSent, true);
-    assert.equal(engine.getRunMeta(runId).finalDeliverySent, true);
-    assert.equal(engine.getRunMeta(runId).progressLedger.lastFinalDeliveryAt != null, true);
+    assert.equal(engine.getRunMeta(runId).delivery.finalDelivered, true);
+    assert.equal(engine.getRunMeta(runId).lastUserVisibleAt != null, true);
   });
 
   test('final fallback only sends once even when interim history exists', async () => {
@@ -242,7 +217,6 @@ describe('messaging progress supervisor', () => {
         chatId: 'chat-1',
         behavior,
       },
-      deliveryState: {},
     });
 
     const first = await engine.deliverMessagingFinalFallback({
@@ -264,8 +238,7 @@ describe('messaging progress supervisor', () => {
 
     assert.equal(first.suppressed, true);
     assert.equal(second.skipped, true);
-    assert.equal(runMeta.noResponse, true);
-    assert.equal(runMeta.deliveryState.noResponse, true);
+    assert.equal(runMeta.delivery.noResponse, true);
     assert.equal(messagingManager.sent.length, 0);
   });
 
@@ -294,10 +267,8 @@ describe('messaging progress supervisor', () => {
     );
 
     const runMeta = engine.getRunMeta(runId);
-    assert.equal(runMeta.finalDeliverySent, false);
-    assert.equal(runMeta.lastSentMessage, '');
-    assert.equal(runMeta.sentMessages.length, 0);
-    assert.equal(runMeta.progressLedger.lastFinalDeliveryAt, null);
+    assert.equal(runMeta.delivery.finalDelivered, false);
+    assert.equal(runMeta.delivery.sent.length, 0);
   });
 
   test('thrown final fallback delivery never records terminal delivery', async () => {
@@ -323,7 +294,7 @@ describe('messaging progress supervisor', () => {
       /socket closed/,
     );
 
-    assert.equal(engine.getRunMeta(runId).finalDeliverySent, false);
+    assert.equal(engine.getRunMeta(runId).delivery.finalDelivered, false);
   });
 
   test('final fallback retries delivery without replaying task work', async () => {
@@ -358,7 +329,7 @@ describe('messaging progress supervisor', () => {
 
     assert.equal(result.sent, true);
     assert.equal(attempts, 2);
-    assert.equal(engine.getRunMeta(runId).finalDeliverySent, true);
+    assert.equal(engine.getRunMeta(runId).delivery.finalDelivered, true);
   });
 
   test('final fallback does not retry an ambiguous thrown transport failure', async () => {
@@ -394,7 +365,7 @@ describe('messaging progress supervisor', () => {
     );
 
     assert.equal(attempts, 1);
-    assert.equal(engine.getRunMeta(runId).finalDeliverySent, false);
+    assert.equal(engine.getRunMeta(runId).delivery.finalDelivered, false);
   });
 
   test('exhausted final delivery cannot trigger an autonomous task replay', async () => {
@@ -428,20 +399,14 @@ describe('messaging progress supervisor', () => {
       ),
     );
 
-    assert.equal(engine.getRunMeta(runId).finalDeliverySent, false);
+    assert.equal(engine.getRunMeta(runId).delivery.finalDelivered, false);
   });
 
   test('explicit final messaging delivery suppresses auto fallback', () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
     const { runId } = seedMessagingRun(engine, {
-      explicitMessageSent: true,
-      finalDeliverySent: true,
-      lastSentMessage: 'Done already.',
-      sentMessages: ['Done already.'],
-      progressLedger: {
-        lastFinalDeliveryAt: new Date().toISOString(),
-      },
+      delivery: { ...createRunDelivery(), lastWordSent: true, finalDelivered: true, sent: ['Done already.'] },
     });
 
     assert.equal(
@@ -458,10 +423,13 @@ describe('messaging progress supervisor', () => {
     const messagingManager = createMessagingManager();
     const engine = new AgentEngine(null, { messagingManager });
     const { runId } = seedMessagingRun(engine, {
-      terminalInterim: {
-        kind: 'question',
-        content: 'Which file should I use?',
-        createdAt: new Date().toISOString(),
+      delivery: {
+        ...createRunDelivery(),
+        awaitingReply: {
+          kind: 'question',
+          content: 'Which file should I use?',
+          createdAt: new Date().toISOString(),
+        },
       },
     });
 

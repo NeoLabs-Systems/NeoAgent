@@ -2,6 +2,7 @@
 
 const path = require('path');
 const { shellQuote } = require('../../utils/shell');
+const { GUEST_WORKSPACE_DIR } = require('../runtime/guest_paths');
 
 const DIAGNOSTICS_TIMEOUT_MS = 15000;
 const MAX_OUTPUT_CHARS = 600;
@@ -50,6 +51,8 @@ async function runFileDiagnostics(runtimeManager, userId, filePath, options = {}
   let result;
   try {
     result = await runtimeManager.executeCliCommand(userId, command, {
+      // A relative path means the workspace; a guest would otherwise start in its home.
+      cwd: GUEST_WORKSPACE_DIR,
       timeout: DIAGNOSTICS_TIMEOUT_MS,
       signal: options.signal,
       deviceTarget: options.deviceTarget,

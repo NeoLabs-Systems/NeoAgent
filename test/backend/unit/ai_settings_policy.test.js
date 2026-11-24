@@ -58,5 +58,6 @@ test('agent loop policy keeps stall controls but retires productivity budgets', 
   assert.equal(policy.maxIterations, 5000);
   assert.equal(policy.maxIdleTurns, 3);
   assert.equal(policy.maxFailedTurns, 50);
-  assert.equal(policy.toolResultBudget.file, 750);
+  // Stored, but never below the default: a small budget is read back in slices, a turn each.
+  assert.equal(policy.toolResultBudget.file, 24000);
 });

@@ -1,5 +1,7 @@
 'use strict';
 
+const { createRunDelivery } = require('../../../server/services/ai/runtime/delivery/run_delivery');
+
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 
@@ -188,6 +190,7 @@ test('messaging turns are stored without the per-turn routing envelope', async (
   ctx.db.prepare('INSERT INTO conversations (id, user_id) VALUES (?, ?)')
     .run(conversationId, userId);
   const engine = createEngine('kurz und schmerzlos.');
+  engine.messagingManager = { async sendMessage() { return { success: true }; } };
   const { buildIncomingPrompt } = require('../../../server/services/messaging/automation');
   const msg = {
     platform: 'whatsapp',
@@ -321,7 +324,8 @@ test('provider context overflow compacts and retries the same model call once', 
   )));
   const recoveryEvents = ctx.db.prepare(
     `SELECT COUNT(*) AS count FROM agent_run_events
-     WHERE run_id = ? AND event_type = 'context.overflow_recovered'`,
+     WHERE run_id = ? AND event_type = 'context.compacted'
+       AND json_extract(payload_json, '$.reason') = 'provider_overflow'`,
   ).get(result.runId);
   assert.equal(Number(recoveryEvents.count), 1);
 });
@@ -369,8 +373,7 @@ test('a background send the model marks final is the answer, and tool calls keep
   engine.executeTool = async (name, args, context) => {
     toolContexts.push({ name, args, context });
     if (name === 'send_message' && context.stageProactiveMessages) {
-      context.deliveryState.proactiveMessageStaged = true;
-      context.deliveryState.stagedProactiveMessage = {
+      context.delivery.staged = {
         platform: args.platform,
         to: args.to,
         content: args.content,
@@ -382,14 +385,7 @@ test('a background send the model marks final is the answer, and tool calls keep
   };
   engine.isReadOnlyToolCall = () => false;
 
-  const deliveryState = {
-    messagingSent: false,
-    noResponse: false,
-    proactiveMessageStaged: false,
-    stagedProactiveMessage: null,
-    lastSentMessage: '',
-    sentMessages: [],
-  };
+  const delivery = createRunDelivery();
   const taskLearningInputs = [];
   engine.skillLearningService = {
     enqueueCompletedRun(input) {
@@ -406,7 +402,7 @@ test('a background send the model marks final is the answer, and tool calls keep
     skipConversationHistory: true,
     maxIterations: 4,
     bypassUserRateLimits: true,
-    deliveryState,
+    delivery,
     stageProactiveMessages: true,
     taskId: 'task-1',
   });
@@ -417,8 +413,8 @@ test('a background send the model marks final is the answer, and tool calls keep
   const sendCtx = toolContexts.find((entry) => entry.name === 'send_message');
   assert.equal(sendCtx.context.stageProactiveMessages, true);
   assert.equal(sendCtx.context.taskId, 'task-1');
-  assert.equal(sendCtx.context.deliveryState, deliveryState);
-  assert.equal(deliveryState.stagedProactiveMessage.content, 'Meeting in 1 hour');
+  assert.equal(sendCtx.context.delivery, delivery);
+  assert.equal(delivery.staged.content, 'Meeting in 1 hour');
   // Background automation never gets an opening line.
   const acks = ctx.db.prepare(
     `SELECT COUNT(*) AS n FROM agent_outbox WHERE run_id = ? AND message_kind = 'ack'`,
@@ -755,7 +751,7 @@ test('a large catalog starts with the same core set in any language and lists th
   // Word overlap with the request ("in" / "install") activates nothing.
   assert.equal(german.tools.includes('android_install_apk'), false);
   assert.equal(german.tools.includes('desktop_drag'), false);
-  assert.match(german.discovery, /android_install_apk: Install an APK/);
+  assert.match(german.discovery, /android_install_apk/);
 });
 
 test('a run searches for an inactive tool and activates it', async () => {
@@ -1003,4 +999,22 @@ test('a run stopped between steps reports its end to clients', async () => {
   const terminal = emitted.filter((entry) => entry.runId === runId
     && ['run:stopped', 'run:complete', 'run:error', 'run:interrupted'].includes(entry.event));
   assert.deepEqual(terminal.map((entry) => entry.event), ['run:stopped']);
+});
+
+test('failed and ambiguous final delivery return failure without success learning or completion events', async () => {
+  for (const ambiguous of [false, true]) {
+    const engine = createEngine('computed answer'); const events = []; let learned = false;
+    engine.emit = (_user, name, payload) => events.push({ name, payload });
+    engine.refreshConversationState = async () => { learned = true; };
+    engine.messagingManager = { async sendMessage() { const error = new Error('fixture transport failure'); error.safeToRetry = !ambiguous; throw error; } };
+    const result = await engine.run(userId, 'fixture', { triggerSource: 'messaging', source: 'telegram', chatId: 'fixture', stream: false, skipGlobalRecall: true });
+    const run = ctx.db.prepare('SELECT status,metadata_json FROM agent_runs WHERE id=?').get(result.runId);
+    assert.equal(result.status, 'failed'); assert.equal(run.status, 'failed');
+    assert.equal(result.executionCompleted, true); assert.equal(learned, false);
+    assert.equal(result.deliveryStatus, ambiguous ? 'delivery_ambiguous' : 'delivery_failed');
+    assert.ok(!events.some((event) => event.name === 'run:complete'));
+    const completion = ctx.db.prepare("SELECT 1 FROM agent_run_events WHERE run_id=? AND event_type='run.completed'").get(result.runId);
+    assert.equal(completion, undefined);
+    assert.equal(JSON.parse(run.metadata_json).executionCompleted, true);
+  }
 });

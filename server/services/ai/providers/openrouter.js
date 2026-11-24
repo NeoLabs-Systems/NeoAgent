@@ -105,6 +105,9 @@ class OpenRouterProvider extends OpenAICompatibleProvider {
     // session id every turn is routed from scratch and can change model mid-run.
     if (options.sessionId) params.session_id = String(options.sessionId);
 
+    // OpenRouter caches most providers on its own; Anthropic has to be asked.
+    if (/^~?anthropic\//.test(model)) params.cache_control = { type: 'ephemeral' };
+
     if (tools && tools.length > 0) {
       params.tools = this.formatTools(tools);
       params.tool_choice = 'auto';

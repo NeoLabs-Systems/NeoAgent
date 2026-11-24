@@ -97,7 +97,9 @@ function buildDecisionPacket({
       wasMentioned: msg.wasMentioned === true,
       repliedToAgent: msg.repliedToAgent === true,
       addressedByName: addressing?.addressedByName === true,
-      replyTo: msg.replyTo?.content
+      // Replies to the agent are already marked by repliedToAgent; the gate
+      // reads a quoted message as a sign the reply is meant for someone else.
+      replyTo: msg.replyTo?.content && !msg.replyTo.fromAgent
         ? { sender: msg.replyTo.sender || 'participant', content: truncate(msg.replyTo.content, 280) }
         : null,
       timestamp: msg.timestamp || new Date().toISOString(),

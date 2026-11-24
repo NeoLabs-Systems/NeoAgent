@@ -102,6 +102,7 @@ PasswordStrengthEvaluation evaluatePasswordStrength({
         hasMinimumLength &&
         score >= minPasswordScore &&
         !containsUserInfo &&
-        !obviousPattern,
+        !usesCommonPattern &&
+        !sequential,
   );
 }

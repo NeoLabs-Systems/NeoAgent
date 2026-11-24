@@ -10,6 +10,7 @@ const { randomUUID } = require('crypto');
 const { isMainAgent } = require('../agents/manager');
 const { buildPlatformFormattingGuide } = require('./formatting_guides');
 const { SENDER_IDENTITY_NOTE, buildSenderIdentityBlock } = require('./sender_identity');
+const { buildReplyContextBlock } = require('./reply_context');
 const { buildPublicRunScope, getPublicProfile, registerPublicRun } = require('./public_audience');
 const {
   accessPolicyKey,
@@ -35,6 +36,7 @@ const { processInboundQueue } = require('./inbound_queue');
 const { isActiveSharedChat } = require('./shared_connections');
 const { annotateInboundJobs, attachRunToInboundJobs } = require('./inbound_store');
 const { startTypingKeepalive } = require('./typing_keepalive');
+const { fixedMessage } = require('./fixed_messages');
 const { isUsageLimitError, sendUsageLimitNotice } = require('./usage_limit_notice');
 const { waitForBoundedResult } = require('../network/http');
 const { createAbortError, throwIfAborted } = require('../../utils/abort');
@@ -128,7 +130,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             userId,
             msg.platform,
             msg.chatId,
-            `Command handling failed: ${err.message}`,
+            fixedMessage(userId, agentId, 'commandFailed', { error: err.message }),
             { runId: null, agentId, signal }
           );
         } catch (sendErr) {
@@ -152,7 +154,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
             userId,
             msg.platform,
             msg.chatId,
-            commandResult.content || 'Done.',
+            commandResult.content || fixedMessage(userId, agentId, 'done'),
             { runId: null, agentId, signal }
           );
         } catch (err) {
@@ -197,7 +199,7 @@ function registerMessagingAutomation({ app, io, messagingManager, agentEngine })
           errorMessage
         );
         io.to(`user:${userId}`).emit('messaging:error', {
-          error: `NeoAgent could not finish the ${failedMessage.platform} request. Check the run history for details.`,
+          error: fixedMessage(userId, failedMessage.agentId || null, 'runFailed', { platform: failedMessage.platform }),
           platform: failedMessage.platform,
           chatId: failedMessage.chatId,
           runId
@@ -388,7 +390,10 @@ async function executeQueuedMessage({
       socialMode: Boolean(msg.isGroup),
       decision: behaviorResult?.decision || null,
     });
-    const conversationId = ensureConversation(userId, msg);
+    const conversationId = await messagingManager.getOrCreateConversation(userId, msg.platform, msg.chatId, {
+      agentId,
+      title: `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`,
+    });
     const additionalContext = (Array.isArray(behaviorResult?.promptBlocks) ? behaviorResult.promptBlocks : [])
       .filter(Boolean)
       .join('\n\n');
@@ -500,33 +505,6 @@ async function executeQueuedMessage({
   }
 }
 
-function ensureConversation(userId, msg) {
-  const agentId = msg.agentId || null;
-  let conversation = db
-    .prepare(
-      'SELECT id FROM conversations WHERE user_id = ? AND agent_id = ? AND platform = ? AND platform_chat_id = ?'
-    )
-    .get(userId, agentId, msg.platform, msg.chatId);
-
-  if (conversation) {
-    return conversation.id;
-  }
-
-  const conversationId = randomUUID();
-  db.prepare(
-    'INSERT INTO conversations (id, user_id, agent_id, platform, platform_chat_id, title) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(
-    conversationId,
-    userId,
-    agentId,
-    msg.platform,
-    msg.chatId,
-    `${msg.platform} — ${msg.senderName || msg.sender || msg.chatId}`
-  );
-
-  return conversationId;
-}
-
 // The agent's file tools only see the workspace, not the host artifact store,
 // so an inbound attachment is copied there and referenced by that path.
 async function stageInboundMedia(agentEngine, userId, msg, signal) {
@@ -572,6 +550,9 @@ function buildIncomingPrompt(msg, options = {}) {
     )
     : '';
 
+  const replyBlock = buildReplyContextBlock(msg);
+  const replyContext = replyBlock ? `\n\n${replyBlock}` : '';
+
   const publicPromptGuide = getPublicProfile(msg.platform)?.promptGuide;
   const publicGuide = publicPromptGuide ? `\n\n${publicPromptGuide}` : '';
   const socialMode = options.socialMode === true || Boolean(msg.isGroup);
@@ -582,10 +563,12 @@ function buildIncomingPrompt(msg, options = {}) {
     ? 'Do not send interim progress or presence updates into the shared room.'
     : 'Use send_interim_update sparingly — only for a real progress update or a blocking question (set expects_reply=true for the latter).';
 
-  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n${fenceUntrusted('external_message', msg.content)}${mediaNote}${audioContextNote}${roomContext}${publicGuide}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
+  return `You received a ${msg.platform} ${msg.isGroup ? 'group' : 'direct'} message.\n${senderIdentity}\n\nMessage content:\n${fenceUntrusted('external_message', msg.content)}${replyContext}${mediaNote}${audioContextNote}${roomContext}${publicGuide}\n\n${SENDER_IDENTITY_NOTE} In group chats, sender_id/sender_username/sender_tag is the speaker — not the channel or group name.\n\n${formattingGuide}\n\n${responseGuide} Use send_message platform="${msg.platform}" to="${msg.chatId}". ${progressGuide} Never send internal monologue, progress-check bookkeeping, or "nothing changed" observations as user-visible messages.`;
 }
 
-async function isAllowedMessagingSender({ io, userId, msg }) {
+// Whether this sender may speak to the agent, marking on the message whether
+// they speak for the owner. It has no side effects, so approvals ask it too.
+function resolveSenderTrust({ userId, msg }) {
   // A self-chat note is written by the account owner in their own chat, so there
   // is no sender left to approve and no allowlist prompt worth raising.
   if (msg.metadata?.selfChat === true) {
@@ -635,9 +618,14 @@ async function isAllowedMessagingSender({ io, userId, msg }) {
     msg.approvedSpeaker = msg.ownerTrusted || (msg.isGroup && decision.approvedSender === true);
     return true;
   }
+  msg.accessDeniedReason = decision.reason;
+  return false;
+}
 
+async function isAllowedMessagingSender({ io, userId, msg }) {
+  if (resolveSenderTrust({ userId, msg })) return true;
   console.warn(
-    `[Messaging] Blocked ${msg.platform} message from ${maskSenderId(msg.sender)} (${decision.reason}).`
+    `[Messaging] Blocked ${msg.platform} message from ${maskSenderId(msg.sender)} (${msg.accessDeniedReason}).`
     + ' Allow the sender under Messaging access to let it through.'
   );
   emitBlockedSenderSuggestion({ io, userId, msg });
@@ -663,6 +651,7 @@ module.exports = {
   buildIncomingPrompt,
   executeQueuedMessage,
   isAllowedMessagingSender,
+  resolveSenderTrust,
   processQueuedMessage,
   registerMessagingAutomation,
   startTypingKeepalive

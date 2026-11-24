@@ -29,6 +29,10 @@ class MessagingManagerStub extends EventEmitter {
   async sendTyping(userId, platform, chatId, isTyping, options) {
     this.typingCalls.push({ userId, platform, chatId, isTyping, options });
   }
+
+  async getOrCreateConversation(userId, platform, chatId) {
+    return `conversation:${platform}:${chatId}`;
+  }
 }
 
 function createIoRecorder() {

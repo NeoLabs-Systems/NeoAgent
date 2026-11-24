@@ -34,6 +34,7 @@ const {
 } = require('./http/middleware');
 const { createSocketServer, bindSocketSessions } = require('./http/socket');
 const { registerApiRoutes } = require('./http/routes');
+const { createWebShareProxy } = require('./services/web_shares/proxy');
 const { registerStaticRoutes } = require('./http/static');
 const { registerErrorHandler } = require('./http/errors');
 const { startServices, stopServices } = require('./services/manager');
@@ -142,6 +143,9 @@ const sessionMiddleware = createSessionMiddleware({
 const activeSockets = new Set();
 
 app.locals.logHistory = setupConsoleInterceptor();
+// Shared pages go first: they stream their own bodies and set their own
+// headers, and anything that is not a live share falls through.
+app.use(createWebShareProxy({ app, getRuntime: () => app.locals.runtimeManager }));
 applyHttpMiddleware(app, {
   secureCookies: SECURE_COOKIES,
   trustProxy: TRUST_PROXY,
@@ -291,6 +295,9 @@ httpServer.on('error', (error) => {
 httpServer.listen(PORT, () => {
   const startupUrl = PUBLIC_URL || `http://localhost:${PORT}`;
   console.log(`NeoAgent running on ${startupUrl}`);
+  const statusHistory = require('./routes/public_status').history;
+  statusHistory.start(() => require('./services/public_status').buildPublicStatus(app), httpServer);
+  require('./host_analytics').startHostAnalytics(httpServer);
   require('./services/admin/updates').startUpdateChecks();
   startServices(app, io, { resumeRuns: true }).catch(async (err) => {
     console.error('[Startup] Service initialization failed:', err);

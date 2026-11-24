@@ -14,12 +14,19 @@ description: How agents, tasks, and runs share scope, and how the trigger regist
 |---|---|
 | Main agent | `ensureMainAgent()` in `services/agents/manager.js` keeps one `main` agent per user |
 | Agent scope | `agent_id` on settings, conversations, memory, runs, connections, MCP servers and tasks |
-| Delegation | `delegateToAgent()` starts a run of another agent; recorded in `agent_delegations` |
+| Agent tasks | `loop/agent_tasks.js` runs durable work between agents; rows in `agent_delegations`, messages in `agent_task_messages` |
+| Agent creation | `create_agent` → `services/agents/creation.js`; gated by the `agent_creation` tool policy |
+| Agent restrictions | `agents.tool_restrictions_json`, enforced in `security/tool_security_hook.js` |
 | Subagents | `spawnSubagent()` starts a child run of the same agent; cancelled when the parent ends |
 
 - **Delegation rule.** The source needs `can_delegate`; the target must allow `can_be_delegated_to`.
 - **Target list.** An empty `delegate_targets_json` allows every eligible agent.
-- **Shared trust.** Subagents and delegations inherit the parent run's trust record.
+- **Task lifecycle.** `pending → working → (waiting →) completed | failed | cancelled`. The owner works in its own run (`trigger_source = 'agent_delegation'`); the asking run is never blocked.
+- **Hearing back.** A still-running requester gets a steering note. Otherwise a parent task resumes, or a new run starts on the requester's surface from its resume envelope. `report_pending` makes each update arrive once.
+- **Restart.** `resumeAgentTasks()` requeues `working` tasks and delivers pending reports at boot.
+- **Bounds.** `LIMITS` in `services/agents/tasks.js`: depth 2, 3 tasks per run, 20 open per account, 20 messages and 6 runs per task; 2 task runs at a time per account; no handing back to an agent already on the chain.
+- **Trust.** Subagents share the parent run's trust record; an agent task shares it while the asking run is alive and otherwise starts untrusted.
+- **Permissions.** A task carries its requesters' restrictions; a created agent gets its creator's restrictions plus any it asked for.
 
 ## Task record
 
@@ -82,8 +89,8 @@ Tasks live in `scheduled_tasks` and are managed by `TaskRuntime` (`services/task
 1. **Gate.** A task already running is skipped (`already_running_or_queued`); a recurring run starting over 90 seconds late is skipped (`stale_start_delay`).
 2. **Prompt.** The task prompt is combined with the trigger payload, fenced as untrusted data.
 3. **Run.** The agent runs in the task's own conversation with `triggerSource` set to the trigger type.
-4. **Decide.** Automatic runs must end with one `send_message` whose `purpose` is `final_result`, `blocker` or `no_response`.
-5. **Deliver.** The runtime sends the staged message to the notify target; plain text is delivered only for manual runs.
+4. **Decide.** The final answer is the result. Exactly `[NO RESPONSE]` means nothing is sent; a `send_message` the run made already counts as the delivery.
+5. **Deliver.** The runtime sends the final answer, or a staged message, to the notify target.
 6. **Retry.** A failed run retries once with the error attached; rate-limit errors skip the run instead.
 7. **Publish.** A `task_run_finished` event lets other tasks react.
 

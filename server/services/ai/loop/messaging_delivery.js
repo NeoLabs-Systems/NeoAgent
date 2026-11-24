@@ -13,6 +13,7 @@ const {
   getHttpStatus,
 } = require('../../../utils/retry');
 const { shortenRunId, summarizeForLog } = require('../logFormat');
+const { markSent } = require('../runtime/delivery/run_delivery');
 
 const SAFE_PRE_DELIVERY_NETWORK_CODES = new Set([
   'EAI_AGAIN',
@@ -62,16 +63,16 @@ function shouldSendMessagingFinalFallback(_engine, runMeta, content, platform = 
   const cleanedContent = normalizeOutgoingMessage(content || '', platform, {
     collapseWhitespace: false,
   });
-  // explicitMessageSent holds only while a reply the model sent in this chat
-  // is still its last word; anything sent earlier or elsewhere does not
-  // replace the final answer.
+  // lastWordSent holds only while a reply the model sent in this chat is still
+  // its last word; anything sent earlier or elsewhere does not replace the
+  // final answer.
+  const delivery = runMeta?.delivery;
   return Boolean(
     cleanedContent
-    && !runMeta?.terminalInterim
-    && runMeta?.noResponse !== true
-    && runMeta?.explicitMessageSent !== true
-    && runMeta?.finalDeliverySent !== true
-    && runMeta?.deliveryState?.finalContentDelivered !== true
+    && !delivery?.awaitingReply
+    && delivery?.noResponse !== true
+    && delivery?.lastWordSent !== true
+    && delivery?.finalDelivered !== true
   );
 }
 
@@ -115,15 +116,14 @@ async function deliverMessagingFinalFallback(engine, {
       if (result.suppressed !== true) {
         const error = new Error(result.reason || 'Behavior delivery was not confirmed.');
         error.code = 'MESSAGING_DELIVERY_FAILED';
+        // Some bubbles of the reply already reached the chat.
+        error.deliveryAmbiguous = Number(result.delivery?.deliveredBubbles || 0) > 0;
         throw error;
       }
-      runMeta.noResponse = true;
-      if (runMeta.deliveryState) runMeta.deliveryState.noResponse = true;
+      runMeta.delivery.noResponse = true;
       return { sent: false, suppressed: true, reason: result.reason };
     }
-    runMeta.lastSentMessage = result.content;
-    if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
-    runMeta.sentMessages.push(result.content);
+    markSent(runMeta.delivery, result.content);
     engine.markRunFinalDelivery(runId, result.content);
     return { sent: true, behavior: true, content: result.content };
   }
@@ -166,18 +166,16 @@ async function deliverMessagingFinalFallback(engine, {
       throw error;
     }
     deliveredChunks.push(chunks[i]);
-    runMeta.lastSentMessage = chunks[i];
-    if (!Array.isArray(runMeta.sentMessages)) runMeta.sentMessages = [];
-    runMeta.sentMessages.push(chunks[i]);
+    markSent(runMeta.delivery, chunks[i]);
   }
 
-  runMeta.lastSentMessage = deliveredChunks[deliveredChunks.length - 1] || cleanedContent;
-  engine.markRunFinalDelivery(runId, runMeta.lastSentMessage);
+  engine.markRunFinalDelivery(runId, deliveredChunks[deliveredChunks.length - 1] || cleanedContent);
   return { sent: true, chunks: deliveredChunks };
 }
 
 module.exports = {
   deliverMessagingFinalFallback,
+  isSafeMessagingDeliveryRetry,
   requireSuccessfulMessagingDelivery,
   shouldSendMessagingFinalFallback,
 };

@@ -1675,6 +1675,7 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
   final TextEditingController _baseImagePath = TextEditingController();
   final TextEditingController _memoryMb = TextEditingController();
   final TextEditingController _cpus = TextEditingController();
+  bool _webSharing = true;
 
   /// The smallest computer the server will run, from its settings.
   int _minMemoryMb = 1024;
@@ -1703,6 +1704,7 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
     _minMemoryMb = (settings['minMemoryMb'] as num?)?.toInt() ?? _minMemoryMb;
     _memoryMb.text = settings['maxMemoryMb']?.toString() ?? '';
     _cpus.text = settings['maxCpus']?.toString() ?? '';
+    _webSharing = settings['webSharing'] != false;
   }
 
   Future<void> _save() async {
@@ -1724,6 +1726,7 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
         'vmBaseImage': _baseImagePath.text.trim(),
         'maxMemoryMb': memoryMb,
         'maxCpus': cpus,
+        'webSharing': _webSharing,
       }),
       appStrings.cloudComputerSettingsSavedRestartThe,
     );
@@ -1769,6 +1772,16 @@ class _AdminCfgVmCardState extends State<_AdminCfgVmCard>
               onChanged: (_) => _onEdited(),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        _SettingToggle(
+          title: appStrings.adminWebSharing,
+          subtitle: appStrings.adminWebSharingDescription,
+          value: _webSharing,
+          onChanged: (value) => setState(() {
+            _webSharing = value;
+            _saveNotice = null;
+          }),
         ),
         const SizedBox(height: 16),
         _SaveButton(

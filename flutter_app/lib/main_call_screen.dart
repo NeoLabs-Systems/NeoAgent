@@ -1,5 +1,7 @@
 part of 'main.dart';
 
+enum _CallTaskDisposition { keepRunning, save, cancel }
+
 /// Where a call stands, which decides everything the call screen shows.
 enum _CallPhase { ringing, answering, idle, dialing, live, ended }
 
@@ -248,7 +250,10 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
       return appStrings.reconnectingCall;
     }
     if (live.isSpeaking) return appStrings.speaking;
-    if (_controller.isLiveVoiceCaptureActive) return appStrings.listening;
+    if (_controller.isLiveVoiceCaptureActive &&
+        !_controller.isLiveVoiceMicMuted) {
+      return appStrings.listening;
+    }
     if (live.hasActiveTask) return appStrings.agentWorking;
     return live.isHandsFree ? appStrings.micMuted : appStrings.holdToTalk2;
   }
@@ -347,7 +352,9 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
   Widget _talkButton() {
     final controller = _controller;
     if (controller.voiceAssistantLiveState.isHandsFree) {
-      final muted = !controller.isLiveVoiceCaptureActive;
+      final muted =
+          !controller.isLiveVoiceCaptureActive ||
+          controller.isLiveVoiceMicMuted;
       return _CallButton(
         icon: muted ? Icons.mic_off_rounded : Icons.mic_none_rounded,
         label: muted ? appStrings.unmuteMic : appStrings.muteMic,
@@ -467,7 +474,7 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
       await controller.hangUpVoiceCall();
       return;
     }
-    final cancelTask = await showDialog<bool>(
+    final disposition = await showDialog<_CallTaskDisposition>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(appStrings.endVoiceCall),
@@ -478,18 +485,28 @@ class _AgentCallScreenState extends State<AgentCallScreen> {
             child: Text(appStrings.stayOnTheCall),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () =>
+                Navigator.of(context).pop(_CallTaskDisposition.keepRunning),
             child: Text(appStrings.keepTaskRunning),
           ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_CallTaskDisposition.save),
+            child: Text(appStrings.saveForNextTime),
+          ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () =>
+                Navigator.of(context).pop(_CallTaskDisposition.cancel),
             child: Text(appStrings.cancelTask),
           ),
         ],
       ),
     );
-    if (cancelTask == null || !mounted) return;
-    await controller.hangUpVoiceCall(cancelTask: cancelTask);
+    if (disposition == null || !mounted) return;
+    await controller.hangUpVoiceCall(
+      cancelTask: disposition == _CallTaskDisposition.cancel,
+      saveForNextTime: disposition == _CallTaskDisposition.save,
+    );
   }
 
   /// The call keeps running; the chat is where the conversation lives.

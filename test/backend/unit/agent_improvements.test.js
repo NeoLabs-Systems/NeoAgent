@@ -1,5 +1,6 @@
 'use strict';
 
+const { toolNamesWithSelection } = require('../../../server/services/ai/tools/metadata');
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
@@ -11,8 +12,6 @@ const {
 } = require('../../../server/services/ai/repetitionGuard');
 const { parseDelimited } = require('../../../server/services/workspace/structured_data');
 const {
-  ALWAYS_INCLUDE_BUILT_INS,
-  CORE_FILE_TOOLS,
   MAX_TOOLS,
   activateTools,
   buildToolDiscoverySummary,
@@ -44,12 +43,12 @@ test('usage normalization preserves reasoning and cache token categories', () =>
   assert.equal(mergeUsage({ inputTokens: 4 }, { outputTokens: 3 }).totalTokens, 7);
 });
 
-test('repetition guard blocks the third unchanged result but allows progress', () => {
+test('repetition guard blocks a call that keeps failing the same way but allows progress', () => {
   const guard = new ToolRepetitionGuard();
   const args = { query: 'same', filters: { b: 2, a: 1 } };
   assert.equal(guard.shouldBlock('search_files', args), false);
-  guard.observe('search_files', args, { matches: [] });
-  guard.observe('search_files', args, { matches: [] });
+  guard.observe('search_files', args, { matches: [] }, 'index unavailable');
+  guard.observe('search_files', args, { matches: [] }, 'index unavailable');
   assert.equal(guard.shouldBlock('search_files', args), true);
 
   const progressing = new ToolRepetitionGuard();
@@ -99,8 +98,8 @@ test('repetition guard normalizes repeated read-only shell evidence fetches', ()
   };
   const result = { stdout: 'same evidence' };
 
-  guard.observe('execute_command', first, result);
-  guard.observe('execute_command', second, result);
+  guard.observe('execute_command', first, result, 'host unreachable');
+  guard.observe('execute_command', second, result, 'host unreachable');
 
   assert.equal(guard.shouldBlock('execute_command', third), true);
   assert.deepEqual(normalizeReadOnlyShellIntent(first.command), normalizeReadOnlyShellIntent(second.command));
@@ -110,7 +109,7 @@ test('tool activation replaces unrelated schemas while preserving control tools'
   const required = [
     'search_tools',
     'activate_tools',
-    'think',
+    'task_ledger',
     'send_message',
     'send_interim_update',
     'call_user',
@@ -140,16 +139,16 @@ test('tool discovery lists inactive capabilities and searches them generically',
   ];
   const active = tools.slice(0, 2);
   const summary = buildToolDiscoverySummary(tools, active);
-  assert.match(summary, /Discoverable tools: 4/);
-  assert.match(summary, /google_workspace_calendar_list_events: List Google Calendar events/);
-  assert.doesNotMatch(summary, /search_tools: Search tools/);
+  assert.match(summary, /google: google_workspace_calendar_list_events/);
+  assert.match(summary, /github: github_create_issue/);
+  assert.doesNotMatch(summary, /search_tools/);
 
   const matches = searchTools(tools, 'task calendar events', {
     activeNames: active.map((tool) => tool.name),
-    excludeNames: ALWAYS_INCLUDE_BUILT_INS,
+    excludeNames: toolNamesWithSelection('always'),
   });
   assert.equal(matches[0].name, 'google_workspace_calendar_list_events');
-  assert.equal(matches.some((tool) => ALWAYS_INCLUDE_BUILT_INS.includes(tool.name)), false);
+  assert.equal(matches.some((tool) => toolNamesWithSelection('always').includes(tool.name)), false);
   assert.equal(matches[0].active, false);
   assert.match(matches[0].description, /Google Calendar/);
 });
@@ -158,14 +157,14 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   const required = [
     'search_tools',
     'activate_tools',
-    'think',
+    'task_ledger',
     'send_message',
     'send_interim_update',
     'call_user',
   ];
   const tools = [
     ...required.map((name) => ({ name, description: `${name} description` })),
-    ...CORE_FILE_TOOLS.map((name) => ({ name, description: `${name} description` })),
+    ...[...toolNamesWithSelection('coding'), 'execute_command'].map((name) => ({ name, description: `${name} description` })),
     { name: 'execute_command', description: 'Run shell commands.' },
     ...Array.from({ length: 10 }, (_, index) => ({ name: `integration_${index}`, description: `Integration ${index}` })),
   ];
@@ -175,7 +174,7 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   assert.equal(selectInitialTools(small, []).length, small.length);
 
   const executeInitial = selectInitialTools(tools, ['execute_command'], { includeCoreFileTools: true });
-  for (const toolName of CORE_FILE_TOOLS) {
+  for (const toolName of [...toolNamesWithSelection('coding'), 'execute_command']) {
     assert.equal(executeInitial.some((tool) => tool.name === toolName), true, `${toolName} should be active`);
   }
 
@@ -195,7 +194,7 @@ test('execute runs start with core file tools but direct runs stay lean', () => 
   );
   const activated = activateTools(crowdedInitial, crowdedTools, ['extra_29'], { includeCoreFileTools: true });
   assert.equal(activated.tools.some((tool) => tool.name === 'extra_29'), true);
-  for (const toolName of CORE_FILE_TOOLS) {
+  for (const toolName of [...toolNamesWithSelection('coding'), 'execute_command']) {
     assert.equal(activated.tools.some((tool) => tool.name === toolName), true, `${toolName} should remain active`);
   }
 });
@@ -640,7 +639,37 @@ test('new-evidence reads count as progress but churn does not', () => {
   const failedRead = classifyToolExecution('read_file', { path: '/missing' }, { error: 'not found' });
   assert.equal(gatheredNewEvidence(failedRead, { unchangedCount: 1 }), false);
 
-  // Pure thinking gathers no evidence.
-  const thought = classifyToolExecution('think', { thought: 'hmm' }, { thought: 'hmm' });
-  assert.equal(gatheredNewEvidence(thought, { unchangedCount: 1 }), false);
+  // Keeping the task's own record gathers no evidence.
+  const ledger = classifyToolExecution('task_ledger', { goal: 'hmm' }, { recorded: true });
+  assert.equal(gatheredNewEvidence(ledger, { unchangedCount: 1 }), false);
+});
+
+test('a tool that fails the same way whatever it is asked rests, and a success ends the streak', () => {
+  let now = 0;
+  const guard = new ToolRepetitionGuard({ now: () => now });
+  const quota = 'No search model can take this request right now.';
+  guard.observe('web_search', { query: 'a' }, {}, quota);
+  guard.observe('web_search', { query: 'b' }, {}, quota);
+  assert.equal(guard.toolResting('web_search'), null, 'two may be bad luck');
+  guard.observe('web_search', { query: 'c' }, {}, quota);
+  const resting = guard.toolResting('web_search');
+  assert.equal(resting.count, 3);
+  assert.equal(resting.serviceWait, false, 'no wait was named, so none is offered');
+  assert.equal(resting.retryInMs, 60_000);
+  now = 61_000;
+  assert.equal(guard.toolResting('web_search'), null, 'it may be asked again after the rest');
+  guard.observe('web_search', { query: 'd' }, { results: [] }, '');
+  guard.observe('web_search', { query: 'e' }, {}, quota);
+  assert.equal(guard.toolResting('web_search'), null, 'a success started the count over');
+
+  guard.observe('github_api_request', { path: 'a' }, { retryAfterSeconds: 300 }, 'Forbidden');
+  guard.observe('github_api_request', { path: 'b' }, { retryAfterSeconds: 300 }, 'Forbidden');
+  guard.observe('github_api_request', { path: 'c' }, { retryAfterSeconds: 300 }, 'Forbidden');
+  assert.equal(guard.toolResting('github_api_request').retryInMs, 300_000, 'for as long as the service asked');
+  assert.equal(guard.toolResting('github_api_request').serviceWait, true);
+
+  guard.observe('read_file', { path: 'a' }, {}, 'Not found: a');
+  guard.observe('read_file', { path: 'b' }, {}, 'Not found: b');
+  guard.observe('read_file', { path: 'c' }, {}, 'Not found: c');
+  assert.equal(guard.toolResting('read_file'), null, 'errors that differ by argument are the arguments');
 });

@@ -14,6 +14,7 @@ description: Configure local, API-key, and account-backed model providers, and k
 | --- | --- | --- |
 | **Admin › Providers** | Every account | Server-wide keys and endpoints |
 | **Admin › Models** | Every account | Which chat and SystemOne models accounts may pick |
+| **Admin › Users › Extra models** | One account | Chat models switched off for everyone that this account may still use. Runs on them count toward its rate limits |
 | **Settings › Models** | One agent | Chat model, Model pool, Advanced model settings, SystemOne models, Bring your own key |
 | `neoagent env set`, `neoagent setup` | The server | The same keys as **Admin › Providers** |
 | `neoagent login <provider>` | The server | [Account sign-ins](#account-logins) |

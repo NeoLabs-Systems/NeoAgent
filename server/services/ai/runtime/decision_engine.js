@@ -71,7 +71,15 @@ function normalizeToolCalls(toolCalls) {
 function decisionFromModelResponse(response = {}) {
   const content = String(response.content || '').trim();
   const toolCalls = normalizeToolCalls(response.tool_calls || response.toolCalls || []);
-  if (toolCalls.length > 0) return { kind: DECISION_KINDS.ACT, content, toolCalls };
+  if (toolCalls.length > 0) {
+    return {
+      kind: DECISION_KINDS.ACT,
+      content,
+      toolCalls,
+      reasoningState: response.reasoningState || null,
+      providerContentBlocks: response.providerContentBlocks || null,
+    };
+  }
   if (content) return { kind: DECISION_KINDS.ANSWER, content, toolCalls: [] };
   return { kind: DECISION_KINDS.BLANK, content: '', toolCalls: [] };
 }

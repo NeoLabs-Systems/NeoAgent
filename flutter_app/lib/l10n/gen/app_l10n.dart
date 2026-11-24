@@ -927,18 +927,6 @@ abstract class AppL10n {
   /// **'Agent Calls'**
   String get agentCalls;
 
-  /// No description provided for @agentCommunication.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent communication'**
-  String get agentCommunication;
-
-  /// No description provided for @agentCommunicationArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent communication: {arg1}.'**
-  String agentCommunicationArg1(Object? arg1);
-
   /// No description provided for @agentModeEditsTheWorkspaceSend.
   ///
   /// In en, this message translates to:
@@ -2965,24 +2953,6 @@ abstract class AppL10n {
   /// **'Called by name'**
   String get calledByName;
 
-  /// No description provided for @canDelegateTasksToOtherAgents.
-  ///
-  /// In en, this message translates to:
-  /// **'Can delegate tasks to other agents'**
-  String get canDelegateTasksToOtherAgents;
-
-  /// No description provided for @canDelegateToArg1.
-  ///
-  /// In en, this message translates to:
-  /// **'Can delegate to {arg1}'**
-  String canDelegateToArg1(Object? arg1);
-
-  /// No description provided for @canReceiveDelegatedTasks.
-  ///
-  /// In en, this message translates to:
-  /// **'Can receive delegated tasks'**
-  String get canReceiveDelegatedTasks;
-
   /// No description provided for @cancel.
   ///
   /// In en, this message translates to:
@@ -3000,12 +2970,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Cannot preview'**
   String get cannotPreview;
-
-  /// No description provided for @cannotReceiveDelegatedTasks.
-  ///
-  /// In en, this message translates to:
-  /// **'cannot receive delegated tasks'**
-  String get cannotReceiveDelegatedTasks;
 
   /// No description provided for @cannotRunYet.
   ///
@@ -4015,6 +3979,72 @@ abstract class AppL10n {
   /// **'Could not disconnect NeoRecall.'**
   String get couldNotDisconnectNeorecall;
 
+  /// No description provided for @neocloudSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoCloud Setup'**
+  String get neocloudSetup;
+
+  /// No description provided for @connectYourNeocloudServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your NeoCloud server. On NeoCloud\'s sign-in page you choose what NeoAgent may do with your files and whether it may send documents for signature.'**
+  String get connectYourNeocloudServer;
+
+  /// No description provided for @useANeocloudUrlTheNeoagent.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a NeoCloud URL the NeoAgent server can reach. NeoAgent\'\'s PUBLIC_URL must also be reachable from this browser for the OAuth callback.'**
+  String get useANeocloudUrlTheNeoagent;
+
+  /// No description provided for @connectedNeocloudUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected NeoCloud User'**
+  String get connectedNeocloudUser;
+
+  /// No description provided for @neocloudServerUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoCloud Server URL'**
+  String get neocloudServerUrl;
+
+  /// No description provided for @neocloudServerUrlIsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoCloud server URL is required.'**
+  String get neocloudServerUrlIsRequired;
+
+  /// No description provided for @couldNotSaveNeocloudSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save NeoCloud setup.'**
+  String get couldNotSaveNeocloudSetup;
+
+  /// No description provided for @disconnectNeocloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect NeoCloud?'**
+  String get disconnectNeocloud;
+
+  /// No description provided for @thisRemovesTheNeocloudServerUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the NeoCloud server URL and all connected NeoCloud accounts for this agent.'**
+  String get thisRemovesTheNeocloudServerUrl;
+
+  /// No description provided for @couldNotDisconnectNeocloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not disconnect NeoCloud.'**
+  String get couldNotDisconnectNeocloud;
+
+  /// No description provided for @neocloudUrlHelperText.
+  ///
+  /// In en, this message translates to:
+  /// **'Local and private-network URLs are supported when the NeoAgent server can reach them. Files in encrypted vaults are never exposed to NeoAgent.'**
+  String get neocloudUrlHelperText;
+
   /// No description provided for @couldNotDisconnectNextcloud.
   ///
   /// In en, this message translates to:
@@ -4212,12 +4242,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Create password'**
   String get createPassword;
-
-  /// No description provided for @createSpecialistBotsWithSeparateMemory.
-  ///
-  /// In en, this message translates to:
-  /// **'Create specialist bots with separate memory, settings, tools, and account assignments.'**
-  String get createSpecialistBotsWithSeparateMemory;
 
   /// No description provided for @createTheFirstAccount.
   ///
@@ -6133,12 +6157,6 @@ abstract class AppL10n {
   /// **'Groups {arg1} has not seen yet will follow this.'**
   String groupsArg1HasNotSeenYet(Object? arg1);
 
-  /// No description provided for @handlesDirectTasksItself.
-  ///
-  /// In en, this message translates to:
-  /// **'Handles direct tasks itself'**
-  String get handlesDirectTasksItself;
-
   /// No description provided for @handsFreeTalkFreelyInterruptAnytime.
   ///
   /// In en, this message translates to:
@@ -6846,6 +6864,18 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Keep task running'**
   String get keepTaskRunning;
+
+  /// No description provided for @saveForNextTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Save for next time'**
+  String get saveForNextTime;
+
+  /// No description provided for @resumeTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume task'**
+  String get resumeTask;
 
   /// No description provided for @keepTheVaultAvailable.
   ///
@@ -8134,7 +8164,7 @@ abstract class AppL10n {
   /// No description provided for @neoagentIsStillWorkingOnA.
   ///
   /// In en, this message translates to:
-  /// **'NeoAgent is still working on a task. End the call and get the result in chat, or cancel the task too.'**
+  /// **'NeoAgent is still working on tasks. Keep them running and get the results in chat, save them to resume later from Runs, or cancel them.'**
   String get neoagentIsStillWorkingOnA;
 
   /// No description provided for @neoagentIsTurningYourDemonstrationInto.
@@ -8965,6 +8995,12 @@ abstract class AppL10n {
   /// **'Not now'**
   String get notNow;
 
+  /// No description provided for @dontAskAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t ask again'**
+  String get dontAskAgain;
+
   /// No description provided for @notNow2.
   ///
   /// In en, this message translates to:
@@ -9112,7 +9148,7 @@ abstract class AppL10n {
   /// No description provided for @onASignedInAndroidDevice.
   ///
   /// In en, this message translates to:
-  /// **'On a signed-in Android device, open Settings › Sign-in & security, scan this code, and approve the login.'**
+  /// **'On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR and approve the login.'**
   String get onASignedInAndroidDevice;
 
   /// No description provided for @onByDefaultForNewGroups.
@@ -9214,7 +9250,7 @@ abstract class AppL10n {
   /// No description provided for @openAccountSettingsOnASigned.
   ///
   /// In en, this message translates to:
-  /// **'Open Settings › Sign-in & security on a signed-in Android device, scan this code, and approve the login.'**
+  /// **'On a signed-in phone, open Settings › Sign-in & security, tap Scan login QR, scan this code and approve the login.'**
   String get openAccountSettingsOnASigned;
 
   /// No description provided for @openComputer.
@@ -10596,12 +10632,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Restoring the previous NeoAgent runtime'**
   String get restoringThePreviousNeoagentRuntime;
-
-  /// No description provided for @restrictDelegationTargets.
-  ///
-  /// In en, this message translates to:
-  /// **'Restrict delegation targets'**
-  String get restrictDelegationTargets;
 
   /// No description provided for @result.
   ///
@@ -13099,12 +13129,6 @@ abstract class AppL10n {
   /// **'This is the first account on this server. It will also manage server settings and access.'**
   String get thisAccountWillUnlockNeoagentOn;
 
-  /// No description provided for @thisAgentCanDelegateToAny.
-  ///
-  /// In en, this message translates to:
-  /// **'This agent can delegate to any eligible receiving agent.'**
-  String get thisAgentCanDelegateToAny;
-
   /// No description provided for @thisAgentIsUsingAServer.
   ///
   /// In en, this message translates to:
@@ -13729,12 +13753,6 @@ abstract class AppL10n {
   /// **'Turn-taking off'**
   String get turnTakingOff;
 
-  /// No description provided for @turnThisOffToKeepThis.
-  ///
-  /// In en, this message translates to:
-  /// **'Turn this off to keep this agent fully separate from other agents.'**
-  String get turnThisOffToKeepThis;
-
   /// No description provided for @turnedOffByArg1.
   ///
   /// In en, this message translates to:
@@ -14214,12 +14232,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Use these for context. If a local URI is not directly accessible from the server, ask me to provide the file through an accessible workspace.'**
   String get useTheseForContextIfA;
-
-  /// No description provided for @useThisForOrchestratorAgentsLeave.
-  ///
-  /// In en, this message translates to:
-  /// **'Use this for orchestrator agents. Leave off for isolated work bots that should finish direct messages themselves.'**
-  String get useThisForOrchestratorAgentsLeave;
 
   /// No description provided for @useTlsFromTheStartOf.
   ///
@@ -15732,18 +15744,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Add Account'**
   String get addAccount;
-
-  /// No description provided for @canDelegateToAnyReceivingAgent.
-  ///
-  /// In en, this message translates to:
-  /// **'Can delegate to any receiving agent'**
-  String get canDelegateToAnyReceivingAgent;
-
-  /// No description provided for @canReceiveDelegatedTasks2.
-  ///
-  /// In en, this message translates to:
-  /// **'can receive delegated tasks'**
-  String get canReceiveDelegatedTasks2;
 
   /// No description provided for @noSyncYet.
   ///
@@ -19327,6 +19327,18 @@ abstract class AppL10n {
   /// **'Names, email addresses and phone numbers'**
   String get phoneSyncContactsHint;
 
+  /// No description provided for @phoneAlarmTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone alarm'**
+  String get phoneAlarmTrigger;
+
+  /// No description provided for @phoneAlarmTriggerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Run when the next shared Android alarm is due, within about a minute. Changes reach the server when the phone syncs.'**
+  String get phoneAlarmTriggerHint;
+
   /// No description provided for @phoneSyncOtherAgent.
   ///
   /// In en, this message translates to:
@@ -20419,12 +20431,6 @@ abstract class AppL10n {
   /// **'Used to address this agent. Suggested from the name; you can edit it.'**
   String get agentIdentifierHint;
 
-  /// No description provided for @agentIdentifierInvalid.
-  ///
-  /// In en, this message translates to:
-  /// **'Use 1–48 lowercase letters, numbers, hyphens or underscores.'**
-  String get agentIdentifierInvalid;
-
   /// No description provided for @uxAdvancedSettings.
   ///
   /// In en, this message translates to:
@@ -20436,12 +20442,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'Selected'**
   String get uxSelected;
-
-  /// No description provided for @uxSelectedDelegationTargets.
-  ///
-  /// In en, this message translates to:
-  /// **'Only selected agents can receive tasks from this agent.'**
-  String get uxSelectedDelegationTargets;
 
   /// No description provided for @uxFieldRequired.
   ///
@@ -20532,18 +20532,6 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'You can explore first, but chat and tasks need a model before they can run.'**
   String get uxModelSkipHint;
-
-  /// No description provided for @taskDeliveryBlockedBadge.
-  ///
-  /// In en, this message translates to:
-  /// **'Can\'t deliver'**
-  String get taskDeliveryBlockedBadge;
-
-  /// No description provided for @taskDeliveryBlockedDetail.
-  ///
-  /// In en, this message translates to:
-  /// **'This destination can\'t be reached through the shared account, so results won\'t arrive. Choose your own chat or the default channel.'**
-  String get taskDeliveryBlockedDetail;
 
   /// No description provided for @taskDeliverySharedTitle.
   ///
@@ -20700,6 +20688,984 @@ abstract class AppL10n {
   /// In en, this message translates to:
   /// **'The update did not finish'**
   String get adminUpdateFailedTitle;
+
+  /// No description provided for @technicalDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical details'**
+  String get technicalDetails;
+
+  /// No description provided for @approvalReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get approvalReview;
+
+  /// No description provided for @approvalExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This request expired, so nothing was run.'**
+  String get approvalExpired;
+
+  /// No description provided for @requestTookTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'That took too long and was stopped. Please try again.'**
+  String get requestTookTooLong;
+
+  /// No description provided for @usageLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'I have reached my usage limit and can’t reply right now.'**
+  String get usageLimitReached;
+
+  /// No description provided for @tailscaleServiceAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Service access'**
+  String get tailscaleServiceAccess;
+
+  /// No description provided for @tailscaleServiceAccessHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Only listed service operations are allowed. Paths include the exact query string. All HTTP calls require Read/Write access, including GET. Your cloud computer rejects incoming Tailscale connections.'**
+  String get tailscaleServiceAccessHelp;
+
+  /// No description provided for @tailscaleServiceValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a peer, a port from 1 to 65535, an exact path starting with /, and at least one method.'**
+  String get tailscaleServiceValidation;
+
+  /// No description provided for @tailscalePeer.
+  ///
+  /// In en, this message translates to:
+  /// **'Peer'**
+  String get tailscalePeer;
+
+  /// No description provided for @tailscaleExactPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact path and query string'**
+  String get tailscaleExactPath;
+
+  /// No description provided for @tailscaleSignInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to Tailscale in your browser, then return here. Your account connects automatically after you approve it. If the sign-in page didn’t open, your browser may have blocked the popup. Click “Open Tailscale sign-in” below to continue.'**
+  String get tailscaleSignInBrowser;
+
+  /// No description provided for @tailscaleOpenSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Tailscale sign-in'**
+  String get tailscaleOpenSignIn;
+
+  /// No description provided for @agentsPageIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Each agent is a lasting specialist with its own chat and memory. They pass work to each other in the background, and you stay in charge.'**
+  String get agentsPageIntro;
+
+  /// No description provided for @agentsResponsibleFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Responsible for'**
+  String get agentsResponsibleFor;
+
+  /// No description provided for @agentsSetUpBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up by {name}'**
+  String agentsSetUpBy(Object? name);
+
+  /// No description provided for @agentsSetUpByWithReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up by {name}: {reason}'**
+  String agentsSetUpByWithReason(Object? name, Object? reason);
+
+  /// No description provided for @agentsChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get agentsChat;
+
+  /// No description provided for @agentsCreationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New agents'**
+  String get agentsCreationTitle;
+
+  /// No description provided for @agentsCreationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'When an agent wants to set up another agent'**
+  String get agentsCreationLabel;
+
+  /// No description provided for @agentsCreationNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get agentsCreationNever;
+
+  /// No description provided for @agentsCreationAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask me'**
+  String get agentsCreationAsk;
+
+  /// No description provided for @agentsCreationAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get agentsCreationAllow;
+
+  /// No description provided for @agentsCreationNeverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you add agents.'**
+  String get agentsCreationNeverHint;
+
+  /// No description provided for @agentsCreationAskHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You approve each new agent first. Recommended.'**
+  String get agentsCreationAskHint;
+
+  /// No description provided for @agentsCreationAllowHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents may set up a specialist when a lasting job needs one. You can change or archive it any time.'**
+  String get agentsCreationAllowHint;
+
+  /// No description provided for @agentsCreationCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up new agents'**
+  String get agentsCreationCategory;
+
+  /// No description provided for @agentsCreationCategoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'An agent creates another lasting agent on your account.'**
+  String get agentsCreationCategoryHint;
+
+  /// No description provided for @agentTasksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Work between agents'**
+  String get agentTasksTitle;
+
+  /// No description provided for @agentTasksDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'What your agents handed to each other, open work first.'**
+  String get agentTasksDescription;
+
+  /// No description provided for @agentTasksEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing handed over yet'**
+  String get agentTasksEmpty;
+
+  /// No description provided for @agentTasksEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When an agent passes work to a specialist, it shows up here.'**
+  String get agentTasksEmptyHint;
+
+  /// No description provided for @agentTaskAsked.
+  ///
+  /// In en, this message translates to:
+  /// **'{requester} asked {owner}'**
+  String agentTaskAsked(Object? requester, Object? owner);
+
+  /// No description provided for @agentTaskHandedOver.
+  ///
+  /// In en, this message translates to:
+  /// **'{requester} handed over to {owner}'**
+  String agentTaskHandedOver(Object? requester, Object? owner);
+
+  /// No description provided for @agentTaskQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued'**
+  String get agentTaskQueued;
+
+  /// No description provided for @agentTaskWorking.
+  ///
+  /// In en, this message translates to:
+  /// **'Working'**
+  String get agentTaskWorking;
+
+  /// No description provided for @agentTaskWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get agentTaskWaiting;
+
+  /// No description provided for @agentTaskNeedsAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs an answer'**
+  String get agentTaskNeedsAnswer;
+
+  /// No description provided for @agentTaskDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get agentTaskDone;
+
+  /// No description provided for @agentTaskFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get agentTaskFailed;
+
+  /// No description provided for @agentTaskCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped'**
+  String get agentTaskCancelled;
+
+  /// No description provided for @agentTaskStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get agentTaskStop;
+
+  /// No description provided for @agentTaskShowResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Show result'**
+  String get agentTaskShowResult;
+
+  /// No description provided for @agentTaskHideResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide result'**
+  String get agentTaskHideResult;
+
+  /// No description provided for @agentTaskFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Task from {name}'**
+  String agentTaskFrom(Object? name);
+
+  /// No description provided for @agentTaskTakenOverFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken over from {name}'**
+  String agentTaskTakenOverFrom(Object? name);
+
+  /// No description provided for @agentsPermissionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What this agent may do'**
+  String get agentsPermissionsTitle;
+
+  /// No description provided for @agentsPermissionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only ever stricter than your account\'s tool permissions.'**
+  String get agentsPermissionsHint;
+
+  /// No description provided for @agentsPermissionAsAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'As account'**
+  String get agentsPermissionAsAccount;
+
+  /// No description provided for @agentsPermissionAskFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask first'**
+  String get agentsPermissionAskFirst;
+
+  /// No description provided for @agentsPermissionNotAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed'**
+  String get agentsPermissionNotAllowed;
+
+  /// No description provided for @agentsNotAllowedList.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed: {list}'**
+  String agentsNotAllowedList(Object? list);
+
+  /// No description provided for @agentsAsksFirstList.
+  ///
+  /// In en, this message translates to:
+  /// **'Asks first: {list}'**
+  String agentsAsksFirstList(Object? list);
+
+  /// No description provided for @agentsWorkingWithOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'Working with other agents'**
+  String get agentsWorkingWithOthers;
+
+  /// No description provided for @agentsCanHandOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Can pass work to other agents'**
+  String get agentsCanHandOff;
+
+  /// No description provided for @agentsCanHandOffHint.
+  ///
+  /// In en, this message translates to:
+  /// **'It decides for itself when another agent is the better fit.'**
+  String get agentsCanHandOffHint;
+
+  /// No description provided for @agentsOnlyTheseAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Only to the agents I pick'**
+  String get agentsOnlyTheseAgents;
+
+  /// No description provided for @agentsCanTakeWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Other agents can give it work'**
+  String get agentsCanTakeWork;
+
+  /// No description provided for @agentsCanTakeWorkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off to keep this agent to itself.'**
+  String get agentsCanTakeWorkHint;
+
+  /// No description provided for @agentsResponsibilityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What this agent takes care of. Other agents use it to decide what to give it.'**
+  String get agentsResponsibilityHint;
+
+  /// No description provided for @agentsDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. One line on what it is good at.'**
+  String get agentsDescriptionHint;
+
+  /// No description provided for @skillsInstalled.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed'**
+  String get skillsInstalled;
+
+  /// No description provided for @skillsDiscover.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get skillsDiscover;
+
+  /// No description provided for @skillsOnSkillsSh.
+  ///
+  /// In en, this message translates to:
+  /// **'On skills.sh'**
+  String get skillsOnSkillsSh;
+
+  /// No description provided for @skillsBuiltinLibraries.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in libraries'**
+  String get skillsBuiltinLibraries;
+
+  /// No description provided for @skillsBuiltinReinstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get skillsBuiltinReinstall;
+
+  /// No description provided for @skillsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search skills or skills.sh'**
+  String get skillsSearchHint;
+
+  /// No description provided for @skillsNoneInstalled.
+  ///
+  /// In en, this message translates to:
+  /// **'No skills installed yet. Get one from skills.sh below, upload a zip of skills, or write your own.'**
+  String get skillsNoneInstalled;
+
+  /// No description provided for @skillsShelfPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular'**
+  String get skillsShelfPopular;
+
+  /// No description provided for @skillsShelfTrending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending'**
+  String get skillsShelfTrending;
+
+  /// No description provided for @skillsTopicDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get skillsTopicDocuments;
+
+  /// No description provided for @skillsTopicBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Browser'**
+  String get skillsTopicBrowser;
+
+  /// No description provided for @skillsTopicResearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Research'**
+  String get skillsTopicResearch;
+
+  /// No description provided for @skillsTopicWriting.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing'**
+  String get skillsTopicWriting;
+
+  /// No description provided for @skillsTopicDesign.
+  ///
+  /// In en, this message translates to:
+  /// **'Design'**
+  String get skillsTopicDesign;
+
+  /// No description provided for @skillsTopicCoding.
+  ///
+  /// In en, this message translates to:
+  /// **'Coding'**
+  String get skillsTopicCoding;
+
+  /// No description provided for @skillsTopicData.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get skillsTopicData;
+
+  /// No description provided for @skillsTopicMarketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketing'**
+  String get skillsTopicMarketing;
+
+  /// No description provided for @skillsGet.
+  ///
+  /// In en, this message translates to:
+  /// **'Get'**
+  String get skillsGet;
+
+  /// No description provided for @skillsOfficial.
+  ///
+  /// In en, this message translates to:
+  /// **'Official'**
+  String get skillsOfficial;
+
+  /// No description provided for @skillOriginBuiltIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in'**
+  String get skillOriginBuiltIn;
+
+  /// No description provided for @skillOriginLearned.
+  ///
+  /// In en, this message translates to:
+  /// **'Learned'**
+  String get skillOriginLearned;
+
+  /// No description provided for @skillOriginYours.
+  ///
+  /// In en, this message translates to:
+  /// **'Yours'**
+  String get skillOriginYours;
+
+  /// No description provided for @skillDiscardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get skillDiscardTitle;
+
+  /// No description provided for @skillDiscardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your edits to {name} are not saved.'**
+  String skillDiscardBody(String name);
+
+  /// No description provided for @skillBuiltInEditHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in skill. Saving an edit gives you your own copy; other people keep the original.'**
+  String get skillBuiltInEditHint;
+
+  /// No description provided for @skillBuiltInDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is removed from your skills. Other people on this instance keep it.'**
+  String skillBuiltInDeleteBody(String name);
+
+  /// No description provided for @skillLibraryUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload skill library'**
+  String get skillLibraryUpload;
+
+  /// No description provided for @skillLibraryUploadSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A zip of skill folders, each with a SKILL.md'**
+  String get skillLibraryUploadSubtitle;
+
+  /// No description provided for @skillLibraryUploadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Zip a folder of skills, such as a .claude/skills folder or a whole repository. Every folder with a SKILL.md becomes a skill, and the files next to it come along. Uploading a library again replaces it.'**
+  String get skillLibraryUploadHint;
+
+  /// No description provided for @skillLibraryChooseZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a .zip file'**
+  String get skillLibraryChooseZip;
+
+  /// No description provided for @skillLibraryChangeFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get skillLibraryChangeFile;
+
+  /// No description provided for @skillLibraryName.
+  ///
+  /// In en, this message translates to:
+  /// **'Library name'**
+  String get skillLibraryName;
+
+  /// No description provided for @skillLibraryNameHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty to use the file name.'**
+  String get skillLibraryNameHelp;
+
+  /// No description provided for @skillLibraryUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'This file could not be read. Try choosing it again.'**
+  String get skillLibraryUnreadable;
+
+  /// No description provided for @skillLibraryInstalledCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No skills installed} =1{1 skill installed} other{{count} skills installed}}'**
+  String skillLibraryInstalledCount(int count);
+
+  /// No description provided for @skillLibraryInstalledInto.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No skills installed into {library}} =1{1 skill installed into {library}} other{{count} skills installed into {library}}}'**
+  String skillLibraryInstalledInto(int count, String library);
+
+  /// No description provided for @skillLibraryRemovedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed, no longer in the zip'**
+  String get skillLibraryRemovedTitle;
+
+  /// No description provided for @skillLibrarySkippedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped'**
+  String get skillLibrarySkippedTitle;
+
+  /// No description provided for @skillLibrarySkillCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 skill} other{{count} skills}}'**
+  String skillLibrarySkillCount(int count);
+
+  /// No description provided for @skillLibraryOffCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} off'**
+  String skillLibraryOffCount(int count);
+
+  /// No description provided for @skillLibraryDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete library'**
+  String get skillLibraryDelete;
+
+  /// No description provided for @skillLibraryDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{The 1 skill from {library} is removed.} other{All {count} skills from {library} are removed.}}'**
+  String skillLibraryDeleteBody(int count, String library);
+
+  /// No description provided for @bitwardenVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get bitwardenVault;
+
+  /// No description provided for @bitwardenLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock'**
+  String get bitwardenLock;
+
+  /// No description provided for @integrationConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured'**
+  String get integrationConfigured;
+
+  /// No description provided for @showMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get showMore;
+
+  /// No description provided for @showLess.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get showLess;
+
+  /// No description provided for @adminExtraModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra models'**
+  String get adminExtraModels;
+
+  /// No description provided for @adminExtraModelsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'These models are switched off for everyone. Tick the ones {username} may use anyway. Runs on them still count toward this account\'s rate limits.'**
+  String adminExtraModelsIntro(String username);
+
+  /// No description provided for @adminExtraModelsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No models are switched off for everyone, so there is nothing extra to grant.'**
+  String get adminExtraModelsEmpty;
+
+  /// No description provided for @adminExtraModelsSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search models'**
+  String get adminExtraModelsSearch;
+
+  /// No description provided for @adminExtraModelsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 extra model} other{{count} extra models}}'**
+  String adminExtraModelsCount(int count);
+
+  /// No description provided for @adminExtraModelsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved extra models for {username}'**
+  String adminExtraModelsSaved(String username);
+
+  /// No description provided for @auditModelsChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} changed which extra models {subject} can use'**
+  String auditModelsChanged(String actor, String subject);
+
+  /// No description provided for @modelAdminGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Granted'**
+  String get modelAdminGranted;
+
+  /// No description provided for @modelAdminGrantedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'An admin granted you this model. It is switched off for everyone else.'**
+  String get modelAdminGrantedHint;
+
+  /// No description provided for @sharedWebPages.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared web pages'**
+  String get sharedWebPages;
+
+  /// No description provided for @sharedWebPagesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Web apps the agent runs on its computer, published at a public link on this server. Anyone with the link can open them while the computer and the app run. Visitors see a note that a user, not NeoAgent, made the page.'**
+  String get sharedWebPagesDescription;
+
+  /// No description provided for @allowWebPageSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Let the agent share web pages'**
+  String get allowWebPageSharing;
+
+  /// No description provided for @allowWebPageSharingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'When this is off, the agent cannot share pages and every shared link stops working. Sharing asks for your approval unless your security settings allow it.'**
+  String get allowWebPageSharingDescription;
+
+  /// No description provided for @noSharedWebPages.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing is shared right now.'**
+  String get noSharedWebPages;
+
+  /// No description provided for @stopSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sharing'**
+  String get stopSharing;
+
+  /// No description provided for @sharedWebPageStopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Stopped sharing {name}'**
+  String sharedWebPageStopped(String name);
+
+  /// No description provided for @sharedWebPagePortArg1.
+  ///
+  /// In en, this message translates to:
+  /// **'Port {port}'**
+  String sharedWebPagePortArg1(Object port);
+
+  /// No description provided for @sharedWebPagesOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Your computer is off, so shared links show an offline page until it runs again.'**
+  String get sharedWebPagesOffline;
+
+  /// No description provided for @sharedWebPagesUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This server runs tools directly on its own machine, so there is no computer to share pages from.'**
+  String get sharedWebPagesUnsupported;
+
+  /// No description provided for @adminWebSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Let agents share web pages'**
+  String get adminWebSharing;
+
+  /// No description provided for @adminWebSharingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents can publish web apps from their computers at a public link on this server. When this is off, nobody sees the option, the tool is gone and every shared link stops working. Applies right away.'**
+  String get adminWebSharingDescription;
+
+  /// No description provided for @pairPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair a phone'**
+  String get pairPhone;
+
+  /// No description provided for @pairPhoneDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show a QR code that signs the NeoAgent app on a phone in to this account, without typing the server address or a password.'**
+  String get pairPhoneDescription;
+
+  /// No description provided for @pairTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair a phone'**
+  String get pairTitle;
+
+  /// No description provided for @pairInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the NeoAgent app on your phone, tap “Scan QR code” on its sign-in screen and point the camera at this code.'**
+  String get pairInstructions;
+
+  /// No description provided for @pairQrSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'QR code to pair a phone'**
+  String get pairQrSemantics;
+
+  /// No description provided for @pairWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the phone'**
+  String get pairWaiting;
+
+  /// No description provided for @pairExpiresIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {time}'**
+  String pairExpiresIn(String time);
+
+  /// No description provided for @pairExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Code expired'**
+  String get pairExpired;
+
+  /// No description provided for @pairNewCode.
+  ///
+  /// In en, this message translates to:
+  /// **'New code'**
+  String get pairNewCode;
+
+  /// No description provided for @pairPairedWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Paired with {device} ✓'**
+  String pairPairedWith(String device);
+
+  /// No description provided for @pairUnknownDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'your phone'**
+  String get pairUnknownDevice;
+
+  /// No description provided for @pairCantScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t scan? Open this link on the phone:'**
+  String get pairCantScan;
+
+  /// No description provided for @pairLandingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair with the NeoAgent app'**
+  String get pairLandingTitle;
+
+  /// No description provided for @pairLandingPhoneBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This link signs in the NeoAgent app on this phone. Install the app if you haven\'t, then open the link in it. The code works for five minutes.'**
+  String get pairLandingPhoneBody;
+
+  /// No description provided for @pairLandingOpenApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in NeoAgent app'**
+  String get pairLandingOpenApp;
+
+  /// No description provided for @pairLandingGetApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Get the app'**
+  String get pairLandingGetApp;
+
+  /// No description provided for @pairLandingComputerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This link is meant for your phone. Open it there, or scan the QR code with the NeoAgent app.'**
+  String get pairLandingComputerBody;
+
+  /// No description provided for @pairLandingInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'This pairing link is incomplete. Show a new code under Settings › Sign-in & security › Pair a phone.'**
+  String get pairLandingInvalid;
+
+  /// No description provided for @pairLandingOpenNeoagent.
+  ///
+  /// In en, this message translates to:
+  /// **'Open NeoAgent'**
+  String get pairLandingOpenNeoagent;
+
+  /// No description provided for @signInScanQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get signInScanQr;
+
+  /// No description provided for @signInScanQrHint.
+  ///
+  /// In en, this message translates to:
+  /// **'On a signed-in computer, open Settings › Sign-in & security › Pair a phone.'**
+  String get signInScanQrHint;
+
+  /// No description provided for @scanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get scanTitle;
+
+  /// No description provided for @scanPrimeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the camera to scan'**
+  String get scanPrimeTitle;
+
+  /// No description provided for @scanPrimeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'NeoAgent uses the camera only to read the QR code. Nothing is recorded or uploaded.'**
+  String get scanPrimeBody;
+
+  /// No description provided for @scanPrimeAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow camera'**
+  String get scanPrimeAllow;
+
+  /// No description provided for @scanPairingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Point the camera at the QR code under Settings › Sign-in & security › Pair a phone'**
+  String get scanPairingHint;
+
+  /// No description provided for @scanWrongPairingCode.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s not a NeoAgent pairing code'**
+  String get scanWrongPairingCode;
+
+  /// No description provided for @scanTorchOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on the light'**
+  String get scanTorchOn;
+
+  /// No description provided for @scanTorchOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off the light'**
+  String get scanTorchOff;
+
+  /// No description provided for @scanDeniedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off'**
+  String get scanDeniedTitle;
+
+  /// No description provided for @scanDeniedBodyIos.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow NeoAgent to use the camera in Settings, or sign in with your password instead.'**
+  String get scanDeniedBodyIos;
+
+  /// No description provided for @scanDeniedBodyAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow the camera when asked, or turn it on under Settings › Apps › NeoAgent › Permissions. You can also sign in with your password.'**
+  String get scanDeniedBodyAndroid;
+
+  /// No description provided for @scanOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get scanOpenSettings;
+
+  /// No description provided for @scanFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The camera didn\'t start'**
+  String get scanFailedTitle;
+
+  /// No description provided for @scanFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Close other apps that use the camera and try again.'**
+  String get scanFailedBody;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

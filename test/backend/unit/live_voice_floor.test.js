@@ -138,3 +138,54 @@ test('the line is quiet once nobody has spoken for a while, counted from the end
   floor.setInputHeld(true);
   assert.equal(floor.quiet, false);
 });
+
+test('an owed reply the owner never heard is reported once the wait is over', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1_000_000 });
+  try {
+    let missed = 0;
+    const floor = new LiveFloor({ onReplyMissed: () => { missed += 1; } });
+    floor.setConnected(true);
+
+    // Told something, says nothing.
+    floor.expectReply({ told: true });
+    mock.timers.tick(6000);
+    assert.equal(missed, 1);
+    assert.equal(floor.free, true);
+
+    // Spoke before its tool call: the owner did hear it.
+    floor.ownerSpoke();
+    floor.modelSpeaking(Date.now());
+    floor.modelSilent();
+    floor.expectReply();
+    mock.timers.tick(6000);
+    assert.equal(missed, 1);
+
+    // Asked to stop talking: speech that was dropped still counts as answered.
+    floor.expectReply({ told: true });
+    floor.droppedSpeech();
+    floor.modelSilent();
+    mock.timers.tick(6000);
+    assert.equal(missed, 1);
+
+    // The owner saying something with nothing owed is theirs to end.
+    floor.ownerSpoke();
+    mock.timers.tick(6000);
+    assert.equal(missed, 1);
+
+    // A dropped line is not a silent model.
+    floor.expectReply({ told: true });
+    floor.setConnected(false);
+    mock.timers.tick(6000);
+    assert.equal(missed, 1);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('a press still held when the line drops does not block speech after it returns', () => {
+  const floor = connectedFloor();
+  floor.inputStarted?.();
+  floor.inputHeld = true;
+  floor.setConnected(false);
+  assert.equal(floor.inputHeld, false);
+});

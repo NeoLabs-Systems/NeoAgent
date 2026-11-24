@@ -341,6 +341,43 @@ test('integration manager rethrows cancellation instead of converting it to a to
   );
 });
 
+test('a refused integration call says only the owner can change it, so nothing is worked around', async () => {
+  const run = async (status, headers = null) => {
+    const manager = Object.create(IntegrationManager.prototype);
+    manager.connectionExecutionQueues = new Map();
+    const connection = expiredConnection({ access_token: 'token' });
+    connection.credentials_json = '{}';
+    const provider = {
+      key: 'fake',
+      label: 'Fake',
+      requiresRefreshToken: false,
+      supportsTool: () => true,
+      getEnvStatus: () => ({ configured: true }),
+      getToolDefinitions: () => [{ name: 'fake_write', access: 'write' }],
+      executeTool: async () => {
+        const error = new Error(`Fake API error ${status}`);
+        error.status = status;
+        error.headers = headers;
+        throw error;
+      },
+    };
+    manager.registry = { list: () => [provider] };
+    manager.selectToolConnection = () => ({ connection });
+    manager.getConnectionById = () => connection;
+    manager.parseCredentials = () => ({});
+    return manager.executeTool(1, 'fake_write', {}, 'main');
+  };
+
+  const refused = await run(403);
+  assert.equal(refused.status, 403);
+  assert.match(refused.next, /Only the owner can change that/);
+  assert.match(refused.next, /credentials are never available to you/);
+  const busy = await run(429, { get: (name) => (name === 'retry-after' ? '30' : null) });
+  assert.equal(busy.retryAfterSeconds, 30);
+  assert.match(busy.next, /may work later/);
+  assert.equal((await run(422)).next, undefined, 'nothing to add when the status says nothing');
+});
+
 test('tool compaction retains official integration access metadata for the agent loop', () => {
   const app = {
     locals: {

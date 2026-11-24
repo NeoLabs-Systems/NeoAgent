@@ -102,3 +102,21 @@ test('disconnecting forgets the phone, and its next sync learns it was forgotten
     /Android and iOS/,
   );
 });
+
+test('Android alarm sharing replaces or cancels future alarms and forgets them on disconnect', async () => {
+  const { user, agentId, store, provider, connection } = await setup();
+  store.registerDevice({ userId: user.userId, agentId, device: DEVICE, kinds: ['alarms'] });
+  const sync = (nextAlarm) => store.syncDevice({ userId: user.userId, agentId, body: { deviceId: DEVICE.id, nextAlarm } });
+  const first = soon(1);
+  const second = soon(2);
+  sync(first);
+  assert.deepEqual((await provider.executeTool('phone_list_alarms', {}, connection('alarms'))).result.alarms, [{ time: first }]);
+  sync(second);
+  assert.deepEqual(store.listAlarms({ userId: user.userId, agentId, deviceId: DEVICE.id }), [{ time: second }]);
+  sync(null);
+  assert.deepEqual(store.listAlarms({ userId: user.userId, agentId, deviceId: DEVICE.id }), []);
+  sync(first);
+  store.forgetDevice(user.userId, agentId, DEVICE.id);
+  assert.deepEqual(store.listAlarms({ userId: user.userId, agentId, deviceId: DEVICE.id }), []);
+  assert.throws(() => store.registerDevice({ userId: user.userId, agentId, device: { ...DEVICE, platform: 'ios' }, kinds: ['alarms'] }), /requires Android/);
+});

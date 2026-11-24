@@ -1,5 +1,7 @@
 'use strict';
 
+const { renderFragment } = require('./prompts/registry');
+
 const SUMMARY_PREFIX = '[Previous conversation summary]';
 
 function textContent(value) {
@@ -146,11 +148,7 @@ function buildSummaryMessagesFromSource({ previousSummary = '', source = '' } = 
   return [
     {
       role: 'system',
-      content: [
-        'Compress older conversation turns into one dense factual context block.',
-        'Preserve user intent, constraints, corrections, decisions, promised or completed actions, tool outcomes and errors, unresolved blockers, identifiers, dates, file paths, and evidence references.',
-        'Do not invent facts, repeat tool narration, or include greetings and filler.',
-      ].join(' '),
+      content: renderFragment('runtime/compaction.md'),
     },
     {
       role: 'user',
