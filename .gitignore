@@ -178,3 +178,5 @@ flutter_app/android/*.jks
 # Local video projects (published cuts live in docs/videos/)
 /videos/
 .DS_Store
+go/go.work
+go/go.work.sum
