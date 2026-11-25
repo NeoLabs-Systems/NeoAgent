@@ -12,11 +12,14 @@ runs:
       run: |
         set -euo pipefail
         build_id="$(go run ./cmd/neoagent-release web-build-id)"
-        # The shader compiler on Windows does not create its output folder.
+        # The shader compiler on Windows needs an absolute, native output path
+        # and does not create its folder itself.
         mkdir -p public/assets/shaders
+        output="$PWD/public"
+        if command -v cygpath >/dev/null 2>&1; then output="$(cygpath -w "$output")"; fi
         (
           cd flutter_app
-          flutter build web --no-wasm-dry-run --output ../public \
+          flutter build web --no-wasm-dry-run --output "$output" \
             --dart-define=NEOAGENT_BACKEND_URL= \
             --dart-define=NEOAGENT_WEB_BUILD_ID="$build_id"
         )
