@@ -41,71 +41,49 @@ class _SettingsPanelState extends State<SettingsPanel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final page = _controller.settingsPage;
-        if (constraints.maxWidth >= 760) {
-          final shown = page ?? SettingsPage.profile;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Container(
-                width: 268,
-                decoration: BoxDecoration(
-                  color: _bgSecondary,
-                  border: Border(right: BorderSide(color: _border)),
-                ),
-                child: _SettingsNav(
-                  controller: _controller,
-                  searchController: _searchController,
-                  onSearchChanged: () => setState(() {}),
-                  selected: _query.isEmpty ? shown : null,
-                  onOpen: _openPage,
-                  compact: false,
-                ),
-              ),
-              Expanded(
-                child: _query.isEmpty
-                    ? _SettingsPageView(
-                        key: ValueKey<SettingsPage>(shown),
-                        controller: _controller,
-                        page: shown,
-                        highlight: _controller.settingsHighlight,
-                      )
-                    : ListView(
-                        padding: _pagePadding(context),
-                        children: <Widget>[
-                          _SettingsSearchResults(
-                            controller: _controller,
-                            query: _query,
-                            onOpen: _openPage,
-                          ),
-                        ],
-                      ),
-              ),
-            ],
-          );
-        }
-        if (page == null || _query.isNotEmpty) {
-          return _SettingsNav(
+        final shown = page ?? SettingsPage.profile;
+        final compact = constraints.maxWidth < 760;
+        final content = _query.isEmpty
+            ? _SettingsPageView(
+                key: ValueKey<SettingsPage>(shown),
+                controller: _controller,
+                page: shown,
+                highlight: _controller.settingsHighlight,
+                onBack: compact
+                    ? () => _controller.setSettingsPage(null)
+                    : null,
+              )
+            : ListView(
+                padding: _pagePadding(context),
+                children: <Widget>[
+                  _SettingsSearchResults(
+                    controller: _controller,
+                    query: _query,
+                    onOpen: _openPage,
+                  ),
+                ],
+              );
+        return NeoSettingsLayout(
+          railColor: _bgSecondary,
+          borderColor: _border,
+          showNavigationOnCompact: page == null || _query.isNotEmpty,
+          navigation: _SettingsNav(
             controller: _controller,
             searchController: _searchController,
             onSearchChanged: () => setState(() {}),
-            selected: null,
+            selected: compact || _query.isNotEmpty ? null : shown,
             onOpen: _openPage,
-            compact: true,
-          );
-        }
-        // On a phone a page sits on top of the list: back returns to it.
-        return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _controller.setSettingsPage(null);
-          },
-          child: _SettingsPageView(
-            key: ValueKey<SettingsPage>(page),
-            controller: _controller,
-            page: page,
-            highlight: _controller.settingsHighlight,
-            onBack: () => _controller.setSettingsPage(null),
+            compact: compact,
           ),
+          content: compact
+              ? PopScope(
+                  canPop: false,
+                  onPopInvokedWithResult: (didPop, _) {
+                    if (!didPop) _controller.setSettingsPage(null);
+                  },
+                  child: content,
+                )
+              : content,
         );
       },
     );

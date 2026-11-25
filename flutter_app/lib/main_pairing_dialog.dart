@@ -52,9 +52,8 @@ class _PairPhoneDialogState extends State<PairPhoneDialog> {
   Timer? _pollTimer;
   bool _polling = false;
 
-  Duration get _left => _deadline == null
-      ? Duration.zero
-      : _deadline!.difference(widget.now());
+  Duration get _left =>
+      _deadline == null ? Duration.zero : _deadline!.difference(widget.now());
 
   bool get _expired =>
       _status?.state == PairingState.expired ||
@@ -137,7 +136,7 @@ class _PairPhoneDialogState extends State<PairPhoneDialog> {
       image: true,
       child: Opacity(
         opacity: _expired ? 0.15 : (_paired ? 0.35 : 1),
-        child: _AuthQrPlate(
+        child: NeoAuthQrPlate(
           size: 232,
           payload: ticket.qrPayload,
           preparing: false,

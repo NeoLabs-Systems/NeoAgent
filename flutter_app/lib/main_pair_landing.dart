@@ -78,7 +78,8 @@ class PairLandingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final link = _link;
-    return _AuthBackdrop(
+    return NeoAuthBackdrop(
+      palette: _palette,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

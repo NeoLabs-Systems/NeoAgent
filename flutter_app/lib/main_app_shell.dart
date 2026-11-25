@@ -182,85 +182,22 @@ class _AuthViewState extends State<AuthView> {
   }
 
   Future<void> _showForgotPasswordDialog() async {
-    final accountController = TextEditingController(
-      text: _usernameController.text.trim(),
+    await showDialog<void>(
+      context: context,
+      builder: (context) => NeoForgotPasswordDialog(
+        initialAccount: _usernameController.text.trim(),
+        title: appStrings.resetPassword,
+        description: appStrings.enterYourUsernameOrAccountEmail,
+        accountLabel: appStrings.usernameOrEmail,
+        emptyError: appStrings.enterYourUsernameOrEmail,
+        cancelLabel: appStrings.cancel,
+        submitLabel: appStrings.sendLink,
+        onSubmit: widget.controller.requestPasswordReset,
+        errorBuilder: (message) => _InlineError(message: message),
+        backgroundColor: _bgCard,
+        textColor: _textSecondary,
+      ),
     );
-    String? inlineError;
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                backgroundColor: _bgCard,
-                title: Text(appStrings.resetPassword),
-                content: SizedBox(
-                  width: 420,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        appStrings.enterYourUsernameOrAccountEmail,
-                        style: TextStyle(color: _textSecondary, height: 1.45),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: accountController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: appStrings.usernameOrEmail,
-                        ),
-                      ),
-                      if (inlineError != null) ...<Widget>[
-                        const SizedBox(height: 12),
-                        _InlineError(message: inlineError!),
-                      ],
-                    ],
-                  ),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: widget.controller.isAuthenticating
-                        ? null
-                        : () => Navigator.of(dialogContext).pop(),
-                    child: Text(appStrings.cancel),
-                  ),
-                  FilledButton(
-                    onPressed: widget.controller.isAuthenticating
-                        ? null
-                        : () async {
-                            final account = accountController.text.trim();
-                            if (account.isEmpty) {
-                              setDialogState(() {
-                                inlineError =
-                                    appStrings.enterYourUsernameOrEmail;
-                              });
-                              return;
-                            }
-                            final sent = await widget.controller
-                                .requestPasswordReset(account);
-                            if (sent && dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          },
-                    child: widget.controller.isAuthenticating
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(appStrings.sendLink),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      accountController.dispose();
-    }
   }
 
   Future<void> _showQrLoginDialog() async {
@@ -291,7 +228,7 @@ class _AuthViewState extends State<AuthView> {
 
             Widget buildQrSurface() {
               return Center(
-                child: _AuthQrPlate(
+                child: NeoAuthQrPlate(
                   size: 280,
                   payload: canShowQr ? challenge!.qrPayload : null,
                   preparing: controller.isPreparingQrLogin,
@@ -626,106 +563,51 @@ class _AuthViewState extends State<AuthView> {
 
   List<Widget> _buildCredentialFields() {
     final controller = widget.controller;
-    final usernameField = TextField(
-      controller: _usernameController,
-      focusNode: _usernameFocus,
-      autofillHints: const <String>[AutofillHints.username],
-      keyboardType: _registerMode
-          ? TextInputType.text
-          : TextInputType.emailAddress,
-      autocorrect: false,
-      enableSuggestions: false,
-      textInputAction: TextInputAction.next,
-      onChanged: (_) => _onFieldEdited(_AuthField.username),
-      onSubmitted: (_) =>
-          (_registerMode ? _emailFocus : _passwordFocus).requestFocus(),
-      decoration: _authInputDecoration(
-        errorText: _errorFor(_AuthField.username),
-      ),
-    );
-    final passwordField = TextField(
-      controller: _passwordController,
-      focusNode: _passwordFocus,
-      obscureText: _obscurePassword,
-      autocorrect: false,
-      enableSuggestions: false,
-      autofillHints: <String>[
-        _registerMode ? AutofillHints.newPassword : AutofillHints.password,
-      ],
-      textInputAction: _registerMode
-          ? TextInputAction.next
-          : TextInputAction.done,
-      onChanged: (_) => _onFieldEdited(_AuthField.password),
-      onSubmitted: (_) => _registerMode
-          ? _confirmPasswordFocus.requestFocus()
-          : unawaited(_submit()),
-      decoration: _authInputDecoration(
-        errorText: _errorFor(_AuthField.password),
-        suffixIcon: _passwordVisibilityToggle(),
-      ),
-    );
-    if (!_registerMode) {
-      final forgotPassword =
-          controller.hasUser && controller.serviceEmailConfigured
-          ? TextButton(
-              onPressed: controller.isAuthenticating
-                  ? null
-                  : _showForgotPasswordDialog,
-              style: _inlineLinkStyle,
-              child: Text(appStrings.forgotPassword),
-            )
-          : null;
-      return <Widget>[
-        _labeledField(appStrings.usernameOrEmail, usernameField),
-        const SizedBox(height: 14),
-        _labeledField(
-          appStrings.password,
-          passwordField,
-          trailing: forgotPassword,
+    _AuthField field(NeoCredentialField value) => switch (value) {
+      NeoCredentialField.username => _AuthField.username,
+      NeoCredentialField.email => _AuthField.email,
+      NeoCredentialField.password => _AuthField.password,
+      NeoCredentialField.confirmPassword => _AuthField.confirmPassword,
+    };
+    final forgotPassword =
+        controller.hasUser && controller.serviceEmailConfigured
+        ? TextButton(
+            onPressed: controller.isAuthenticating
+                ? null
+                : _showForgotPasswordDialog,
+            style: _inlineLinkStyle,
+            child: Text(appStrings.forgotPassword),
+          )
+        : null;
+    return [
+      NeoCredentialFields(
+        register: _registerMode,
+        username: _usernameController,
+        email: _emailController,
+        password: _passwordController,
+        confirmPassword: _confirmPasswordController,
+        usernameFocus: _usernameFocus,
+        emailFocus: _emailFocus,
+        passwordFocus: _passwordFocus,
+        confirmPasswordFocus: _confirmPasswordFocus,
+        obscurePassword: _obscurePassword,
+        onChanged: (value) => _onFieldEdited(field(value)),
+        onSubmit: () => unawaited(_submit()),
+        decoration: (value, suffix) => _authInputDecoration(
+          errorText: _errorFor(field(value)),
+          suffixIcon: suffix,
         ),
-      ];
-    }
-    return <Widget>[
-      _labeledField(appStrings.username, usernameField),
-      const SizedBox(height: 14),
-      _labeledField(
-        appStrings.email,
-        TextField(
-          controller: _emailController,
-          focusNode: _emailFocus,
-          keyboardType: TextInputType.emailAddress,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const <String>[AutofillHints.email],
-          textInputAction: TextInputAction.next,
-          onChanged: (_) => _onFieldEdited(_AuthField.email),
-          onSubmitted: (_) => _passwordFocus.requestFocus(),
-          decoration: _authInputDecoration(
-            errorText: _errorFor(_AuthField.email),
-          ),
-        ),
-      ),
-      const SizedBox(height: 14),
-      _labeledField(appStrings.password, passwordField),
-      const SizedBox(height: 10),
-      _PasswordStrengthIndicator(info: _registerPasswordStrength),
-      const SizedBox(height: 14),
-      _labeledField(
-        appStrings.confirmPassword2,
-        TextField(
-          controller: _confirmPasswordController,
-          focusNode: _confirmPasswordFocus,
-          obscureText: _obscurePassword,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const <String>[AutofillHints.newPassword],
-          textInputAction: TextInputAction.done,
-          onChanged: (_) => _onFieldEdited(_AuthField.confirmPassword),
-          onSubmitted: (_) => unawaited(_submit()),
-          decoration: _authInputDecoration(
-            errorText: _errorFor(_AuthField.confirmPassword),
-            suffixIcon: _passwordVisibilityToggle(),
-          ),
+        labeledField: (label, child, trailing) =>
+            _labeledField(label, child, trailing: trailing),
+        usernameLabel: appStrings.username,
+        usernameOrEmailLabel: appStrings.usernameOrEmail,
+        emailLabel: appStrings.email,
+        passwordLabel: appStrings.password,
+        confirmPasswordLabel: appStrings.confirmPassword2,
+        passwordToggle: _passwordVisibilityToggle(),
+        forgotPassword: forgotPassword,
+        passwordStrength: _PasswordStrengthIndicator(
+          info: _registerPasswordStrength,
         ),
       ),
     ];
@@ -819,7 +701,7 @@ class _AuthViewState extends State<AuthView> {
             decoration: decoration,
             child: Row(
               children: <Widget>[
-                _AuthQrPlate(
+                NeoAuthQrPlate(
                   size: 116,
                   payload: canShowQr ? challenge!.qrPayload : null,
                   preparing: controller.isPreparingQrLogin,
@@ -899,7 +781,7 @@ class _AuthViewState extends State<AuthView> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: _AuthQrPlate.paper,
+                          color: NeoAuthQrPlate.paper,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -1492,7 +1374,8 @@ class _AuthViewState extends State<AuthView> {
               : appStrings.createAnotherNeoagentAccount)
         : appStrings.authSignInSubtitle;
 
-    return _AuthBackdrop(
+    return NeoAuthBackdrop(
+      palette: _palette,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -1610,127 +1493,6 @@ class _WaitingDotsState extends State<_WaitingDots> {
       ],
     );
   }
-}
-
-/// The QR code on its paper plate: dark modules on a light ground so phone
-/// cameras read it in either theme.
-class _AuthQrPlate extends StatelessWidget {
-  const _AuthQrPlate({
-    required this.size,
-    required this.payload,
-    required this.preparing,
-  });
-
-  static const Color paper = Color(0xFFF4F1E8);
-
-  final double size;
-  final String? payload;
-  final bool preparing;
-
-  @override
-  Widget build(BuildContext context) {
-    final data = payload;
-    return Container(
-      width: size,
-      height: size,
-      padding: EdgeInsets.all(size * 0.07),
-      decoration: BoxDecoration(
-        color: paper,
-        borderRadius: BorderRadius.circular(size * 0.12),
-      ),
-      child: data != null
-          ? QrImageView(
-              data: data,
-              version: QrVersions.auto,
-              padding: EdgeInsets.zero,
-              eyeStyle: const QrEyeStyle(
-                eyeShape: QrEyeShape.square,
-                color: _qrDarkColor,
-              ),
-              dataModuleStyle: const QrDataModuleStyle(
-                dataModuleShape: QrDataModuleShape.square,
-                color: _qrDarkColor,
-              ),
-            )
-          : Center(
-              child: preparing
-                  ? const SizedBox.square(
-                      dimension: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: _qrDarkColor,
-                      ),
-                    )
-                  : Icon(
-                      Icons.qr_code_2_rounded,
-                      size: size * 0.4,
-                      color: _qrDarkColor.withValues(alpha: 0.35),
-                    ),
-            ),
-    );
-  }
-}
-
-/// The sign-in page ground: the mascot's dot matrix, faint, with a soft glow
-/// where the card sits.
-class _AuthBackdrop extends StatelessWidget {
-  const _AuthBackdrop({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return DecoratedBox(
-      decoration: BoxDecoration(color: _bgPrimary),
-      child: CustomPaint(
-        painter: _AuthBackdropPainter(
-          dot: _textPrimary.withValues(alpha: isLight ? 0.09 : 0.07),
-          glow: _accent.withValues(alpha: isLight ? 0.08 : 0.10),
-        ),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _AuthBackdropPainter extends CustomPainter {
-  const _AuthBackdropPainter({required this.dot, required this.glow});
-
-  static const double _pitch = 22;
-  static const double _glowRadius = 380;
-
-  final Color dot;
-  final Color glow;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centre = Offset(size.width / 2, size.height * 0.3);
-    canvas.drawCircle(
-      centre,
-      _glowRadius,
-      Paint()
-        ..shader = RadialGradient(
-          colors: <Color>[glow, glow.withValues(alpha: 0)],
-        ).createShader(Rect.fromCircle(center: centre, radius: _glowRadius)),
-    );
-    final points = <Offset>[
-      for (var y = _pitch / 2; y < size.height; y += _pitch)
-        for (var x = _pitch / 2; x < size.width; x += _pitch) Offset(x, y),
-    ];
-    canvas.drawPoints(
-      PointMode.points,
-      points,
-      Paint()
-        ..color = dot
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_AuthBackdropPainter oldDelegate) =>
-      oldDelegate.dot != dot || oldDelegate.glow != glow;
 }
 
 class HomeView extends StatefulWidget {

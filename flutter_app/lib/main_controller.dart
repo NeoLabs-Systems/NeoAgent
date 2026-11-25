@@ -60,6 +60,7 @@ class NeoAgentController extends ChangeNotifier {
     leaveLaunchLocation();
     notifyListeners();
   }
+
   final BackendClient _backendClient;
   final HealthBridge _healthBridge;
   late final PhoneSync phoneSync = PhoneSync(this);
@@ -89,12 +90,11 @@ class NeoAgentController extends ChangeNotifier {
   SharedPreferences? _prefs;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   io.Socket? _socket;
-  Timer? _qrLoginPollTimer;
-  static const Duration _qrLoginPollInterval = Duration(seconds: 5);
-  static const Duration _qrLoginHeldPollGap = Duration(milliseconds: 300);
-  static const Duration _qrLoginPollMaxInterval = Duration(seconds: 60);
-  Duration _qrLoginPollDelay = _qrLoginPollInterval;
-  bool _qrLoginPollingActive = false;
+  late final NeoQrPolling _qrPolling = NeoQrPolling(
+    poll: _pollQrLoginChallenge,
+    serverHoldsPolls: () => _qrLoginServerHoldsPolls,
+    canPoll: () => qrLoginChallenge?.isUsable == true && !isAuthenticated,
+  );
 
   /// The account whose session expired while a chat draft was being typed;
   /// the draft is restored only if that same account signs back in.
@@ -544,7 +544,7 @@ class NeoAgentController extends ChangeNotifier {
     _AppNotificationService.onApprovalAction = null;
     _AppNotificationService.stopListeningForActions();
     unawaited(CallBridge.dismiss());
-    _qrLoginPollTimer?.cancel();
+    _qrPolling.dispose();
     _backendClient.onSessionExpired = null;
     _manualRunCooldownTimer?.cancel();
     _incomingCallExpiryTimer?.cancel();
@@ -1372,59 +1372,22 @@ class NeoAgentController extends ChangeNotifier {
     };
   }
 
-  void _stopQrLoginPolling() {
-    _qrLoginPollTimer?.cancel();
-    _qrLoginPollTimer = null;
-    _qrLoginPollingActive = false;
-  }
-
-  /// Stops checking the QR challenge while nobody can see the code (the
-  /// pane is off screen or the app is in the background). The challenge is
-  /// kept, and [prepareQrLoginChallenge] resumes polling.
-  void pauseQrLoginPolling() => _stopQrLoginPolling();
+  /// Pauses status checks while the QR code is hidden.
+  void pauseQrLoginPolling() => _qrPolling.pause();
 
   void _clearQrLoginChallenge() {
-    _stopQrLoginPolling();
+    _qrPolling.pause();
     qrLoginChallenge = null;
     qrLoginScan = null;
     qrLoginErrorMessage = null;
   }
 
-  void _ensureQrLoginPolling() {
-    _stopQrLoginPolling();
-    final challenge = qrLoginChallenge;
-    if (challenge == null || !challenge.isUsable || isAuthenticated) {
-      return;
+  void _ensureQrLoginPolling({bool fresh = false}) {
+    if (qrLoginChallenge?.isUsable == true && !isAuthenticated) {
+      _qrPolling.start(fresh: fresh);
+    } else {
+      _qrPolling.pause();
     }
-    _qrLoginPollingActive = true;
-    _scheduleQrLoginPoll();
-  }
-
-  /// Polls right after each held check returns, or every
-  /// [_qrLoginPollInterval] against servers that answer at once; failures
-  /// (including rate limits) double the wait up to [_qrLoginPollMaxInterval].
-  void _scheduleQrLoginPoll() {
-    _qrLoginPollTimer = Timer(_qrLoginPollDelay, () async {
-      _qrLoginPollTimer = null;
-      final succeeded = await _pollQrLoginChallenge();
-      // Skipped or outdated: another chain owns the polling.
-      if (succeeded == null) return;
-      final doubled = _qrLoginPollDelay * 2;
-      _qrLoginPollDelay = succeeded
-          ? (_qrLoginServerHoldsPolls
-                ? _qrLoginHeldPollGap
-                : _qrLoginPollInterval)
-          : (doubled > _qrLoginPollMaxInterval
-                ? _qrLoginPollMaxInterval
-                : doubled);
-      // A poll that replaced, claimed or paused the challenge has already
-      // rescheduled or stopped polling itself.
-      if (_qrLoginPollingActive &&
-          _qrLoginPollTimer == null &&
-          qrLoginChallenge != null) {
-        _scheduleQrLoginPoll();
-      }
-    });
   }
 
   Future<void> prepareQrLoginChallenge({bool force = false}) async {
@@ -1459,8 +1422,7 @@ class NeoAgentController extends ChangeNotifier {
       }
       qrLoginChallenge = challenge;
       qrLoginErrorMessage = null;
-      _qrLoginPollDelay = _qrLoginHeldPollGap;
-      _ensureQrLoginPolling();
+      _ensureQrLoginPolling(fresh: true);
     } catch (error) {
       _clearQrLoginChallenge();
       qrLoginErrorMessage = _qrLoginErrorMessage(error);
@@ -4994,9 +4956,8 @@ class NeoAgentController extends ChangeNotifier {
       lastEndedCall = EndedAgentCall(
         agentName: callAgentName,
         duration: DateTime.now().difference(startedAt),
-        backgroundTask: voiceAssistantLiveState.hasActiveTask &&
-                !cancelTask &&
-                !tasksSaved
+        backgroundTask:
+            voiceAssistantLiveState.hasActiveTask && !cancelTask && !tasksSaved
             ? request
             : null,
       );
@@ -6122,7 +6083,8 @@ class NeoAgentController extends ChangeNotifier {
   Future<void> setSkillLibraryEnabled(String library, bool enabled) async {
     skills = skills
         .map(
-          (skill) => skill.library == library ? skill.withEnabled(enabled) : skill,
+          (skill) =>
+              skill.library == library ? skill.withEnabled(enabled) : skill,
         )
         .toList();
     notifyListeners();
@@ -7873,7 +7835,8 @@ class NeoAgentController extends ChangeNotifier {
           : appStrings.theBrowserBlockedARequiredRequest;
     }
     if (!admin) {
-      return plainErrorText(error) ?? appStrings.somethingWentWrongPleaseTryAgain;
+      return plainErrorText(error) ??
+          appStrings.somethingWentWrongPleaseTryAgain;
     }
     if (_shouldExposeErrorText(text)) {
       return redactSecrets(_extractMeaningfulErrorDetails(text));

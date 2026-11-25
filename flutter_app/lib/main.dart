@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:ui' show IsolateNameServer, PointMode;
+import 'dart:ui' show IsolateNameServer;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
@@ -21,6 +21,16 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:neolabs_flutter/neolabs_flutter.dart'
+    show
+        NeoSidebarButton,
+        NeoAuthQrPlate,
+        NeoAuthBackdrop,
+        NeoSettingsLayout,
+        NeoCredentialFields,
+        NeoCredentialField,
+        NeoForgotPasswordDialog,
+        NeoQrPolling;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;

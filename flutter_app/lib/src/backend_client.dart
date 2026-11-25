@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:neolabs_flutter/neolabs_flutter.dart'
+    show NeoAuthClient, QrChallengeAction;
+
 import 'diagnostics_logger.dart';
 import 'network/app_http_client.dart';
 import 'network/app_http_client_factory.dart';
@@ -14,6 +17,7 @@ class BackendClient {
   static const Duration _requestTimeout = Duration(seconds: 120);
 
   final AppHttpClient _httpClient;
+  NeoAuthClient get _auth => NeoAuthClient(postMap);
 
   /// Called when a signed-in request comes back 401 outside `/api/auth/*`,
   /// meaning the server no longer knows this session.
@@ -167,10 +171,7 @@ class BackendClient {
     required String username,
     required String password,
   }) async {
-    return postMap(baseUrl, '/api/auth/login', <String, dynamic>{
-      'username': username,
-      'password': password,
-    });
+    return _auth.login(baseUrl, username, password);
   }
 
   Future<Map<String, dynamic>> register({
@@ -180,12 +181,13 @@ class BackendClient {
     required String password,
     String? signupKey,
   }) async {
-    return postMap(baseUrl, '/api/auth/register', <String, dynamic>{
-      'username': username,
-      'email': email,
-      'password': password,
-      if (signupKey != null) 'signupKey': signupKey,
-    });
+    return _auth.register(
+      baseUrl,
+      username,
+      email,
+      password,
+      signupKey: signupKey,
+    );
   }
 
   /// Confirms a sign-up key can still be redeemed, without spending it.
@@ -313,18 +315,14 @@ class BackendClient {
     required String baseUrl,
     required String account,
   }) async {
-    return postMap(baseUrl, '/api/auth/password/forgot', <String, dynamic>{
-      'account': account,
-    }, allowUnauthorized: true);
+    return _auth.forgotPassword(baseUrl, account);
   }
 
   Future<Map<String, dynamic>> createQrLoginChallenge({
     required String baseUrl,
     required Map<String, dynamic> requestMetadata,
   }) async {
-    return postMap(baseUrl, '/api/auth/qr-login/challenge', <String, dynamic>{
-      'requestMetadata': requestMetadata,
-    }, allowUnauthorized: true);
+    return _auth.createQrChallenge(baseUrl, requestMetadata);
   }
 
   /// With [knownStatus], the server holds the request until the status
@@ -335,14 +333,12 @@ class BackendClient {
     required String pollToken,
     String? knownStatus,
   }) async {
-    return postMap(
+    return _auth.qrChallengeAction(
       baseUrl,
-      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/status',
-      <String, dynamic>{
-        'token': pollToken,
-        if (knownStatus != null) 'knownStatus': knownStatus,
-      },
-      allowUnauthorized: true,
+      challengeId,
+      pollToken,
+      QrChallengeAction.status,
+      knownStatus: knownStatus,
     );
   }
 
@@ -351,11 +347,11 @@ class BackendClient {
     required String challengeId,
     required String pollToken,
   }) async {
-    return postMap(
+    return _auth.qrChallengeAction(
       baseUrl,
-      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/cancel',
-      <String, dynamic>{'token': pollToken},
-      allowUnauthorized: true,
+      challengeId,
+      pollToken,
+      QrChallengeAction.cancel,
     );
   }
 
@@ -364,17 +360,17 @@ class BackendClient {
     required String challengeId,
     required String pollToken,
   }) async {
-    return postMap(
+    return _auth.qrChallengeAction(
       baseUrl,
-      '/api/auth/qr-login/challenge/${Uri.encodeComponent(challengeId)}/claim',
-      <String, dynamic>{'token': pollToken},
-      allowUnauthorized: true,
+      challengeId,
+      pollToken,
+      QrChallengeAction.claim,
     );
   }
 
   /// QR pairing: a code this signed-in screen shows for a phone to redeem.
   Future<Map<String, dynamic>> startPairing(String baseUrl) async {
-    return postMap(baseUrl, '/api/account/pairing', const <String, dynamic>{});
+    return _auth.startPairing(baseUrl);
   }
 
   Future<Map<String, dynamic>> pairingStatus(
@@ -390,10 +386,7 @@ class BackendClient {
     required String code,
     required String deviceName,
   }) async {
-    return postMap(baseUrl, '/api/auth/pair', <String, dynamic>{
-      'code': code,
-      'name': deviceName,
-    }, allowUnauthorized: true);
+    return _auth.redeemPairing(baseUrl, code, deviceName);
   }
 
   Future<void> logout(String baseUrl) async {
@@ -550,11 +543,7 @@ class BackendClient {
     required String secret,
     required Map<String, dynamic> scannerMetadata,
   }) async {
-    return postMap(baseUrl, '/api/account/qr-login/resolve', <String, dynamic>{
-      'challengeId': challengeId,
-      'secret': secret,
-      'scannerMetadata': scannerMetadata,
-    });
+    return _auth.resolveQr(baseUrl, challengeId, secret, scannerMetadata);
   }
 
   Future<Map<String, dynamic>> declineQrLoginChallenge({
@@ -562,10 +551,7 @@ class BackendClient {
     required String challengeId,
     required String secret,
   }) async {
-    return postMap(baseUrl, '/api/account/qr-login/decline', <String, dynamic>{
-      'challengeId': challengeId,
-      'secret': secret,
-    });
+    return _auth.declineQr(baseUrl, challengeId, secret);
   }
 
   Future<Map<String, dynamic>> approveQrLoginChallenge({
@@ -574,11 +560,7 @@ class BackendClient {
     required String secret,
     required Map<String, dynamic> approvalMetadata,
   }) async {
-    return postMap(baseUrl, '/api/account/qr-login/approve', <String, dynamic>{
-      'challengeId': challengeId,
-      'secret': secret,
-      'approvalMetadata': approvalMetadata,
-    });
+    return _auth.approveQr(baseUrl, challengeId, secret, approvalMetadata);
   }
 
   Future<Map<String, dynamic>> unlinkAccountProvider({
@@ -952,7 +934,10 @@ class BackendClient {
     return getMap(baseUrl, '/api/agent-profiles/tasks');
   }
 
-  Future<Map<String, dynamic>> cancelAgentTask(String baseUrl, String id) async {
+  Future<Map<String, dynamic>> cancelAgentTask(
+    String baseUrl,
+    String id,
+  ) async {
     return postMap(baseUrl, '/api/agent-profiles/tasks/$id/cancel', const {});
   }
 
@@ -1263,7 +1248,10 @@ class BackendClient {
     String baseUrl, {
     String? agentId,
   }) {
-    return getMap(baseUrl, _withAgentQuery('/api/agents/harness/report', agentId));
+    return getMap(
+      baseUrl,
+      _withAgentQuery('/api/agents/harness/report', agentId),
+    );
   }
 
   Future<Map<String, dynamic>> requestCaptureNextRun(

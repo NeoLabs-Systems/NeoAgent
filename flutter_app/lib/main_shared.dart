@@ -36,7 +36,10 @@ String _formatTokenCount(int amount) {
 
 String _durationLabel(Duration remaining) {
   if (remaining.inHours > 0) {
-    return appStrings.arg1HArg2M(remaining.inHours, remaining.inMinutes.remainder(60));
+    return appStrings.arg1HArg2M(
+      remaining.inHours,
+      remaining.inMinutes.remainder(60),
+    );
   }
   return '${remaining.inMinutes + 1}m';
 }
@@ -323,19 +326,27 @@ Widget _buildHealthSummaryPills(Map<String, dynamic> summary) {
       ),
       _MetaPill(
         icon: Icons.favorite_outline,
-        label: appStrings.heartArg1Records(_asInt(summary['heartRateRecordCount'])),
+        label: appStrings.heartArg1Records(
+          _asInt(summary['heartRateRecordCount']),
+        ),
       ),
       _MetaPill(
         icon: Icons.bedtime_outlined,
-        label: appStrings.sleepArg1Sessions(_asInt(summary['sleepSessionCount'])),
+        label: appStrings.sleepArg1Sessions(
+          _asInt(summary['sleepSessionCount']),
+        ),
       ),
       _MetaPill(
         icon: Icons.fitness_center_outlined,
-        label: appStrings.exerciseArg1Sessions(_asInt(summary['exerciseSessionCount'])),
+        label: appStrings.exerciseArg1Sessions(
+          _asInt(summary['exerciseSessionCount']),
+        ),
       ),
       _MetaPill(
         icon: Icons.monitor_weight_outlined,
-        label: appStrings.weightArg1Records(_asInt(summary['weightRecordCount'])),
+        label: appStrings.weightArg1Records(
+          _asInt(summary['weightRecordCount']),
+        ),
       ),
     ],
   );
@@ -525,7 +536,12 @@ class _RunStatusPanel extends StatelessWidget {
                             : [
                                 '${run!.phase}${run!.iteration > 0 ? ' · step ${run!.iteration}' : ''}',
                                 if (run!.pendingSteeringCount > 0)
-                                  appStrings.arg1SteeringArg2Queued(run!.pendingSteeringCount, run!.pendingSteeringCount == 1 ? 'update' : 'updates'),
+                                  appStrings.arg1SteeringArg2Queued(
+                                    run!.pendingSteeringCount,
+                                    run!.pendingSteeringCount == 1
+                                        ? 'update'
+                                        : 'updates',
+                                  ),
                               ].join(' · '),
                         style: TextStyle(
                           color: phase.isNotEmpty
@@ -977,7 +993,7 @@ class _PulseHaloState extends State<_PulseHalo>
   }
 }
 
-class _SidebarButton extends StatefulWidget {
+class _SidebarButton extends StatelessWidget {
   const _SidebarButton({
     required this.label,
     required this.icon,
@@ -988,7 +1004,6 @@ class _SidebarButton extends StatefulWidget {
     this.trailing,
     required this.onTap,
   });
-
   final String label;
   final IconData icon;
   final bool active;
@@ -999,79 +1014,17 @@ class _SidebarButton extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<_SidebarButton> createState() => _SidebarButtonState();
-}
-
-class _SidebarButtonState extends State<_SidebarButton> {
-  bool _hovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final active = widget.active;
-    final radius = BorderRadius.circular(widget.compact ? 12 : 14);
-    // Flat control-surface finish: the active row is a single accent wash —
-    // no gradient, no drop shadows, no left rail bar. Selection reads from
-    // the fill plus the gold glyph, the way the sibling app states it.
-    final decoration = BoxDecoration(
-      color: active
-          ? _accentMuted
-          : (_hovering
-                ? _bgTertiary.withValues(alpha: 0.66)
-                : Colors.transparent),
-      borderRadius: radius,
-    );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovering = true),
-        onExit: (_) => setState(() => _hovering = false),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: radius,
-            onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOutCubic,
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: widget.compact ? 10 : 11,
-                vertical: widget.compact ? 7 : 9,
-              ),
-              decoration: decoration,
-              child: Row(
-                children: <Widget>[
-                  Icon(
-                    widget.icon,
-                    size: widget.iconSize,
-                    color: active ? _accent : _textMuted,
-                  ),
-                  SizedBox(width: widget.compact ? 9 : 11),
-                  Expanded(
-                    child: Text(
-                      widget.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.geist(
-                        fontSize: widget.fontSize,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.1,
-                        color: active ? _textPrimary : _textSecondary,
-                      ),
-                    ),
-                  ),
-                  if (widget.trailing != null) ...<Widget>[
-                    const SizedBox(width: 8),
-                    widget.trailing!,
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => NeoSidebarButton(
+    label: label,
+    icon: icon,
+    active: active,
+    iconSize: iconSize,
+    fontSize: fontSize,
+    compact: compact,
+    trailing: trailing,
+    onTap: onTap,
+    palette: _palette,
+  );
 }
 
 class _SidebarSubnav extends StatelessWidget {
@@ -1891,7 +1844,9 @@ class _MessageRunDetailCard extends StatelessWidget {
           if (detail.steps.length > previewSteps.length) ...<Widget>[
             const SizedBox(height: 10),
             Text(
-              appStrings.arg1MoreStepsInRunHistory(detail.steps.length - previewSteps.length),
+              appStrings.arg1MoreStepsInRunHistory(
+                detail.steps.length - previewSteps.length,
+              ),
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12,
@@ -3097,7 +3052,9 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
                             ? null
                             : monitor.reloadToLatest,
                         child: Text(
-                          monitor.isReloading ? 'Reloading...' : appStrings.reloadNow,
+                          monitor.isReloading
+                              ? 'Reloading...'
+                              : appStrings.reloadNow,
                         ),
                       ),
                       if (monitor.isReloading) ...<Widget>[
@@ -3120,7 +3077,9 @@ class _GlobalWebUpdateBanner extends StatelessWidget {
                             ? null
                             : monitor.reloadToLatest,
                         child: Text(
-                          monitor.isReloading ? 'Reloading...' : appStrings.reloadNow,
+                          monitor.isReloading
+                              ? 'Reloading...'
+                              : appStrings.reloadNow,
                         ),
                       ),
                     ],
@@ -3741,7 +3700,11 @@ const List<String> _monthAbbreviations = <String>[
 String _formatDate(DateTime? value) {
   if (value == null) return '—';
   final local = value.toLocal();
-  return appStrings.arg1Arg2Arg39(_monthAbbreviations[local.month - 1], local.day, local.year);
+  return appStrings.arg1Arg2Arg39(
+    _monthAbbreviations[local.month - 1],
+    local.day,
+    local.year,
+  );
 }
 
 /// [_formatDate] for an ISO-8601 string; one that doesn't parse shows its
@@ -3935,7 +3898,9 @@ String _relativeTime(DateTime time) {
   final now = DateTime.now();
   final difference = now.difference(time);
   if (difference.inSeconds < 45) return appStrings.justNow;
-  if (difference.inMinutes < 60) return appStrings.arg1MAgo(difference.inMinutes);
+  if (difference.inMinutes < 60) {
+    return appStrings.arg1MAgo(difference.inMinutes);
+  }
   if (difference.inHours < 24 && now.day == time.day) {
     return appStrings.arg1HAgo(difference.inHours);
   }
@@ -3946,10 +3911,18 @@ String _relativeTime(DateTime time) {
     return appStrings.yesterday;
   }
   final months = <String>[
-    appStrings.monthJan, appStrings.monthFeb, appStrings.monthMar,
-    appStrings.monthApr, appStrings.monthMay, appStrings.monthJun,
-    appStrings.monthJul, appStrings.monthAug, appStrings.monthSep,
-    appStrings.monthOct, appStrings.monthNov, appStrings.monthDec,
+    appStrings.monthJan,
+    appStrings.monthFeb,
+    appStrings.monthMar,
+    appStrings.monthApr,
+    appStrings.monthMay,
+    appStrings.monthJun,
+    appStrings.monthJul,
+    appStrings.monthAug,
+    appStrings.monthSep,
+    appStrings.monthOct,
+    appStrings.monthNov,
+    appStrings.monthDec,
   ];
   final date = appStrings.arg1Arg23(months[time.month - 1], time.day);
   return time.year == now.year ? date : appStrings.arg1Arg23(date, time.year);
