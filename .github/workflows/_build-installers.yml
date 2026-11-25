@@ -12,6 +12,11 @@ on:
         required: false
         default: ''
         type: string
+      use_ci_web:
+        description: Reuse bundled web client uploaded by CI instead of rebuilding
+        required: false
+        type: boolean
+        default: false
     secrets:
       ANDROID_KEYSTORE_BASE64:
         required: false
@@ -306,7 +311,17 @@ jobs:
           release_tag: ${{ inputs.release_tag }}
           files: dist/neoagent-windows-${{ matrix.architecture }}-setup-*.exe
 
+      - name: Download bundled web client for Windows runtime
+        id: dl_web
+        if: ${{ inputs.use_ci_web == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: neoagent-ci-web-bundle
+          path: public
+        continue-on-error: true
+
       - name: Build web client for Windows runtime
+        if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
         uses: ./.github/actions/build-web
 
       - name: Build Windows binaries
@@ -401,11 +416,9 @@ jobs:
         uses: ./.github/actions/setup-go
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         with:
-          channel: stable
-          flutter-version: '3.47.9'
-          cache: true
+          pub-get: 'false'
 
       - name: Enable desktop platforms
         run: flutter config --enable-macos-desktop
@@ -587,7 +600,17 @@ jobs:
           release_tag: ${{ inputs.release_tag }}
           files: dist/neoagent-macos-*.dmg
 
+      - name: Download bundled web client for macOS runtime
+        id: dl_web
+        if: ${{ inputs.use_ci_web == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: neoagent-ci-web-bundle
+          path: public
+        continue-on-error: true
+
       - name: Build web client for macOS runtime
+        if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
         uses: ./.github/actions/build-web
 
       - name: Build macOS binaries
@@ -690,11 +713,9 @@ jobs:
           sudo gem install --no-document fpm
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         with:
-          channel: stable
-          flutter-version: '3.47.9'
-          cache: true
+          pub-get: 'false'
 
       - name: Enable desktop platforms
         run: flutter config --enable-linux-desktop
@@ -874,7 +895,17 @@ jobs:
             dist/neoagent-arch-x86_64-*.pkg.tar.zst
             dist/neoagent-linux-x86_64-*.AppImage
 
+      - name: Download bundled web client for Linux runtime
+        id: dl_web
+        if: ${{ inputs.use_ci_web == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: neoagent-ci-web-bundle
+          path: public
+        continue-on-error: true
+
       - name: Build web client for Linux runtime
+        if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
         uses: ./.github/actions/build-web
 
       - name: Build Linux binaries
@@ -938,10 +969,15 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Prepare Android signing override
         shell: bash
@@ -966,11 +1002,9 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         with:
-          channel: stable
-          flutter-version: '3.47.9'
-          cache: true
+          pub-get: 'false'
 
       - name: Ensure Android runner project exists
         run: |

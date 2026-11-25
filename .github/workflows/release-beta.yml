@@ -22,6 +22,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
     uses: ./.github/workflows/ci.yml
     secrets: inherit
+    with:
+      upload_web: true
 
   release:
     name: Publish beta release
@@ -127,6 +129,7 @@ jobs:
     with:
       ref: ${{ needs.release.outputs.release_sha }}
       release_tag: ${{ needs.release.outputs.release_tag }}
+      use_ci_web: true
 
   build-firmware:
     name: Build Wearable Firmware
@@ -147,9 +150,11 @@ jobs:
     with:
       ref: ${{ needs.release.outputs.release_sha }}
       release_tag: ${{ needs.release.outputs.release_tag }}
+      use_ci_web: true
 
   publish-release-assets:
     name: Publish Release Assets
+    if: always() && needs.release.result == 'success'
     needs:
       - release
       - build-installers

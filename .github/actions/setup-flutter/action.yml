@@ -1,0 +1,24 @@
+name: Set up Flutter
+description: Installs Flutter 3.47.9 with caching and optionally fetches pub dependencies.
+
+inputs:
+  pub-get:
+    description: Run flutter pub get inside flutter_app
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        flutter-version: '3.47.9'
+        cache: true
+
+    - name: Install Flutter dependencies
+      if: inputs.pub-get == 'true'
+      shell: bash
+      working-directory: flutter_app
+      run: flutter pub get

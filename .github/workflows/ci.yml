@@ -4,13 +4,19 @@ on:
   push:
     branches:
       - main
-      - beta
       - dev
   pull_request:
     branches:
+      - main
       - beta
   workflow_dispatch:
   workflow_call:
+    inputs:
+      upload_web:
+        description: Build and upload web bundle for downstream release jobs
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -20,8 +26,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  go:
-    name: Go vet, lint, test
+  go-test:
+    name: Go vet and tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -40,14 +46,27 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Setup contract is current
+        run: go run ./cmd/neoagent-release setup-contract --check
+
+  go-lint-build:
+    name: Go lint and static builds
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+
       - name: Staticcheck
         run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
 
       - name: Vulnerability check
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
-
-      - name: Test
-        run: go test -race -count=1 ./...
 
       - name: Static build
         env:
@@ -60,9 +79,6 @@ jobs:
             GOOS=linux GOARCH="$arch" go build -o /dev/null ./cmd/neoagent-guest
           done
 
-      - name: Setup contract is current
-        run: go run ./cmd/neoagent-release setup-contract --check
-
   flutter-test:
     name: Flutter tests
     runs-on: ubuntu-latest
@@ -71,15 +87,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.9'
-          cache: true
-
-      - name: Install Flutter dependencies
-        working-directory: flutter_app
-        run: flutter pub get
+        uses: ./.github/actions/setup-flutter
 
       - name: Analyze Flutter app
         working-directory: flutter_app
@@ -88,3 +96,20 @@ jobs:
       - name: Run Flutter unit and widget tests
         working-directory: flutter_app
         run: flutter test ../test/flutter/unit ../test/flutter/widget
+
+      - name: Set up Go for web build
+        if: ${{ inputs.upload_web == true }}
+        uses: ./.github/actions/setup-go
+
+      - name: Build web client
+        if: ${{ inputs.upload_web == true }}
+        uses: ./.github/actions/build-web
+
+      - name: Upload CI web bundle
+        if: ${{ inputs.upload_web == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoagent-ci-web-bundle
+          path: public
+          retention-days: 1
+          if-no-files-found: error

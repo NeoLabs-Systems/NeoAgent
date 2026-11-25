@@ -11,6 +11,11 @@ on:
         description: Release tag the image is published under, for example v1.2.3 or v1.2.3-beta.0
         required: true
         type: string
+      use_ci_web:
+        description: Reuse bundled web client uploaded by CI instead of rebuilding
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -26,18 +31,26 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      - name: Download bundled web client from CI
+        id: dl_web
+        if: ${{ inputs.use_ci_web == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: neoagent-ci-web-bundle
+          path: public
+        continue-on-error: true
+
       - name: Set up Go
+        if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
         uses: ./.github/actions/setup-go
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.9'
-          cache: true
+        if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
+        uses: ./.github/actions/setup-flutter
 
       # Same as the installers: the image ships the web client built from this exact ref.
       - name: Build bundled web client
+        if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
         uses: ./.github/actions/build-web
 
       - name: Resolve image tags
@@ -76,4 +89,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
