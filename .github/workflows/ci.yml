@@ -115,15 +115,18 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-      - name: Verify uploaded web build ID
+      - name: Verify web build ID is embedded
         if: ${{ inputs.upload_web == true }}
-        uses: actions/download-artifact@v4
-        with:
-          name: neoagent-ci-web-bundle
-          path: ${{ runner.temp }}/neoagent-ci-web-bundle
+        run: |
+          build_id="$(cat public/.last_build_id)"
+          expected_id="$(go run ./cmd/neoagent-release web-build-id)"
+          test -n "$build_id"
+          test "$build_id" = "$expected_id"
+          grep -Fq "$build_id" public/main.dart.js
 
       - name: Check web bundle metadata
         if: ${{ inputs.upload_web == true }}
         run: |
-          test -s "$RUNNER_TEMP/neoagent-ci-web-bundle/.last_build_id"
-          cmp public/.last_build_id "$RUNNER_TEMP/neoagent-ci-web-bundle/.last_build_id"
+          test -s public/index.html
+          test -s public/flutter_bootstrap.js
+          test -s public/.last_build_id
