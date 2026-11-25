@@ -183,14 +183,16 @@ func exitCodeOf(exit proc.Exit) *int {
 	return &code
 }
 
-type watcher struct{ cancel context.CancelFunc }
+type watcher struct{ stopped chan struct{} }
 
-func (w watcher) stop() { w.cancel() }
+func (w watcher) stop() { close(w.stopped) }
 
 // watch ends p when ctx is cancelled ("aborted") or the timeout passes
-// ("timeout"). The first reason wins.
+// ("timeout"). The first reason wins. Stopping the watch is a separate
+// signal: one derived from ctx would be ready at the same moment as ctx and
+// could win the select, ignoring the abort.
 func (e *Executor) watch(ctx context.Context, p *proc.Process, timeout time.Duration) watcher {
-	wctx, cancel := context.WithCancel(ctx)
+	w := watcher{stopped: make(chan struct{})}
 	go func() {
 		timer := time.NewTimer(timeout)
 		defer timer.Stop()
@@ -199,10 +201,10 @@ func (e *Executor) watch(ctx context.Context, p *proc.Process, timeout time.Dura
 			p.Terminate("timeout")
 		case <-ctx.Done():
 			p.Terminate("aborted")
-		case <-wctx.Done():
+		case <-w.stopped:
 		}
 	}()
-	return watcher{cancel}
+	return w
 }
 
 // streamWriter feeds one stream of a process into the accumulator. Stdout and
