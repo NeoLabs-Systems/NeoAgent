@@ -355,19 +355,21 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $maxAttempts = 5
+          $qemuBin = "C:\Program Files\qemu"
+          $qemuSystemName = if ("${{ matrix.architecture }}" -eq "arm64") { "qemu-system-aarch64.exe" } else { "qemu-system-x86_64.exe" }
+          $qemuSystem = Join-Path $qemuBin $qemuSystemName
+          $qemuImg = Join-Path $qemuBin "qemu-img.exe"
           for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
             choco install qemu --yes --no-progress
             $installExitCode = $LASTEXITCODE
-            if ($installExitCode -eq 0) { break }
+            if ((Test-Path $qemuSystem) -and (Test-Path $qemuImg)) { break }
             if ($attempt -eq $maxAttempts) {
-              throw "Chocolatey could not install QEMU after $maxAttempts attempts (exit $installExitCode)."
+              throw "QEMU binaries were not installed after $maxAttempts attempts (Chocolatey exit $installExitCode)."
             }
             $delaySeconds = 10 * $attempt
-            Write-Host "QEMU install failed with exit $installExitCode; retrying in $delaySeconds seconds ($attempt/$maxAttempts)."
+            Write-Host "QEMU binaries are still missing after Chocolatey exit $installExitCode; retrying in $delaySeconds seconds ($attempt/$maxAttempts)."
             Start-Sleep -Seconds $delaySeconds
           }
-          $qemuBin = "C:\Program Files\qemu"
-          if (-not (Test-Path $qemuBin)) { throw "QEMU installation directory was not found." }
           $env:Path = "$qemuBin;$env:Path"
           $qemuRuntime = Join-Path $env:RUNNER_TEMP "neoagent-qemu-windows-${{ matrix.architecture }}"
           go run ./cmd/neoagent-release stage-qemu --output $qemuRuntime
