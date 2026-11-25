@@ -54,23 +54,15 @@ if [[ -f "$RUNTIME_DIR/data/neoagent.db" ]]; then
   info "Existing NeoAgent data found at ${RUNTIME_DIR}; it is backed up and kept."
 fi
 
-# The newest release on the channel that has a CLI binary for this computer.
-# GitHub lists draft/prerelease before each release's assets, and an asset's
-# digest before its download URL.
+# Resolve the newest release by version tag. GitHub's release collection can
+# temporarily omit a newly published tag from its list response.
 info "Looking up the latest release..."
-RELEASES="$(curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${REPOSITORY}/releases?per_page=20")"
-read -r URL DIGEST < <(printf '%s\n' "$RELEASES" | awk -v channel="$CHANNEL" -v want="neoagent-cli-${OS}-${ARCH}-" '
-  /"tag_name":/ { draft = 0; pre = 0; digest = "" }
-  /"draft": true/ { draft = 1 }
-  /"prerelease": true/ { pre = 1 }
-  /"digest":/ { split($0, d, "\""); digest = d[4] }
-  /"browser_download_url":/ {
-    split($0, u, "\""); url = u[4]; n = split(url, parts, "/"); name = parts[n]
-    if (!draft && (channel == "beta" || !pre) && index(name, want) == 1 && name !~ /\.(sig|json)$/) {
-      print url, (digest == "" ? "-" : digest); exit
-    }
-    digest = ""
-  }')
+SELECTOR="https://raw.githubusercontent.com/NeoLabs-Systems/neolabs-go/7d84f7fdafa98e04f5e9de4ad32e3dd30904d804/scripts/select-release-asset.sh"
+if ! ASSET="$(curl -fsSL "$SELECTOR" | bash -s -- "$REPOSITORY" "$CHANNEL" "neoagent-cli-${OS}-${ARCH}-")"; then
+  err "Could not find a published ${CHANNEL} CLI build for ${OS}-${ARCH}. Check the network and try again."
+  exit 1
+fi
+read -r URL DIGEST <<< "$ASSET"
 if [[ -z "${URL:-}" ]]; then
   err "No NeoAgent ${CHANNEL} release has a binary for ${OS}-${ARCH} yet."
   exit 1
