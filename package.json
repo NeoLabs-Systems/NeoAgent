@@ -1,7 +1,7 @@
 {
   "name": "neoagent",
   "private": true,
-  "version": "3.9.1-beta.8",
+  "version": "3.9.1-beta.9",
   "description": "Not a Node.js package. Lets the Node.js updater of older NeoAgent installations hand over to the Go binary (scripts/node-handover.sh); version must equal VERSION.",
   "license": "AGPL-3.0-only",
   "scripts": {
