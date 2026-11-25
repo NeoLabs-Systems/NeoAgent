@@ -252,6 +252,7 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 	app.mcp = mcpMgr
 
 	var msgMgr *messaging.Manager
+	media := inboundMedia{&artifacts.Store{DB: d.DB, Root: artifactsDir}}
 	inbound := &inboundHandler{link: link, db: d.DB, store: &messaging.Store{DB: d.DB, Agents: agentScopeAdapter{r: agents}},
 		manager: func() *messaging.Manager { return msgMgr }, memory: memMgr, emitter: emitter}
 	msgMgr = messaging.NewManager(messaging.ManagerConfig{
@@ -262,10 +263,10 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		Emitter: emitter,
 		Factories: map[string]messaging.Factory{
 			"telegram": telegram.Factory(telegram.Deps{}),
-			"discord":  discord.Factory(discord.Deps{}),
+			"discord":  discord.Factory(discord.Deps{Media: discordMedia{media}}),
 			"slack":    msgslack.Factory(msgslack.Deps{}),
-			"github":   msggithub.Factory(msggithub.Deps{}),
-			"whatsapp": whatsapp.Factory(whatsapp.Deps{}),
+			"github":   msggithub.Factory(msggithub.Deps{Credentials: githubMentions{intSvc}, Cursors: githubCursors{d.DB}}),
+			"whatsapp": whatsapp.Factory(whatsapp.Deps{Media: whatsappMedia{media}, AgentName: agentDisplayName(d.DB)}),
 		},
 		DataDir:           d.Cfg.Paths.AgentDataDir,
 		LegacyWhatsAppDir: filepath.Join(d.Cfg.Paths.DataDir, "whatsapp-auth"),

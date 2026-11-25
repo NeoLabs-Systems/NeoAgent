@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"time"
 )
@@ -54,7 +56,7 @@ func (m *Manager) restoreConnections(ctx context.Context) {
 		}
 		m.log.Info("restoring messaging platform", "platform", s.platform, "user", s.uid)
 		agentID := s.agentID.String
-		if _, err := m.ConnectPlatform(ctx, s.uid, agentID, s.platform, config, false); err != nil {
+		if err := m.restoreOne(ctx, s.uid, agentID, s.platform, config); err != nil {
 			m.log.Warn("messaging restore failed", "platform", s.platform, "user", s.uid, "error", err)
 			key := connKey{userID: s.uid, agentID: m.resolveAgent(ctx, s.uid, agentID), platform: s.platform}
 			if m.stopIfNeedsUser(key, err) {
@@ -63,6 +65,19 @@ func (m *Manager) restoreConnections(ctx context.Context) {
 			m.scheduleReconnect(key, config)
 		}
 	}
+}
+
+// restoreOne reconnects one saved connection. A crash inside a platform
+// adapter fails only that connection, not the server.
+func (m *Manager) restoreOne(ctx context.Context, userID int64, agentID, platform string, config map[string]any) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			m.log.Error("messaging platform crashed while connecting", "platform", platform, "user", userID, "panic", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("%s connection failed: %v", platform, r)
+		}
+	}()
+	_, err = m.ConnectPlatform(ctx, userID, agentID, platform, config, false)
+	return err
 }
 
 // encodeConfig seals a platform config for storage.
