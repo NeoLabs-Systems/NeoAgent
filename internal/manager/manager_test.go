@@ -339,3 +339,96 @@ func tail(s string, n int) string {
 	}
 	return s
 }
+
+func TestRefreshLauncher(t *testing.T) {
+	bin := t.TempDir()
+	t.Setenv("NEOAGENT_BIN_DIR", bin)
+	launcher := filepath.Join(bin, "neoagent")
+	if err := os.WriteFile(launcher, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rt := installedRuntime{Version: "2.0.0", Dir: t.TempDir()}
+	if err := os.MkdirAll(filepath.Dir(rt.binary()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rt.binary(), []byte("new"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{}
+	if err := a.refreshLauncher(filepath.Join(bin, "other"), rt); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(launcher); string(data) != "old" {
+		t.Fatal("replaced an unrelated launcher")
+	}
+	if err := a.refreshLauncher(launcher, rt); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(launcher); err != nil || string(data) != "new" {
+		t.Fatalf("launcher = %q, %v", data, err)
+	}
+}
+
+func TestPruneRuntimesKeepsActiveAndPrevious(t *testing.T) {
+	a := newTestApp(t)
+	for _, name := range []string{"1.0.0", "2.0.0", "3.0.0", ".staging-work", "unrelated"} {
+		if err := os.MkdirAll(filepath.Join(a.versionsDir(), name), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := a.pruneRuntimes(installedRuntime{Version: "3.0.0"}, &installedRuntime{Version: "2.0.0"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"2.0.0", "3.0.0", ".staging-work", "unrelated"} {
+		if !exists(filepath.Join(a.versionsDir(), name)) {
+			t.Fatalf("removed %s", name)
+		}
+	}
+	if exists(filepath.Join(a.versionsDir(), "1.0.0")) {
+		t.Fatal("obsolete runtime was not removed")
+	}
+}
+
+func TestInstallRuntimeDoesNotReplaceActive(t *testing.T) {
+	a := newTestApp(t)
+	version := "2.0.0"
+	rt := installedRuntime{Version: version, Dir: filepath.Join(a.versionsDir(), version)}
+	if err := os.MkdirAll(filepath.Dir(rt.binary()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rt.binary(), []byte("active"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(rt.appDir(), "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rt.appDir(), "public", "index.html"), []byte("web"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.writeCurrent(version); err != nil {
+		t.Fatal(err)
+	}
+	stage := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(stage, "app", "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stage, "app", "bin", release.BinaryName(Platform())), []byte("replacement"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(stage, "app", "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stage, "app", "public", "index.html"), []byte("web"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "runtime.zip")
+	if err := nlrelease.CreateZip(stage, archive); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.installRuntime(context.Background(), availableRuntime{Version: version}, archive, true); err == nil {
+		t.Fatal("replaced active runtime")
+	}
+	if data, err := os.ReadFile(rt.binary()); err != nil || string(data) != "active" {
+		t.Fatalf("active binary = %q, %v", data, err)
+	}
+}

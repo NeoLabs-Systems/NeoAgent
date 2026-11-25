@@ -58,8 +58,10 @@ func Run(ctx context.Context, args []string, boot Booter) error {
 		return err
 	}
 	a.boot = boot
-	if o, perr := ParseSetupArguments(args[1:]); (args[0] == "install" || args[0] == "setup") && perr == nil && o.Profile != "" {
-		a.Events.Profile = o.Profile
+	if len(args) > 0 && (args[0] == "install" || args[0] == "setup") {
+		if o, perr := ParseSetupArguments(args[1:]); perr == nil && o.Profile != "" {
+			a.Events.Profile = o.Profile
+		}
 	}
 	if err := a.Paths.Ensure(); err != nil {
 		return err

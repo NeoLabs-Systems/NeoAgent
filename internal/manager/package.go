@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,6 +33,44 @@ type installedRuntime struct {
 func (r installedRuntime) appDir() string { return filepath.Join(r.Dir, "app") }
 func (r installedRuntime) binary() string {
 	return filepath.Join(r.appDir(), "bin", release.BinaryName(Platform()))
+}
+
+// refreshLauncher updates the standalone command installed by install.sh. The
+// packaged server binary and other installation methods are left untouched.
+func (a *App) refreshLauncher(exe string, rt installedRuntime) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	binDir := strings.TrimSpace(os.Getenv("NEOAGENT_BIN_DIR"))
+	if binDir == "" {
+		binDir = filepath.Join(home, ".local", "bin")
+	}
+	launcher, err := filepath.Abs(filepath.Join(binDir, "neoagent"))
+	if err != nil || filepath.Clean(exe) != launcher {
+		return err
+	}
+	src, err := os.Open(rt.binary())
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	tmp, err := os.CreateTemp(binDir, ".neoagent-update-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	_, copyErr := io.Copy(tmp, src)
+	if copyErr == nil {
+		copyErr = tmp.Chmod(0o755)
+	}
+	if err := tmp.Close(); copyErr == nil {
+		copyErr = err
+	}
+	if copyErr != nil {
+		return copyErr
+	}
+	return os.Rename(tmp.Name(), launcher)
 }
 
 func (a *App) versionsDir() string { return filepath.Join(a.Paths.Home, "app", "versions") }
@@ -172,16 +211,42 @@ func (a *App) installRuntime(_ context.Context, rt availableRuntime, archive str
 	if err := nlrelease.ExtractZip(archive, extracted); err != nil {
 		return target, err
 	}
+	candidate := installedRuntime{Version: rt.Version, Dir: extracted}
+	if !exists(candidate.binary()) || !exists(filepath.Join(candidate.appDir(), "public", "index.html")) {
+		return target, cli.Errorf("SETUP_RUNTIME_INCOMPLETE", "The installed NeoAgent runtime is incomplete.")
+	}
+	if current := a.currentRuntime(); current != nil && current.Version == rt.Version {
+		return target, fmt.Errorf("cannot replace the active NeoAgent runtime")
+	}
 	if err := os.RemoveAll(target.Dir); err != nil {
 		return target, err
 	}
 	if err := os.Rename(extracted, target.Dir); err != nil {
 		return target, err
 	}
-	if !exists(target.binary()) {
-		return target, cli.Errorf("SETUP_RUNTIME_INCOMPLETE", "The installed NeoAgent runtime is incomplete.")
-	}
 	return target, nil
+}
+
+// pruneRuntimes keeps the active runtime and the previous rollback target.
+// Unknown entries and staging directories are not managed here.
+func (a *App) pruneRuntimes(active installedRuntime, previous *installedRuntime) error {
+	entries, err := os.ReadDir(a.versionsDir())
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || name[0] < '0' || name[0] > '9' || name == active.Version || (previous != nil && name == previous.Version) {
+			continue
+		}
+		if normalized, err := nlrelease.NormalizeVersion(name); err != nil || normalized != name {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(a.versionsDir(), name)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *App) channel() string {

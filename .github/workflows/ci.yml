@@ -111,5 +111,19 @@ jobs:
         with:
           name: neoagent-ci-web-bundle
           path: public
+          include-hidden-files: true
           retention-days: 1
           if-no-files-found: error
+
+      - name: Verify uploaded web build ID
+        if: ${{ inputs.upload_web == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: neoagent-ci-web-bundle
+          path: ${{ runner.temp }}/neoagent-ci-web-bundle
+
+      - name: Check web bundle metadata
+        if: ${{ inputs.upload_web == true }}
+        run: |
+          test -s "$RUNNER_TEMP/neoagent-ci-web-bundle/.last_build_id"
+          cmp public/.last_build_id "$RUNNER_TEMP/neoagent-ci-web-bundle/.last_build_id"

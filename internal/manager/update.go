@@ -10,6 +10,7 @@ import (
 
 	"github.com/NeoLabs-Systems/neoagent/internal/updatestatus"
 	"github.com/NeoLabs-Systems/neolabs-go/cli"
+	"github.com/NeoLabs-Systems/neolabs-go/cli/envfile"
 	"github.com/NeoLabs-Systems/neolabs-go/cli/release"
 )
 
@@ -24,6 +25,9 @@ type serviceSnapshot struct {
 
 func (a *App) snapshotService() serviceSnapshot {
 	s := serviceSnapshot{exe: a.Exe, appDir: a.AppDir}
+	if rt := a.currentRuntime(); rt != nil {
+		s.exe, s.appDir = rt.binary(), rt.appDir()
+	}
 	switch Platform() {
 	case "macos":
 		s.path = a.Service.PlistPath
@@ -41,7 +45,11 @@ func (a *App) restoreService(ctx context.Context, s serviceSnapshot, port int) e
 	a.stopService()
 	a.waitForServerExit(ctx, 15*time.Second)
 	if s.marker != nil {
-		_ = os.WriteFile(a.currentMarker(), s.marker, 0o600)
+		if err := envfile.WriteAtomic(a.currentMarker(), s.marker, 0o600); err != nil {
+			return err
+		}
+	} else if err := os.Remove(a.currentMarker()); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	a.useBinary(s.exe, s.appDir)
 	if s.path != "" && s.content != nil {
@@ -77,8 +85,9 @@ func (a *App) verifyRunning(ctx context.Context, rt installedRuntime, port int) 
 	if err := a.waitForServerReady(ctx, port, 60*time.Second); err != nil {
 		return err
 	}
-	if h := fetchHandshake(ctx, port); h != nil && h.ServerVersion != "" && h.ServerVersion != rt.Version {
-		return fmt.Errorf("NeoAgent restarted but is still running %s.", h.ServerVersion)
+	h := fetchHandshake(ctx, port)
+	if h == nil || h.ServerVersion != rt.Version {
+		return fmt.Errorf("NeoAgent restarted but could not confirm version %s.", rt.Version)
 	}
 	return nil
 }
@@ -107,6 +116,10 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 		return err
 	}
 	before := version()
+	previous := a.currentRuntime()
+	if previous != nil {
+		before = previous.Version
+	}
 	a.reportProgress(map[string]any{"progress": 5, "phase": "checking", "message": "Checking the release channel", "versionBefore": before, "releaseChannel": channel})
 	available, err := a.findRuntime(ctx, channel)
 	if err != nil {
@@ -117,6 +130,11 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	}
 	newer := release.CompareVersions(available.Version, before) > 0
 	if !newer && !(requested != "" && available.Version != before) {
+		if previous != nil {
+			if err := a.refreshLauncher(a.Exe, *previous); err != nil {
+				a.UI.Warn("The command-line launcher could not be refreshed: " + err.Error())
+			}
+		}
 		a.UI.Blank()
 		a.UI.OK(fmt.Sprintf("You have the latest version (%s)", before))
 		a.UI.Blank()
@@ -136,6 +154,7 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	port := a.Port()
 	var installed installedRuntime
 	var archive string
+	aLauncher := a.Exe
 	snapshot := a.snapshotService()
 	resumable := 0
 	switched := false
@@ -185,7 +204,11 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 			}
 			a.reportProgress(map[string]any{"progress": 85, "phase": "rollback", "message": fmt.Sprintf("Restoring %s after the update failed", before)})
 			rollback := list.Add(cli.Label{Doing: "Going back to " + before, Done: "Went back to " + before})
-			rerr := list.Run(rollback, func() error { return a.restoreService(ctx, snapshot, port) })
+			rerr := list.Run(rollback, func() error {
+				rollbackCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+				defer cancel()
+				return a.restoreService(rollbackCtx, snapshot, port)
+			})
 			list.Close()
 			if rerr != nil {
 				return &codedErr{code: "UPDATE_ROLLBACK_FAILED", msg: fmt.Sprintf("%s\nGoing back to %s also failed: %s", err, before, rerr)}
@@ -194,6 +217,12 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 		}
 	}
 	list.Close()
+	if err := a.refreshLauncher(aLauncher, installed); err != nil {
+		a.UI.Warn("NeoAgent updated, but the command-line launcher could not be refreshed: " + err.Error())
+	}
+	if err := a.pruneRuntimes(installed, previous); err != nil {
+		a.UI.Warn("NeoAgent updated, but old runtime cleanup failed: " + err.Error())
+	}
 	a.UI.Blank()
 	a.UI.Item("ok", a.UI.Bold(fmt.Sprintf("%s %s is ready", appName, installed.Version)), a.url())
 	a.UI.Blank()

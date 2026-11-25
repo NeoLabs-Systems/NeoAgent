@@ -17,6 +17,7 @@ import (
 // release is picked up immediately.
 var flutterNoStore = map[string]bool{
 	"index.html":                true,
+	"main.dart.js":              true,
 	"flutter_bootstrap.js":      true,
 	"flutter_service_worker.js": true,
 	"version.json":              true,

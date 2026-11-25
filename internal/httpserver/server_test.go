@@ -164,9 +164,9 @@ func TestFlutterAppServing(t *testing.T) {
 		!strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {
 		t.Fatalf("%d %q %v", rec.Code, rec.Body.String(), rec.Header())
 	}
-	// Real files are served; the bootstrap script is no-store, others are revalidated.
+	// The application script and bootstrap must not be retained across releases.
 	if rec := get(h, "GET", "/app/main.dart.js", nil); rec.Code != 200 || rec.Body.String() != "console.log(1)" ||
-		rec.Header().Get("Cache-Control") != "public, max-age=0" || rec.Header().Get("ETag") == "" {
+		!strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {
 		t.Fatalf("%d %v", rec.Code, rec.Header())
 	}
 	if rec := get(h, "GET", "/app/flutter_bootstrap.js", nil); !strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {

@@ -1,6 +1,6 @@
 // Command neoagent is NeoAgent: `neoagent serve` runs the server (what the
-// service, the container and a plain `neoagent` without arguments start), and
-// every other subcommand manages the installation (see `neoagent help`).
+// service and the container start), and the CLI manages the installation
+// (see `neoagent help`).
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 
 func main() {
 	args := os.Args[1:]
-	if len(args) == 0 || args[0] == "serve" || (args[0] == "start" && len(args) > 1 && args[1] == "--foreground") {
+	if len(args) > 0 && (args[0] == "serve" || (args[0] == "start" && len(args) > 1 && args[1] == "--foreground")) {
 		log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 		if err := serve(log); err != nil {
 			log.Error("neoagent stopped", "error", err)
@@ -26,7 +26,7 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if args[0] == "healthcheck" {
+	if len(args) > 0 && args[0] == "healthcheck" {
 		if err := manager.Healthcheck(ctx, os.Getenv); err != nil {
 			os.Exit(1)
 		}
