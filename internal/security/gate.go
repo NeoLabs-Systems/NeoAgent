@@ -193,8 +193,6 @@ func (g *Gate) Request(ctx context.Context, req ApprovalRequest) string {
 	if req.RunID != "" {
 		runID = req.RunID
 	}
-	_, _ = g.DB.W.Exec(`INSERT INTO pending_approvals (id, user_id, run_id, tool_name, tool_args_json, category, status, expires_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'))`, id, req.UserID, runID, req.ToolName, string(encoded), category, expires)
 	copy := g.Describer.Describe(ctx, req.UserID, req.AgentID, req.ToolName, args, req.ArgOrder, category, req.Reason, req.ReasonKey, req.ReasonParams)
 	reason := any(nil)
 	if copy.Reason != "" {
@@ -210,7 +208,6 @@ func (g *Gate) Request(ctx context.Context, req ApprovalRequest) string {
 	}
 	payload := map[string]any{"approvalId": id, "runId": runID, "toolName": req.ToolName, "toolArgs": args, "category": category, "expiresAt": expires,
 		"reason": reason, "title": nullable(copy.Title), "action": nullable(copy.Action), "detail": nullable(copy.Detail)}
-	g.emit(req.UserID, "tool:approval_required", payload)
 	entry := &pendingApproval{result: make(chan string, 1), userID: req.UserID, runID: req.RunID, toolName: req.ToolName, args: args, category: category,
 		escalated: req.Reason != "", payload: payload}
 	entry.timer = time.AfterFunc(timeout, func() {
@@ -229,9 +226,14 @@ func (g *Gate) Request(ctx context.Context, req ApprovalRequest) string {
 		g.logDecision(req.UserID, req.RunID, req.ToolName, args, "timeout", "once")
 		entry.result <- "timeout"
 	})
+	// The waiter exists before the row and the event do, so a decision that
+	// arrives at once is never lost.
 	g.mu.Lock()
 	g.pending[id] = entry
 	g.mu.Unlock()
+	_, _ = g.DB.W.Exec(`INSERT INTO pending_approvals (id, user_id, run_id, tool_name, tool_args_json, category, status, expires_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'))`, id, req.UserID, runID, req.ToolName, string(encoded), category, expires)
+	g.emit(req.UserID, "tool:approval_required", payload)
 	if inChat {
 		go chat.Offer(ChatOffer{ApprovalID: id, UserID: req.UserID, AgentID: req.AgentID, Trust: req.Trust, Category: category, ToolName: req.ToolName,
 			Args: args, ArgOrder: req.ArgOrder, Reason: req.Reason, ReasonKey: req.ReasonKey, ReasonParams: req.ReasonParams, Timeout: timeout})

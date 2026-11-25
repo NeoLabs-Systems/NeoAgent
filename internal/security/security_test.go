@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -160,9 +161,35 @@ func TestApprovalCopyMatchesNode(t *testing.T) {
 	}
 }
 
-type recorder struct{ events []string }
+type recorder struct {
+	mu     sync.Mutex
+	events []string
+}
 
-func (r *recorder) EmitToUser(_ int64, event string, _ any) { r.events = append(r.events, event) }
+func (r *recorder) EmitToUser(_ int64, event string, _ any) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.events = append(r.events, event)
+}
+
+func (r *recorder) snapshot() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.events...)
+}
+
+// announcedApproval waits, as a client does, until the approval was announced
+// and returns its id ("" when none was asked for in time).
+func announcedApproval(db *dbx.DB, rec *recorder) string {
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		var id string
+		_ = db.R.QueryRow(`SELECT id FROM pending_approvals WHERE status = 'pending'`).Scan(&id)
+		if events := rec.snapshot(); id != "" && len(events) > 0 && events[len(events)-1] == "tool:approval_required" {
+			return id
+		}
+	}
+	return ""
+}
 
 func TestGateWaitsForTheOwner(t *testing.T) {
 	db := testDB(t)
@@ -176,13 +203,9 @@ func TestGateWaitsForTheOwner(t *testing.T) {
 	go func() {
 		done <- gate.Request(context.Background(), ApprovalRequest{UserID: 1, RunID: "r1", ToolName: "execute_command", Args: map[string]any{"command": "ls"}})
 	}()
-	var id string
-	for deadline := time.Now().Add(3 * time.Second); id == ""; {
-		_ = db.R.QueryRow(`SELECT id FROM pending_approvals WHERE status = 'pending'`).Scan(&id)
-		if time.Now().After(deadline) {
-			t.Fatal("no approval was asked for")
-		}
-		time.Sleep(10 * time.Millisecond)
+	id := announcedApproval(db, rec)
+	if id == "" {
+		t.Fatal("no approval was asked for")
 	}
 	if gate.Decide(context.Background(), id, 2, "approved", "once") != nil {
 		t.Fatal("another user decided")
@@ -201,8 +224,8 @@ func TestGateWaitsForTheOwner(t *testing.T) {
 	}
 	var logged int
 	_ = db.R.QueryRow(`SELECT COUNT(*) FROM tool_approval_log WHERE decision = 'approved' AND scope = 'session'`).Scan(&logged)
-	if logged != 1 || len(rec.events) != 2 || rec.events[0] != "tool:approval_required" || rec.events[1] != "tool:approval_resolved" {
-		t.Fatalf("logged=%d events=%v", logged, rec.events)
+	if logged != 1 || len(rec.snapshot()) != 2 || rec.snapshot()[0] != "tool:approval_required" || rec.snapshot()[1] != "tool:approval_resolved" {
+		t.Fatalf("logged=%d events=%v", logged, rec.snapshot())
 	}
 }
 
@@ -232,7 +255,8 @@ func TestGuardAsksAndBlocksOnDenial(t *testing.T) {
 	db := testDB(t)
 	reg := registry(t)
 	policies := &Policies{DB: db, Catalog: NewCatalog(reg)}
-	gate := NewGate(db, &recorder{}, policies, nil)
+	rec := &recorder{}
+	gate := NewGate(db, rec, policies, nil)
 	if _, err := db.W.Exec(`INSERT INTO agent_runs (id, user_id, title, status) VALUES ('r1', 1, 'x', 'running')`); err != nil {
 		t.Fatal(err)
 	}
@@ -243,16 +267,7 @@ func TestGuardAsksAndBlocksOnDenial(t *testing.T) {
 	if block, _ := g.BeforeToolCall(ctx, nil, aiCall("send_message", map[string]any{"to": "x"}), reg.Meta("send_message", nil)); block {
 		t.Fatal("send_message blocked")
 	}
-	go func() {
-		for {
-			var id string
-			if db.R.QueryRow(`SELECT id FROM pending_approvals WHERE status = 'pending'`).Scan(&id) == nil {
-				gate.Decide(ctx, id, 1, "denied", "once")
-				return
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}()
+	go func() { gate.Decide(ctx, announcedApproval(db, rec), 1, "denied", "once") }()
 	block, reason := g.BeforeToolCall(ctx, nil, aiCall("execute_command", map[string]any{"command": "ls"}), reg.Meta("execute_command", nil))
 	if !block || reason != `The user denied the use of "execute_command". Do not retry this tool call in this run.` {
 		t.Fatalf("block=%v reason=%q", block, reason)
