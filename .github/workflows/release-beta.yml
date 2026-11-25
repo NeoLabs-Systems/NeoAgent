@@ -69,7 +69,7 @@ jobs:
       - name: Commit beta release
         run: |
           go run ./cmd/neoagent-release set-version "${{ steps.beta_version.outputs.version }}"
-          git add VERSION package.json
+          git add internal/buildinfo/VERSION package.json
           git commit -m "chore(beta-release): v${{ steps.beta_version.outputs.version }} [skip ci]"
 
       - name: Push beta release commit and tag

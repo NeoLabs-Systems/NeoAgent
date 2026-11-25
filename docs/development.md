@@ -6,7 +6,7 @@ description: Set up a local checkout, follow the server conventions, and run the
 
 # Development and testing
 
-**Clone, run the server with its own data directory, test the package you touched, and follow [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) for every change.**
+**Clone, run the server with its own data directory, test the package you touched, and follow [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/.github/GUIDELINES.md) for every change.**
 
 ## Requirements
 
@@ -68,7 +68,7 @@ go run ./cmd/neoagent serve
 
 ## Server conventions
 
-[GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) is the full rule set; the essentials:
+[GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/.github/GUIDELINES.md) is the full rule set; the essentials:
 
 - **Packages.** One package per domain in `internal/`; domains do not import each other and talk through small interfaces that `internal/wiring` satisfies.
 - **Layers.** Handlers parse, call a service and respond; business logic lives in the service.
@@ -102,4 +102,4 @@ bash scripts/flash_wearable.sh --port /dev/cu.usbmodem1101
 - **Never commit.** `.env`, `data/`, `agent-data/` or anything in `.gitignore`; do not use `--no-verify`.
 - **Changelog.** GitHub Releases are the release history; do not add `CHANGELOG.md`.
 
-See [CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/CONTRIBUTING.md) for the review process.
+See [CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/.github/CONTRIBUTING.md) for the review process.

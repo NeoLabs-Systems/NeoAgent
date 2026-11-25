@@ -17,13 +17,12 @@ ENV CGO_ENABLED=0 GOWORK=off
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
-COPY VERSION ./
 COPY cmd ./cmd
 COPY internal ./internal
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    version="$(cat VERSION)" \
- && ldflags="-s -w -X main.version=${version}" \
+    version="$(cat internal/buildinfo/VERSION)" \
+ && ldflags="-s -w -X github.com/NeoLabs-Systems/neoagent/internal/buildinfo.Version=${version}" \
  && GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "$ldflags" -o /out/neoagent ./cmd/neoagent \
  && GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "$ldflags" -o /out/neoagent-guest-linux-$TARGETARCH ./cmd/neoagent-guest
 

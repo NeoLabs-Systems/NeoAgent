@@ -86,7 +86,7 @@ Each account's cloud computer runs where the compose files say.
 Compose reads the `.env` file next to `compose.yaml` for these values. NeoAgent never sees that file.
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/compose.kvm.yaml
+curl -fsSLO https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/docker/compose.kvm.yaml
 cat >> .env <<EOF
 COMPOSE_FILE=compose.yaml:compose.kvm.yaml
 KVM_GID=$(stat -c %g /dev/kvm)
@@ -97,7 +97,7 @@ docker compose up -d
 ### 🐳 Docker socket
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/compose.docker.yaml
+curl -fsSLO https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/docker/compose.docker.yaml
 cat >> .env <<EOF
 COMPOSE_FILE=compose.yaml:compose.docker.yaml
 DOCKER_GID=$(stat -c %g /var/run/docker.sock)

@@ -1,6 +1,6 @@
 # NeoAgent with Docker Compose: docker compose up -d
 # Then open http://localhost:3333/app and create the first account (it becomes the admin).
-# Faster cloud computers: add compose.kvm.yaml or compose.docker.yaml (see docs/docker.md).
+# Faster cloud computers: add docker/compose.kvm.yaml or docker/compose.docker.yaml (see docs/docker.md).
 name: neoagent
 
 services:

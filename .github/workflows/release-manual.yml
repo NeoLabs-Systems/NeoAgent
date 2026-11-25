@@ -65,7 +65,7 @@ jobs:
           esac
 
           go run ./cmd/neoagent-release set-version "$NEW_VERSION"
-          git add VERSION package.json
+          git add internal/buildinfo/VERSION package.json
           git commit -m "chore(release): v${NEW_VERSION} [skip ci]"
           git tag "v${NEW_VERSION}" -m "chore(release): v${NEW_VERSION}"
 

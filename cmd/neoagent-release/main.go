@@ -25,8 +25,8 @@ const dartContract = "flutter_app/lib/src/setup_contract.g.dart"
 
 const usage = `usage: neoagent-release <command> [flags]
 
-  version                                   print the VERSION file
-  set-version VERSION                       write VERSION and package.json's version
+  version                                   print the release version
+  set-version VERSION                       write the release version and package.json's
   setup-contract [--check]                  write (or check) ` + dartContract + `
   signing-public-key                        print the embedded runtime signing key
   web-build-id                              print the web build id
@@ -112,7 +112,7 @@ func run(ctx context.Context, args []string) error {
 
 	switch args[0] {
 	case "version":
-		raw, err := os.ReadFile("VERSION")
+		raw, err := os.ReadFile(release.VersionFile)
 		if err != nil {
 			return err
 		}

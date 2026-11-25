@@ -121,7 +121,7 @@ func TestStageRuntimeAndMetadata(t *testing.T) {
 // npm install: package.json must carry the release version (or the updater
 // sees nothing newer) and .npmrc must keep that install a dry run.
 func TestNodeHandoverFiles(t *testing.T) {
-	version, err := os.ReadFile("../../VERSION")
+	version, err := os.ReadFile("../../" + VersionFile)
 	if err != nil {
 		t.Skip("not in the repository")
 	}

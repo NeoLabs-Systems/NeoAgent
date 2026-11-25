@@ -56,5 +56,5 @@ Run it on a machine you administer, start with restricted tool permissions, and 
 | [Development](development.md) | Local setup, tests, release flow |
 
 :::info Contributing
-Follow [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) and [CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/CONTRIBUTING.md).
+Follow [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/.github/GUIDELINES.md) and [CONTRIBUTING.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/.github/CONTRIBUTING.md).
 :::

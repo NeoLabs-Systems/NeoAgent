@@ -12,7 +12,10 @@ var (
 	packageVersionLine = regexp.MustCompile(`("version":\s*)"[^"]*"`)
 )
 
-// SetVersion writes the release version to VERSION and to package.json, which
+// VersionFile holds the release version, relative to the repository root.
+const VersionFile = "internal/buildinfo/VERSION"
+
+// SetVersion writes the release version to VersionFile and to package.json, which
 // must carry the same version for the Node.js updater handover (see
 // scripts/node-handover.sh).
 func SetVersion(root, version string) error {
@@ -31,5 +34,5 @@ func SetVersion(root, version string) error {
 	if err := os.WriteFile(pkgPath, pkg, 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(root, "VERSION"), []byte(version+"\n"), 0o644)
+	return os.WriteFile(filepath.Join(root, VersionFile), []byte(version+"\n"), 0o644)
 }

@@ -4,7 +4,6 @@
 *
 !go.mod
 !go.sum
-!VERSION
 !cmd/
 !internal/
 !landing/
