@@ -1,0 +1,601 @@
+[
+ {
+  "method": "GET",
+  "path": "/api/agent-profiles",
+  "body": null,
+  "status": 200,
+  "response": {
+   "agents": [
+    {
+     "id": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f",
+     "slug": "main",
+     "displayName": "Main",
+     "description": "Default personal AI contact and fallback agent.",
+     "responsibilities": "Handle general requests. Delegate to specialist agents only when their responsibilities clearly match.",
+     "instructions": "",
+     "status": "active",
+     "isDefault": true,
+     "canDelegate": true,
+     "canBeDelegatedTo": false,
+     "delegateTargets": [],
+     "toolRestrictions": {},
+     "createdByAgentId": null,
+     "creationReason": "",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    }
+   ],
+   "defaultAgentId": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f"
+  }
+ },
+ {
+  "method": "POST",
+  "path": "/api/agent-profiles",
+  "body": {
+   "displayName": "  Research Bot  ",
+   "description": " d ",
+   "responsibilities": " r ",
+   "instructions": " i "
+  },
+  "status": 201,
+  "response": {
+   "id": "bd741127-450c-4515-ab41-113fe369732f",
+   "slug": "research-bot",
+   "displayName": "Research Bot",
+   "description": "d",
+   "responsibilities": "r",
+   "instructions": "i",
+   "status": "active",
+   "isDefault": false,
+   "canDelegate": false,
+   "canBeDelegatedTo": true,
+   "delegateTargets": [],
+   "toolRestrictions": {},
+   "createdByAgentId": null,
+   "creationReason": "",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "POST",
+  "path": "/api/agent-profiles",
+  "body": {
+   "slug": "Ops--Team!!",
+   "name": "Operations",
+   "status": "paused",
+   "canDelegate": "yes",
+   "canBeDelegatedTo": "0",
+   "delegateTargets": "[\"x\", \" \", \"y\"]",
+   "toolRestrictions": {
+    "user_contact": "deny",
+    "network_write": "require_approval",
+    "bogus": "deny",
+    "external": "maybe"
+   }
+  },
+  "status": 201,
+  "response": {
+   "id": "a565e091-e3c7-470c-9357-af168831b732",
+   "slug": "ops--team",
+   "displayName": "Operations",
+   "description": "",
+   "responsibilities": "",
+   "instructions": "",
+   "status": "paused",
+   "isDefault": false,
+   "canDelegate": true,
+   "canBeDelegatedTo": false,
+   "delegateTargets": [
+    "x",
+    "y"
+   ],
+   "toolRestrictions": {
+    "user_contact": "deny",
+    "network_write": "require_approval"
+   },
+   "createdByAgentId": null,
+   "creationReason": "",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "POST",
+  "path": "/api/agent-profiles",
+  "body": {
+   "displayName": "research bot"
+  },
+  "status": 400,
+  "response": {
+   "error": "An agent with the identifier \"research-bot\" already exists."
+  }
+ },
+ {
+  "method": "POST",
+  "path": "/api/agent-profiles",
+  "body": {},
+  "status": 400,
+  "response": {
+   "error": "Agent slug or display name is required."
+  }
+ },
+ {
+  "method": "POST",
+  "path": "/api/agent-profiles",
+  "body": {
+   "name": "Writer",
+   "delegate_targets": [
+    "a",
+    1,
+    null
+   ],
+   "creationReason": "xxxxxxxxxx",
+   "createdByAgentId": "someone"
+  },
+  "status": 201,
+  "response": {
+   "id": "a572a03d-7ca6-4cd8-8392-65ffe7c2c5e4",
+   "slug": "writer",
+   "displayName": "Writer",
+   "description": "",
+   "responsibilities": "",
+   "instructions": "",
+   "status": "active",
+   "isDefault": false,
+   "canDelegate": false,
+   "canBeDelegatedTo": true,
+   "delegateTargets": [
+    "a",
+    "1"
+   ],
+   "toolRestrictions": {},
+   "createdByAgentId": "someone",
+   "creationReason": "xxxxxxxxxx",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "PUT",
+  "path": "/api/agent-profiles/{main}",
+  "body": {
+   "slug": "renamed",
+   "displayName": "Boss",
+   "description": null,
+   "status": "archived"
+  },
+  "status": 400,
+  "response": {
+   "error": "The default main agent cannot be archived."
+  }
+ },
+ {
+  "method": "PUT",
+  "path": "/api/agent-profiles/{main}",
+  "body": {
+   "slug": "renamed",
+   "displayName": "Boss"
+  },
+  "status": 200,
+  "response": {
+   "id": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f",
+   "slug": "main",
+   "displayName": "Boss",
+   "description": "Default personal AI contact and fallback agent.",
+   "responsibilities": "Handle general requests. Delegate to specialist agents only when their responsibilities clearly match.",
+   "instructions": "",
+   "status": "active",
+   "isDefault": true,
+   "canDelegate": true,
+   "canBeDelegatedTo": false,
+   "delegateTargets": [],
+   "toolRestrictions": {},
+   "createdByAgentId": null,
+   "creationReason": "",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "PUT",
+  "path": "/api/agent-profiles/{research-bot}",
+  "body": {
+   "displayName": ""
+  },
+  "status": 400,
+  "response": {
+   "error": "Agent display name is required."
+  }
+ },
+ {
+  "method": "PUT",
+  "path": "/api/agent-profiles/{research-bot}",
+  "body": {
+   "slug": "ops-team"
+  },
+  "status": 200,
+  "response": {
+   "id": "bd741127-450c-4515-ab41-113fe369732f",
+   "slug": "ops-team",
+   "displayName": "Research Bot",
+   "description": "d",
+   "responsibilities": "r",
+   "instructions": "i",
+   "status": "active",
+   "isDefault": false,
+   "canDelegate": false,
+   "canBeDelegatedTo": true,
+   "delegateTargets": [],
+   "toolRestrictions": {},
+   "createdByAgentId": null,
+   "creationReason": "",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "PUT",
+  "path": "/api/agent-profiles/{ops-team}",
+  "body": {
+   "slug": "Deep Research",
+   "status": "paused",
+   "toolRestrictions": "{\"skill_mutation\":\"deny\"}",
+   "can_delegate": 1,
+   "delegateTargets": null,
+   "instructions": "  new  "
+  },
+  "status": 200,
+  "response": {
+   "id": "bd741127-450c-4515-ab41-113fe369732f",
+   "slug": "deep-research",
+   "displayName": "Research Bot",
+   "description": "d",
+   "responsibilities": "r",
+   "instructions": "new",
+   "status": "paused",
+   "isDefault": false,
+   "canDelegate": true,
+   "canBeDelegatedTo": true,
+   "delegateTargets": [],
+   "toolRestrictions": {
+    "skill_mutation": "deny"
+   },
+   "createdByAgentId": null,
+   "creationReason": "",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "PUT",
+  "path": "/api/agent-profiles/missing",
+  "body": {
+   "displayName": "x"
+  },
+  "status": 404,
+  "response": {
+   "error": "Agent not found."
+  }
+ },
+ {
+  "method": "PUT",
+  "path": "/api/agent-profiles/{writer}",
+  "body": {
+   "isDefault": true
+  },
+  "status": 200,
+  "response": {
+   "id": "a572a03d-7ca6-4cd8-8392-65ffe7c2c5e4",
+   "slug": "writer",
+   "displayName": "Writer",
+   "description": "",
+   "responsibilities": "",
+   "instructions": "",
+   "status": "active",
+   "isDefault": true,
+   "canDelegate": false,
+   "canBeDelegatedTo": true,
+   "delegateTargets": [
+    "a",
+    "1"
+   ],
+   "toolRestrictions": {},
+   "createdByAgentId": "someone",
+   "creationReason": "xxxxxxxxxx",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "POST",
+  "path": "/api/agent-profiles/{main}/default",
+  "body": null,
+  "status": 200,
+  "response": {
+   "id": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f",
+   "slug": "main",
+   "displayName": "Boss",
+   "description": "Default personal AI contact and fallback agent.",
+   "responsibilities": "Handle general requests. Delegate to specialist agents only when their responsibilities clearly match.",
+   "instructions": "",
+   "status": "active",
+   "isDefault": true,
+   "canDelegate": true,
+   "canBeDelegatedTo": false,
+   "delegateTargets": [],
+   "toolRestrictions": {},
+   "createdByAgentId": null,
+   "creationReason": "",
+   "createdAt": "2026-11-24 23:06:08",
+   "updatedAt": "2026-11-24 23:06:08"
+  }
+ },
+ {
+  "method": "POST",
+  "path": "/api/agent-profiles/missing/default",
+  "body": null,
+  "status": 404,
+  "response": {
+   "error": "Agent not found."
+  }
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/agent-profiles/{main}",
+  "body": null,
+  "status": 400,
+  "response": {
+   "error": "The default main agent cannot be archived."
+  }
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/agent-profiles/{writer}",
+  "body": null,
+  "status": 200,
+  "response": {
+   "archived": true
+  }
+ },
+ {
+  "method": "DELETE",
+  "path": "/api/agent-profiles/missing",
+  "body": null,
+  "status": 404,
+  "response": {
+   "error": "Agent not found."
+  }
+ },
+ {
+  "method": "GET",
+  "path": "/api/agent-profiles",
+  "body": null,
+  "status": 200,
+  "response": {
+   "agents": [
+    {
+     "id": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f",
+     "slug": "main",
+     "displayName": "Boss",
+     "description": "Default personal AI contact and fallback agent.",
+     "responsibilities": "Handle general requests. Delegate to specialist agents only when their responsibilities clearly match.",
+     "instructions": "",
+     "status": "active",
+     "isDefault": true,
+     "canDelegate": true,
+     "canBeDelegatedTo": false,
+     "delegateTargets": [],
+     "toolRestrictions": {},
+     "createdByAgentId": null,
+     "creationReason": "",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    },
+    {
+     "id": "a565e091-e3c7-470c-9357-af168831b732",
+     "slug": "ops--team",
+     "displayName": "Operations",
+     "description": "",
+     "responsibilities": "",
+     "instructions": "",
+     "status": "paused",
+     "isDefault": false,
+     "canDelegate": true,
+     "canBeDelegatedTo": false,
+     "delegateTargets": [
+      "x",
+      "y"
+     ],
+     "toolRestrictions": {
+      "user_contact": "deny",
+      "network_write": "require_approval"
+     },
+     "createdByAgentId": null,
+     "creationReason": "",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    },
+    {
+     "id": "bd741127-450c-4515-ab41-113fe369732f",
+     "slug": "deep-research",
+     "displayName": "Research Bot",
+     "description": "d",
+     "responsibilities": "r",
+     "instructions": "new",
+     "status": "paused",
+     "isDefault": false,
+     "canDelegate": true,
+     "canBeDelegatedTo": true,
+     "delegateTargets": [],
+     "toolRestrictions": {
+      "skill_mutation": "deny"
+     },
+     "createdByAgentId": null,
+     "creationReason": "",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    }
+   ],
+   "defaultAgentId": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f"
+  }
+ },
+ {
+  "method": "GET",
+  "path": "/api/agent-profiles?includeArchived=true",
+  "body": null,
+  "status": 200,
+  "response": {
+   "agents": [
+    {
+     "id": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f",
+     "slug": "main",
+     "displayName": "Boss",
+     "description": "Default personal AI contact and fallback agent.",
+     "responsibilities": "Handle general requests. Delegate to specialist agents only when their responsibilities clearly match.",
+     "instructions": "",
+     "status": "active",
+     "isDefault": true,
+     "canDelegate": true,
+     "canBeDelegatedTo": false,
+     "delegateTargets": [],
+     "toolRestrictions": {},
+     "createdByAgentId": null,
+     "creationReason": "",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    },
+    {
+     "id": "a565e091-e3c7-470c-9357-af168831b732",
+     "slug": "ops--team",
+     "displayName": "Operations",
+     "description": "",
+     "responsibilities": "",
+     "instructions": "",
+     "status": "paused",
+     "isDefault": false,
+     "canDelegate": true,
+     "canBeDelegatedTo": false,
+     "delegateTargets": [
+      "x",
+      "y"
+     ],
+     "toolRestrictions": {
+      "user_contact": "deny",
+      "network_write": "require_approval"
+     },
+     "createdByAgentId": null,
+     "creationReason": "",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    },
+    {
+     "id": "bd741127-450c-4515-ab41-113fe369732f",
+     "slug": "deep-research",
+     "displayName": "Research Bot",
+     "description": "d",
+     "responsibilities": "r",
+     "instructions": "new",
+     "status": "paused",
+     "isDefault": false,
+     "canDelegate": true,
+     "canBeDelegatedTo": true,
+     "delegateTargets": [],
+     "toolRestrictions": {
+      "skill_mutation": "deny"
+     },
+     "createdByAgentId": null,
+     "creationReason": "",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    },
+    {
+     "id": "a572a03d-7ca6-4cd8-8392-65ffe7c2c5e4",
+     "slug": "writer",
+     "displayName": "Writer",
+     "description": "",
+     "responsibilities": "",
+     "instructions": "",
+     "status": "archived",
+     "isDefault": false,
+     "canDelegate": false,
+     "canBeDelegatedTo": true,
+     "delegateTargets": [
+      "a",
+      "1"
+     ],
+     "toolRestrictions": {},
+     "createdByAgentId": "someone",
+     "creationReason": "xxxxxxxxxx",
+     "createdAt": "2026-11-24 23:06:08",
+     "updatedAt": "2026-11-24 23:06:08"
+    }
+   ],
+   "defaultAgentId": "cb37f518-bd4d-425a-a5f5-d5aaddefa83f"
+  }
+ },
+ {
+  "rows": [
+   {
+    "slug": "deep-research",
+    "display_name": "Research Bot",
+    "description": "d",
+    "responsibilities": "r",
+    "instructions": "new",
+    "status": "paused",
+    "is_default": 0,
+    "can_delegate": 1,
+    "can_be_delegated_to": 1,
+    "delegate_targets_json": "[]",
+    "tool_restrictions_json": "{\"skill_mutation\":\"deny\"}",
+    "created_by_agent_id": null,
+    "creation_reason": null
+   },
+   {
+    "slug": "main",
+    "display_name": "Boss",
+    "description": "Default personal AI contact and fallback agent.",
+    "responsibilities": "Handle general requests. Delegate to specialist agents only when their responsibilities clearly match.",
+    "instructions": "",
+    "status": "active",
+    "is_default": 1,
+    "can_delegate": 1,
+    "can_be_delegated_to": 0,
+    "delegate_targets_json": "[]",
+    "tool_restrictions_json": "{}",
+    "created_by_agent_id": null,
+    "creation_reason": null
+   },
+   {
+    "slug": "ops--team",
+    "display_name": "Operations",
+    "description": "",
+    "responsibilities": "",
+    "instructions": "",
+    "status": "paused",
+    "is_default": 0,
+    "can_delegate": 1,
+    "can_be_delegated_to": 0,
+    "delegate_targets_json": "[\"x\",\"y\"]",
+    "tool_restrictions_json": "{\"user_contact\":\"deny\",\"network_write\":\"require_approval\"}",
+    "created_by_agent_id": null,
+    "creation_reason": null
+   },
+   {
+    "slug": "writer",
+    "display_name": "Writer",
+    "description": "",
+    "responsibilities": "",
+    "instructions": "",
+    "status": "archived",
+    "is_default": 0,
+    "can_delegate": 0,
+    "can_be_delegated_to": 1,
+    "delegate_targets_json": "[\"a\",\"1\"]",
+    "tool_restrictions_json": "{}",
+    "created_by_agent_id": "someone",
+    "creation_reason": "xxxxxxxxxx"
+   }
+  ]
+ }
+]

@@ -10,8 +10,14 @@ permissions:
   id-token: write
 
 jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
   release:
     name: Promote beta and publish stable release
+    needs: ci
     if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     outputs:
@@ -36,29 +42,17 @@ jobs:
           git merge --no-ff origin/beta -m "chore(release): promote beta to main [skip ci]"
           git push origin HEAD:main
 
-      - name: Set up Node.js
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+        with:
+          token: ${{ secrets.NEOLABS_GO_TOKEN }}
+
+      # semantic-release is a CI tool here: it decides the stable version from
+      # the commit history and creates the tag and GitHub release.
+      - name: Set up Node.js for semantic-release
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.9'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build bundled web client
-        run: NEOAGENT_BACKEND_URL='' npm run flutter:build:web
-
-      - name: Verify production web bundle
-        run: |
-          if rg -n "http://localhost:3333|127\\.0\\.0\\.1:3333" server/public/main.dart.js; then
-            echo "Bundled web client still points at localhost."
-            exit 1
-          fi
+          node-version: 22
 
       - name: Release
         env:
@@ -83,7 +77,7 @@ jobs:
       - name: Add download links to release notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release_download.js --tag "${{ steps.capture_release_tag.outputs.release_tag }}"
+        run: go run ./cmd/neoagent-release release-download --tag "${{ steps.capture_release_tag.outputs.release_tag }}"
 
       - name: Capture release sha
         id: capture_release_sha
@@ -114,6 +108,7 @@ jobs:
       contents: read
       packages: write
     uses: ./.github/workflows/_publish-docker-image.yml
+    secrets: inherit
     with:
       ref: ${{ needs.release.outputs.release_sha }}
       release_tag: ${{ needs.release.outputs.release_tag }}

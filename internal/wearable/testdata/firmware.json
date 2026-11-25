@@ -1,0 +1,1857 @@
+{
+ "helpers": {
+  "slugs": [
+   {
+    "input": "",
+    "slug": null
+   },
+   {
+    "input": "NeoLabs-Systems/NeoAgent",
+    "slug": "NeoLabs-Systems/NeoAgent"
+   },
+   {
+    "input": "a/b.git",
+    "slug": "a/b"
+   },
+   {
+    "input": "https://github.com/foo/bar",
+    "slug": "foo/bar"
+   },
+   {
+    "input": "git@github.com:foo/bar.git",
+    "slug": "foo/bar"
+   },
+   {
+    "input": "https://github.com/foo/bar/tree/main",
+    "slug": "foo/bar"
+   },
+   {
+    "input": "nonsense",
+    "slug": null
+   },
+   {
+    "input": " x/y ",
+    "slug": "x/y"
+   },
+   {
+    "input": "a/b/c",
+    "slug": null
+   }
+  ],
+  "channels": [
+   {
+    "input": "",
+    "channel": "stable"
+   },
+   {
+    "input": "beta",
+    "channel": "beta"
+   },
+   {
+    "input": " BETA ",
+    "channel": "beta"
+   },
+   {
+    "input": "stable",
+    "channel": "stable"
+   },
+   {
+    "input": "nightly",
+    "channel": "stable"
+   },
+   {
+    "input": null,
+    "channel": "stable"
+   }
+  ],
+  "stripHash": [
+   {
+    "input": "",
+    "out": null
+   },
+   {
+    "input": "sha256:ABC",
+    "out": "abc"
+   },
+   {
+    "input": "SHA256:abc",
+    "out": "abc"
+   },
+   {
+    "input": " abc ",
+    "out": "abc"
+   },
+   {
+    "input": "abc",
+    "out": "abc"
+   }
+  ],
+  "checksums": [
+   {
+    "body": "abababababababababababababababababababababababababababababababab  neoagent-wearable-firmware.bin\n",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "abababababababababababababababababababababababababababababababab"
+   },
+   {
+    "body": "abababababababababababababababababababababababababababababababab\n",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "abababababababababababababababababababababababababababababababab"
+   },
+   {
+    "body": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd  other.bin\nabababababababababababababababababababababababababababababababab *neoagent-wearable-firmware.bin\n",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "abababababababababababababababababababababababababababababababab"
+   },
+   {
+    "body": "sha256:ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB  neoagent-wearable-firmware.bin",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "abababababababababababababababababababababababababababababababab"
+   },
+   {
+    "body": "nothing useful",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "body": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd  other.bin\nabababababababababababababababababababababababababababababababab  another.bin\n",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "body": "\r\nabababababababababababababababababababababababababababababababab  neoagent-wearable-firmware.bin\r\n",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "abababababababababababababababababababababababababababababababab"
+   },
+   {
+    "body": "",
+    "name": "neoagent-wearable-firmware.bin",
+    "out": null
+   }
+  ],
+  "selectAsset": [
+   {
+    "release": {
+     "tag_name": "v1",
+     "name": "Release v1",
+     "html_url": "https://github.example/v1",
+     "prerelease": false,
+     "draft": false,
+     "published_at": "2026-01-01T00:00:00Z",
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "neoagent-wearable-firmware.bin.sha256",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "neoagent-wearable-firmware.bin"
+   },
+   {
+    "release": {
+     "tag_name": "v1",
+     "name": "Release v1",
+     "html_url": "https://github.example/v1",
+     "prerelease": false,
+     "draft": false,
+     "published_at": "2026-01-01T00:00:00Z",
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "neoagent-wearable-firmware.bin.sha256",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+      }
+     ]
+    },
+    "name": "missing.bin",
+    "out": null
+   },
+   {
+    "release": {
+     "tag_name": "v1",
+     "name": "Release v1",
+     "html_url": "https://github.example/v1",
+     "prerelease": false,
+     "draft": false,
+     "published_at": "2026-01-01T00:00:00Z",
+     "assets": [
+      {
+       "name": "other.zip",
+       "browser_download_url": "https://dl.example/other.zip"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "release": {
+     "tag_name": "x"
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "release": {
+     "tag_name": "v1",
+     "name": "Release v1",
+     "html_url": "https://github.example/v1",
+     "prerelease": false,
+     "draft": false,
+     "published_at": "2026-01-01T00:00:00Z",
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "neoagent-wearable-firmware.bin.sha256",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+      }
+     ]
+    },
+    "name": "",
+    "out": "neoagent-wearable-firmware.bin"
+   }
+  ],
+  "checksumAsset": [
+   {
+    "release": {
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "neoagent-wearable-firmware.bin.sha256",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "neoagent-wearable-firmware.bin.sha256"
+   },
+   {
+    "release": {
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "SHA256SUMS.txt",
+       "browser_download_url": "https://dl.example/SHA256SUMS.txt"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "release": {
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "checksums",
+       "browser_download_url": "https://dl.example/checksums"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "checksums"
+   },
+   {
+    "release": {
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "x.sha256sum",
+       "browser_download_url": "https://dl.example/x.sha256sum"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "x.sha256sum"
+   },
+   {
+    "release": {
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "release": {
+     "assets": [
+      {
+       "name": "neoagent-wearable-firmware.bin",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+      },
+      {
+       "name": "neoagent-wearable-firmware.bin.SHA256",
+       "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.SHA256"
+      }
+     ]
+    },
+    "name": "neoagent-wearable-firmware.bin",
+    "out": "neoagent-wearable-firmware.bin.SHA256"
+   }
+  ],
+  "select": [
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.1-beta.2",
+      "name": "Release v3.0.1-beta.2",
+      "html_url": "https://github.example/v3.0.1-beta.2",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-03-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.9.0",
+      "name": "Release v2.9.0",
+      "html_url": "https://github.example/v2.9.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": "v3.0.0"
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.1-beta.2",
+      "name": "Release v3.0.1-beta.2",
+      "html_url": "https://github.example/v3.0.1-beta.2",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-03-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.9.0",
+      "name": "Release v2.9.0",
+      "html_url": "https://github.example/v2.9.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": null,
+    "out": "v3.0.0"
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.1-beta.2",
+      "name": "Release v3.0.1-beta.2",
+      "html_url": "https://github.example/v3.0.1-beta.2",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-03-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.9.0",
+      "name": "Release v2.9.0",
+      "html_url": "https://github.example/v2.9.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": "v3.0.1-beta.2"
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.1-beta.2",
+      "name": "Release v3.0.1-beta.2",
+      "html_url": "https://github.example/v3.0.1-beta.2",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-03-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.9.0",
+      "name": "Release v2.9.0",
+      "html_url": "https://github.example/v2.9.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": null,
+    "out": "v3.0.1-beta.2"
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.1.0",
+      "name": "Release v3.1.0",
+      "html_url": "https://github.example/v3.1.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": "v3.0.0"
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.1.0",
+      "name": "Release v3.1.0",
+      "html_url": "https://github.example/v3.1.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": null,
+    "out": "v3.1.0"
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.1.0",
+      "name": "Release v3.1.0",
+      "html_url": "https://github.example/v3.1.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.1.0",
+      "name": "Release v3.1.0",
+      "html_url": "https://github.example/v3.1.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": null,
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": true,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.0.0",
+      "name": "Release v2.0.0",
+      "html_url": "https://github.example/v2.0.0",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": true,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.0.0",
+      "name": "Release v2.0.0",
+      "html_url": "https://github.example/v2.0.0",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": null,
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": true,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.0.0",
+      "name": "Release v2.0.0",
+      "html_url": "https://github.example/v2.0.0",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.0.0",
+      "name": "Release v3.0.0",
+      "html_url": "https://github.example/v3.0.0",
+      "prerelease": false,
+      "draft": true,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v2.0.0",
+      "name": "Release v2.0.0",
+      "html_url": "https://github.example/v2.0.0",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-01-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": null,
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.2.0-beta",
+      "name": "Release v3.2.0-beta",
+      "html_url": "https://github.example/v3.2.0-beta",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-02-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.2.0-beta.1",
+      "name": "Release v3.2.0-beta.1",
+      "html_url": "https://github.example/v3.2.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-04-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-beta.1",
+      "name": "Release v3.3.0-beta.1",
+      "html_url": "https://github.example/v3.3.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-05-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-rc.1",
+      "name": "Release v3.3.0-rc.1",
+      "html_url": "https://github.example/v3.3.0-rc.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-06-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.2.0-beta",
+      "name": "Release v3.2.0-beta",
+      "html_url": "https://github.example/v3.2.0-beta",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-02-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.2.0-beta.1",
+      "name": "Release v3.2.0-beta.1",
+      "html_url": "https://github.example/v3.2.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-04-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-beta.1",
+      "name": "Release v3.3.0-beta.1",
+      "html_url": "https://github.example/v3.3.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-05-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-rc.1",
+      "name": "Release v3.3.0-rc.1",
+      "html_url": "https://github.example/v3.3.0-rc.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-06-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "stable",
+    "assetName": null,
+    "out": null
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.2.0-beta",
+      "name": "Release v3.2.0-beta",
+      "html_url": "https://github.example/v3.2.0-beta",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-02-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.2.0-beta.1",
+      "name": "Release v3.2.0-beta.1",
+      "html_url": "https://github.example/v3.2.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-04-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-beta.1",
+      "name": "Release v3.3.0-beta.1",
+      "html_url": "https://github.example/v3.3.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-05-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-rc.1",
+      "name": "Release v3.3.0-rc.1",
+      "html_url": "https://github.example/v3.3.0-rc.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-06-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": "v3.2.0-beta.1"
+   },
+   {
+    "releases": [
+     {
+      "tag_name": "v3.2.0-beta",
+      "name": "Release v3.2.0-beta",
+      "html_url": "https://github.example/v3.2.0-beta",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-02-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.2.0-beta.1",
+      "name": "Release v3.2.0-beta.1",
+      "html_url": "https://github.example/v3.2.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-04-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-beta.1",
+      "name": "Release v3.3.0-beta.1",
+      "html_url": "https://github.example/v3.3.0-beta.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-05-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "other.zip",
+        "browser_download_url": "https://dl.example/other.zip"
+       }
+      ]
+     },
+     {
+      "tag_name": "v3.3.0-rc.1",
+      "name": "Release v3.3.0-rc.1",
+      "html_url": "https://github.example/v3.3.0-rc.1",
+      "prerelease": true,
+      "draft": false,
+      "published_at": "2026-06-01T00:00:00Z",
+      "assets": [
+       {
+        "name": "neoagent-wearable-firmware.bin",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+       },
+       {
+        "name": "neoagent-wearable-firmware.bin.sha256",
+        "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+       }
+      ]
+     }
+    ],
+    "channel": "beta",
+    "assetName": null,
+    "out": "v3.3.0-beta.1"
+   },
+   {
+    "releases": [],
+    "channel": "stable",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "releases": [],
+    "channel": "stable",
+    "assetName": null,
+    "out": null
+   },
+   {
+    "releases": [],
+    "channel": "beta",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "out": null
+   },
+   {
+    "releases": [],
+    "channel": "beta",
+    "assetName": null,
+    "out": null
+   }
+  ]
+ },
+ "scenarios": [
+  {
+   "name": "stable with checksum",
+   "repo": "o/stable",
+   "channel": "stable",
+   "routes": {
+    "https://api.github.com/repos/o/stable/releases?per_page=10&page=1": {
+     "body": [
+      {
+       "tag_name": "v3.0.0",
+       "name": "",
+       "html_url": "https://github.example/v3.0.0",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "neoagent-wearable-firmware.bin",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+        },
+        {
+         "name": "neoagent-wearable-firmware.bin.sha256",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+        }
+       ]
+      }
+     ]
+    },
+    "https://dl.example/neoagent-wearable-firmware.bin.sha256": {
+     "text": "abababababababababababababababababababababababababababababababab  neoagent-wearable-firmware.bin\n"
+    }
+   },
+   "manifest": {
+    "configured": true,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "stable",
+    "currentVersion": "v3.0.0",
+    "releaseName": "v3.0.0",
+    "releaseTag": "v3.0.0",
+    "minimumServerVersion": null,
+    "downloadUrl": "https://dl.example/neoagent-wearable-firmware.bin",
+    "releaseNotesUrl": "https://github.example/v3.0.0",
+    "sha256": "abababababababababababababababababababababababababababababababab",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/stable",
+    "generatedAt": "T",
+    "mandatory": false,
+    "prerelease": false
+   },
+   "manifestText": "{\"configured\":true,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"stable\",\"currentVersion\":\"v3.0.0\",\"releaseName\":\"v3.0.0\",\"releaseTag\":\"v3.0.0\",\"minimumServerVersion\":null,\"downloadUrl\":\"https://dl.example/neoagent-wearable-firmware.bin\",\"releaseNotesUrl\":\"https://github.example/v3.0.0\",\"sha256\":\"abababababababababababababababababababababababababababababababab\",\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/stable\",\"generatedAt\":\"T\",\"mandatory\":false,\"prerelease\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/stable/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    },
+    {
+     "url": "https://dl.example/neoagent-wearable-firmware.bin.sha256",
+     "authorization": null,
+     "accept": "text/plain, application/octet-stream;q=0.9, */*;q=0.1"
+    }
+   ]
+  },
+  {
+   "name": "beta channel with environment",
+   "repo": "o/beta",
+   "channel": "beta",
+   "env": {
+    "NEOAGENT_WEARABLE_MIN_SERVER_VERSION": "3.8.0",
+    "NEOAGENT_WEARABLE_FIRMWARE_MANDATORY": "yes"
+   },
+   "routes": {
+    "https://api.github.com/repos/o/beta/releases?per_page=10&page=1": {
+     "body": [
+      {
+       "tag_name": "v3.9.0",
+       "name": "Release v3.9.0",
+       "html_url": "https://github.example/v3.9.0",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "neoagent-wearable-firmware.bin",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+        },
+        {
+         "name": "neoagent-wearable-firmware.bin.sha256",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+        }
+       ]
+      },
+      {
+       "tag_name": "v3.9.1-beta.3",
+       "name": "Release v3.9.1-beta.3",
+       "html_url": "https://github.example/v3.9.1-beta.3",
+       "prerelease": true,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "neoagent-wearable-firmware.bin",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+        },
+        {
+         "name": "neoagent-wearable-firmware.bin.sha256",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+        }
+       ]
+      }
+     ]
+    },
+    "https://dl.example/neoagent-wearable-firmware.bin.sha256": {
+     "status": 404,
+     "text": "gone"
+    }
+   },
+   "manifest": {
+    "configured": true,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "beta",
+    "currentVersion": "v3.9.1-beta.3",
+    "releaseName": "Release v3.9.1-beta.3",
+    "releaseTag": "v3.9.1-beta.3",
+    "minimumServerVersion": "3.8.0",
+    "downloadUrl": "https://dl.example/neoagent-wearable-firmware.bin",
+    "releaseNotesUrl": "https://github.example/v3.9.1-beta.3",
+    "sha256": null,
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/beta",
+    "generatedAt": "T",
+    "mandatory": true,
+    "prerelease": true
+   },
+   "manifestText": "{\"configured\":true,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"beta\",\"currentVersion\":\"v3.9.1-beta.3\",\"releaseName\":\"Release v3.9.1-beta.3\",\"releaseTag\":\"v3.9.1-beta.3\",\"minimumServerVersion\":\"3.8.0\",\"downloadUrl\":\"https://dl.example/neoagent-wearable-firmware.bin\",\"releaseNotesUrl\":\"https://github.example/v3.9.1-beta.3\",\"sha256\":null,\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/beta\",\"generatedAt\":\"T\",\"mandatory\":true,\"prerelease\":true}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/beta/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    },
+    {
+     "url": "https://dl.example/neoagent-wearable-firmware.bin.sha256",
+     "authorization": null,
+     "accept": "text/plain, application/octet-stream;q=0.9, */*;q=0.1"
+    }
+   ]
+  },
+  {
+   "name": "asset on the second page",
+   "repo": "o/paged",
+   "channel": "stable",
+   "routes": {
+    "https://api.github.com/repos/o/paged/releases?per_page=10&page=1": {
+     "body": [
+      {
+       "tag_name": "v1.0",
+       "name": "Release v1.0",
+       "html_url": "https://github.example/v1.0",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.1",
+       "name": "Release v1.1",
+       "html_url": "https://github.example/v1.1",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.2",
+       "name": "Release v1.2",
+       "html_url": "https://github.example/v1.2",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.3",
+       "name": "Release v1.3",
+       "html_url": "https://github.example/v1.3",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.4",
+       "name": "Release v1.4",
+       "html_url": "https://github.example/v1.4",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.5",
+       "name": "Release v1.5",
+       "html_url": "https://github.example/v1.5",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.6",
+       "name": "Release v1.6",
+       "html_url": "https://github.example/v1.6",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.7",
+       "name": "Release v1.7",
+       "html_url": "https://github.example/v1.7",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.8",
+       "name": "Release v1.8",
+       "html_url": "https://github.example/v1.8",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      },
+      {
+       "tag_name": "v1.9",
+       "name": "Release v1.9",
+       "html_url": "https://github.example/v1.9",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      }
+     ]
+    },
+    "https://api.github.com/repos/o/paged/releases?per_page=10&page=2": {
+     "body": [
+      {
+       "tag_name": "v0.9.0",
+       "name": "Release v0.9.0",
+       "html_url": "https://github.example/v0.9.0",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "neoagent-wearable-firmware.bin",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+        },
+        {
+         "name": "neoagent-wearable-firmware.bin.sha256",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+        }
+       ]
+      }
+     ]
+    },
+    "https://dl.example/neoagent-wearable-firmware.bin.sha256": {
+     "text": "abababababababababababababababababababababababababababababababab"
+    }
+   },
+   "manifest": {
+    "configured": true,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "stable",
+    "currentVersion": "v0.9.0",
+    "releaseName": "Release v0.9.0",
+    "releaseTag": "v0.9.0",
+    "minimumServerVersion": null,
+    "downloadUrl": "https://dl.example/neoagent-wearable-firmware.bin",
+    "releaseNotesUrl": "https://github.example/v0.9.0",
+    "sha256": "abababababababababababababababababababababababababababababababab",
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/paged",
+    "generatedAt": "T",
+    "mandatory": false,
+    "prerelease": false
+   },
+   "manifestText": "{\"configured\":true,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"stable\",\"currentVersion\":\"v0.9.0\",\"releaseName\":\"Release v0.9.0\",\"releaseTag\":\"v0.9.0\",\"minimumServerVersion\":null,\"downloadUrl\":\"https://dl.example/neoagent-wearable-firmware.bin\",\"releaseNotesUrl\":\"https://github.example/v0.9.0\",\"sha256\":\"abababababababababababababababababababababababababababababababab\",\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/paged\",\"generatedAt\":\"T\",\"mandatory\":false,\"prerelease\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/paged/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    },
+    {
+     "url": "https://api.github.com/repos/o/paged/releases?per_page=10&page=2",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    },
+    {
+     "url": "https://dl.example/neoagent-wearable-firmware.bin.sha256",
+     "authorization": null,
+     "accept": "text/plain, application/octet-stream;q=0.9, */*;q=0.1"
+    }
+   ]
+  },
+  {
+   "name": "release without the asset",
+   "repo": "o/noasset",
+   "channel": "stable",
+   "routes": {
+    "https://api.github.com/repos/o/noasset/releases?per_page=10&page=1": {
+     "body": [
+      {
+       "tag_name": "v4.0.0",
+       "name": "Release v4.0.0",
+       "html_url": "https://github.example/v4.0.0",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "other.zip",
+         "browser_download_url": "https://dl.example/other.zip"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "manifest": {
+    "configured": false,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "stable",
+    "currentVersion": "v4.0.0",
+    "releaseName": "Release v4.0.0",
+    "releaseTag": "v4.0.0",
+    "minimumServerVersion": null,
+    "downloadUrl": null,
+    "releaseNotesUrl": "https://github.example/v4.0.0",
+    "sha256": null,
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/noasset",
+    "generatedAt": "T",
+    "error": "Release asset neoagent-wearable-firmware.bin was not found.",
+    "mandatory": false,
+    "prerelease": false
+   },
+   "manifestText": "{\"configured\":false,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"stable\",\"currentVersion\":\"v4.0.0\",\"releaseName\":\"Release v4.0.0\",\"releaseTag\":\"v4.0.0\",\"minimumServerVersion\":null,\"downloadUrl\":null,\"releaseNotesUrl\":\"https://github.example/v4.0.0\",\"sha256\":null,\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/noasset\",\"generatedAt\":\"T\",\"error\":\"Release asset neoagent-wearable-firmware.bin was not found.\",\"mandatory\":false,\"prerelease\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/noasset/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    }
+   ]
+  },
+  {
+   "name": "no release at all",
+   "repo": "o/empty",
+   "channel": "beta",
+   "routes": {
+    "https://api.github.com/repos/o/empty/releases?per_page=10&page=1": {
+     "body": []
+    }
+   },
+   "manifest": {
+    "configured": false,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "beta",
+    "downloadUrl": null,
+    "releaseNotesUrl": null,
+    "sha256": null,
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/empty",
+    "generatedAt": "T",
+    "error": "No beta firmware release found for o/empty",
+    "mandatory": false
+   },
+   "manifestText": "{\"configured\":false,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"beta\",\"downloadUrl\":null,\"releaseNotesUrl\":null,\"sha256\":null,\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/empty\",\"generatedAt\":\"T\",\"error\":\"No beta firmware release found for o/empty\",\"mandatory\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/empty/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    }
+   ]
+  },
+  {
+   "name": "github error",
+   "repo": "o/error",
+   "channel": "stable",
+   "routes": {
+    "https://api.github.com/repos/o/error/releases?per_page=10&page=1": {
+     "status": 500,
+     "text": "boom"
+    }
+   },
+   "manifest": {
+    "configured": false,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "stable",
+    "downloadUrl": null,
+    "releaseNotesUrl": null,
+    "sha256": null,
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/error",
+    "generatedAt": "T",
+    "error": "GitHub API request failed with 500",
+    "mandatory": false
+   },
+   "manifestText": "{\"configured\":false,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"stable\",\"downloadUrl\":null,\"releaseNotesUrl\":null,\"sha256\":null,\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/error\",\"generatedAt\":\"T\",\"error\":\"GitHub API request failed with 500\",\"mandatory\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/error/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    }
+   ]
+  },
+  {
+   "name": "malformed json",
+   "repo": "o/bad",
+   "channel": "stable",
+   "routes": {
+    "https://api.github.com/repos/o/bad/releases?per_page=10&page=1": {
+     "text": "<html>"
+    }
+   },
+   "manifest": {
+    "configured": false,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "stable",
+    "downloadUrl": null,
+    "releaseNotesUrl": null,
+    "sha256": null,
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/bad",
+    "generatedAt": "T",
+    "error": "GitHub firmware release lookup returned malformed JSON.",
+    "mandatory": false
+   },
+   "manifestText": "{\"configured\":false,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"stable\",\"downloadUrl\":null,\"releaseNotesUrl\":null,\"sha256\":null,\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/bad\",\"generatedAt\":\"T\",\"error\":\"GitHub firmware release lookup returned malformed JSON.\",\"mandatory\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/bad/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    }
+   ]
+  },
+  {
+   "name": "custom asset name and token",
+   "repo": "o/custom",
+   "channel": "stable",
+   "assetName": "custom.bin",
+   "env": {
+    "GITHUB_TOKEN": "tok"
+   },
+   "routes": {
+    "https://api.github.com/repos/o/custom/releases?per_page=10&page=1": {
+     "body": [
+      {
+       "tag_name": "v1.0.0",
+       "name": "Release v1.0.0",
+       "html_url": "https://github.example/v1.0.0",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "custom.bin",
+         "browser_download_url": "https://dl.example/custom.bin"
+        },
+        {
+         "name": "checksums.txt",
+         "browser_download_url": "https://dl.example/checksums.txt"
+        }
+       ]
+      }
+     ]
+    },
+    "https://dl.example/checksums.txt": {
+     "text": "abababababababababababababababababababababababababababababababab  custom.bin"
+    }
+   },
+   "manifest": {
+    "configured": true,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "stable",
+    "currentVersion": "v1.0.0",
+    "releaseName": "Release v1.0.0",
+    "releaseTag": "v1.0.0",
+    "minimumServerVersion": null,
+    "downloadUrl": "https://dl.example/custom.bin",
+    "releaseNotesUrl": "https://github.example/v1.0.0",
+    "sha256": "abababababababababababababababababababababababababababababababab",
+    "assetName": "custom.bin",
+    "repository": "o/custom",
+    "generatedAt": "T",
+    "mandatory": false,
+    "prerelease": false
+   },
+   "manifestText": "{\"configured\":true,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"stable\",\"currentVersion\":\"v1.0.0\",\"releaseName\":\"Release v1.0.0\",\"releaseTag\":\"v1.0.0\",\"minimumServerVersion\":null,\"downloadUrl\":\"https://dl.example/custom.bin\",\"releaseNotesUrl\":\"https://github.example/v1.0.0\",\"sha256\":\"abababababababababababababababababababababababababababababababab\",\"assetName\":\"custom.bin\",\"repository\":\"o/custom\",\"generatedAt\":\"T\",\"mandatory\":false,\"prerelease\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/custom/releases?per_page=10&page=1",
+     "authorization": "Bearer tok",
+     "accept": "application/vnd.github+json"
+    },
+    {
+     "url": "https://dl.example/checksums.txt",
+     "authorization": "Bearer tok",
+     "accept": "text/plain, application/octet-stream;q=0.9, */*;q=0.1"
+    }
+   ]
+  },
+  {
+   "name": "repository from url",
+   "repo": "https://github.com/o/fromurl.git",
+   "apiRepo": "o/fromurl",
+   "channel": "stable",
+   "routes": {
+    "https://api.github.com/repos/o/fromurl/releases?per_page=10&page=1": {
+     "body": [
+      {
+       "tag_name": "v1.1.0",
+       "name": "Release v1.1.0",
+       "html_url": "https://github.example/v1.1.0",
+       "prerelease": false,
+       "draft": false,
+       "published_at": "2026-01-01T00:00:00Z",
+       "assets": [
+        {
+         "name": "neoagent-wearable-firmware.bin",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin"
+        },
+        {
+         "name": "neoagent-wearable-firmware.bin.sha256",
+         "browser_download_url": "https://dl.example/neoagent-wearable-firmware.bin.sha256"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "manifest": {
+    "configured": true,
+    "source": "github",
+    "manifestVersion": 2,
+    "channel": "stable",
+    "currentVersion": "v1.1.0",
+    "releaseName": "Release v1.1.0",
+    "releaseTag": "v1.1.0",
+    "minimumServerVersion": null,
+    "downloadUrl": "https://dl.example/neoagent-wearable-firmware.bin",
+    "releaseNotesUrl": "https://github.example/v1.1.0",
+    "sha256": null,
+    "assetName": "neoagent-wearable-firmware.bin",
+    "repository": "o/fromurl",
+    "generatedAt": "T",
+    "mandatory": false,
+    "prerelease": false
+   },
+   "manifestText": "{\"configured\":true,\"source\":\"github\",\"manifestVersion\":2,\"channel\":\"stable\",\"currentVersion\":\"v1.1.0\",\"releaseName\":\"Release v1.1.0\",\"releaseTag\":\"v1.1.0\",\"minimumServerVersion\":null,\"downloadUrl\":\"https://dl.example/neoagent-wearable-firmware.bin\",\"releaseNotesUrl\":\"https://github.example/v1.1.0\",\"sha256\":null,\"assetName\":\"neoagent-wearable-firmware.bin\",\"repository\":\"o/fromurl\",\"generatedAt\":\"T\",\"mandatory\":false,\"prerelease\":false}",
+   "requests": [
+    {
+     "url": "https://api.github.com/repos/o/fromurl/releases?per_page=10&page=1",
+     "authorization": null,
+     "accept": "application/vnd.github+json"
+    },
+    {
+     "url": "https://dl.example/neoagent-wearable-firmware.bin.sha256",
+     "authorization": null,
+     "accept": "text/plain, application/octet-stream;q=0.9, */*;q=0.1"
+    }
+   ]
+  }
+ ]
+}

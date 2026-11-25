@@ -1,0 +1,691 @@
+{
+ "steps": [
+  {
+   "name": "get me",
+   "answers": [
+    {
+     "body": {
+      "id": "m1",
+      "username": "neo",
+      "fullName": "",
+      "url": "https://trello.com/neo"
+     }
+    }
+   ],
+   "result": {
+    "id": "m1",
+    "username": "neo",
+    "fullName": null,
+    "initials": null,
+    "url": "https://trello.com/neo"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/members/me?fields=id%2Cusername%2CfullName%2Curl%2Cinitials&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_get_me",
+   "args": {},
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list boards",
+   "answers": [
+    {
+     "body": [
+      {
+       "id": "b1"
+      },
+      {
+       "id": "b2"
+      }
+     ]
+    }
+   ],
+   "result": [
+    {
+     "id": "b1"
+    }
+   ],
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/members/me/boards?fields=name%2Curl%2Cclosed%2CdateLastActivity&filter=all&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_list_boards",
+   "args": {
+    "limit": 1.7,
+    "filter": "all"
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list boards not array",
+   "answers": [
+    {
+     "body": {
+      "id": "x"
+     }
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/members/me/boards?fields=name%2Curl%2Cclosed%2CdateLastActivity&filter=open&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_list_boards",
+   "args": {},
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "get board",
+   "answers": [
+    {
+     "body": {
+      "id": "b1",
+      "name": "B"
+     }
+    }
+   ],
+   "result": {
+    "id": "b1",
+    "name": "B"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/boards/b%201?fields=name%2Cdesc%2Curl%2Cclosed%2CdateLastActivity&lists=open&cards=none&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_get_board",
+   "args": {
+    "board_id": "b 1"
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list cards on list",
+   "answers": [
+    {
+     "body": [
+      {
+       "id": "c1"
+      },
+      {
+       "id": "c2"
+      }
+     ]
+    }
+   ],
+   "result": [
+    {
+     "id": "c1"
+    }
+   ],
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/lists/l1/cards?fields=name%2Cdesc%2CidList%2Cclosed%2Cpos%2Cdue%2CdueComplete%2Curl&filter=open&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_list_cards",
+   "args": {
+    "list_id": "l1",
+    "limit": 1
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list cards needs board",
+   "answers": [],
+   "error": "board_id is required.",
+   "requests": [],
+   "tool": "trello_list_cards",
+   "args": {},
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list actions",
+   "answers": [
+    {
+     "body": []
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/lists/l1/actions?filter=all&since=2026-01-01&limit=1000&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_list_actions",
+   "args": {
+    "list_id": "l1",
+    "since": "2026-01-01",
+    "limit": 5000
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "search",
+   "answers": [
+    {
+     "body": {
+      "options": {},
+      "cards": [
+       {
+        "id": "c1"
+       },
+       {
+        "id": "c2"
+       }
+      ],
+      "boards": [
+       {
+        "id": "b1"
+       }
+      ],
+      "members": "x"
+     }
+    }
+   ],
+   "result": {
+    "query": "q",
+    "count": 3,
+    "results": [
+     {
+      "type": "cards",
+      "id": "c1"
+     },
+     {
+      "type": "cards",
+      "id": "c2"
+     }
+    ]
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/search?query=q&modelTypes=cards%2Cboards%2Clists%2Cmembers%2Corganizations&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_search",
+   "args": {
+    "query": "q",
+    "limit": 2
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create card",
+   "answers": [
+    {
+     "body": {
+      "id": "c9"
+     }
+    }
+   ],
+   "result": {
+    "id": "c9"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://api.trello.com/1/cards?idList=l1&name=N&desc=d&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_create_card",
+   "args": {
+    "list_id": "l1",
+    "name": "N",
+    "desc": " d ",
+    "due": ""
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "update card",
+   "answers": [
+    {
+     "body": {
+      "id": "c1"
+     }
+    }
+   ],
+   "result": {
+    "id": "c1"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://api.trello.com/1/cards/c1?closed=false&pos=top&dueComplete=true&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_update_card",
+   "args": {
+    "card_id": "c1",
+    "closed": false,
+    "pos": "top",
+    "name": " ",
+    "dueComplete": true
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "update card needs fields",
+   "answers": [],
+   "error": "At least one update field is required.",
+   "requests": [],
+   "tool": "trello_update_card",
+   "args": {
+    "card_id": "c1",
+    "name": ""
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "add comment",
+   "answers": [
+    {
+     "body": {
+      "id": "a1"
+     }
+    }
+   ],
+   "result": {
+    "id": "a1"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://api.trello.com/1/cards/c1/actions/comments?text=hi+there&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_add_comment",
+   "args": {
+    "card_id": "c1",
+    "text": "hi there"
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "api request",
+   "answers": [
+    {
+     "body": {}
+    }
+   ],
+   "result": {},
+   "requests": [
+    {
+     "method": "DELETE",
+     "url": "https://api.trello.com/1/cards/c1/labels?a=1&b=true&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_api_request",
+   "args": {
+    "method": "delete",
+    "path": "/1/cards/c1/labels",
+    "query": {
+     "a": 1
+    },
+    "body": {
+     "b": true
+    }
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "api request foreign host",
+   "answers": [],
+   "error": "Trello API request URL must target api.trello.com.",
+   "requests": [],
+   "tool": "trello_api_request",
+   "args": {
+    "method": "GET",
+    "path": "https://evil.example/1/x"
+   },
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "missing token",
+   "answers": [],
+   "error": "Trello token is missing for this account. Reconnect the Trello account from Official Integrations.",
+   "requests": [],
+   "tool": "trello_get_me",
+   "args": {},
+   "credentials": {
+    "apiKey": "key"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "rejected",
+   "answers": [
+    {
+     "status": 401,
+     "body": "invalid token",
+     "headers": {
+      "content-type": "text/plain"
+     }
+    }
+   ],
+   "error": "Trello request failed: invalid token",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/members/me?fields=id%2Cusername%2CfullName%2Curl%2Cinitials&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "trello_get_me",
+   "args": {},
+   "credentials": {
+    "apiKey": "key",
+    "token": "tok"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "setup before save",
+   "answers": [],
+   "result": {
+    "apiKey": "",
+    "apiKeyConfigured": false,
+    "hasLegacyToken": false,
+    "configured": false,
+    "authorizeUrl": "",
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": []
+  },
+  {
+   "name": "save needs key",
+   "answers": [],
+   "error": "Trello API key is required before you can connect an account.",
+   "requests": [],
+   "op": "save",
+   "config": {},
+   "rows": []
+  },
+  {
+   "name": "save key only",
+   "answers": [],
+   "result": {
+    "apiKey": "key",
+    "apiKeyConfigured": true,
+    "hasLegacyToken": false,
+    "configured": true,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "save",
+   "config": {
+    "apiKey": "key"
+   },
+   "rows": []
+  },
+  {
+   "name": "setup with key",
+   "answers": [],
+   "result": {
+    "apiKey": "key",
+    "apiKeyConfigured": true,
+    "hasLegacyToken": false,
+    "configured": true,
+    "authorizeUrl": "https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=key",
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": []
+  },
+  {
+   "name": "save rejected token",
+   "answers": [
+    {
+     "status": 401,
+     "body": "invalid token",
+     "headers": {
+      "content-type": "text/plain"
+     }
+    }
+   ],
+   "error": "Trello rejected the API key/token pair. If you changed the API key, paste the matching token too.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/members/me?fields=id%2Cusername%2CfullName%2Curl%2Cinitials&key=key&token=bad",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "token": "bad"
+   },
+   "rows": []
+  },
+  {
+   "name": "save token",
+   "answers": [
+    {
+     "body": {
+      "id": "m1",
+      "username": "neo",
+      "fullName": "Neo",
+      "url": "https://trello.com/neo"
+     }
+    }
+   ],
+   "result": {
+    "apiKey": "key",
+    "apiKeyConfigured": true,
+    "configured": true,
+    "accountEmail": "trello:neo",
+    "memberId": "m1",
+    "username": "neo",
+    "fullName": "Neo"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.trello.com/1/members/me?fields=id%2Cusername%2CfullName%2Curl%2Cinitials&key=key&token=tok",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "token": "tok"
+   },
+   "rows": [
+    {
+     "app_key": "trello",
+     "status": "connected",
+     "account_email": "trello:neo",
+     "scopes_json": [
+      "trello:api"
+     ],
+     "metadata_json": {
+      "access_mode": "read_write",
+      "trelloMemberId": "m1",
+      "username": "neo",
+      "fullName": "Neo",
+      "url": "https://trello.com/neo"
+     },
+     "credentials_json": {
+      "apiKey": "key",
+      "token": "tok"
+     }
+    }
+   ]
+  },
+  {
+   "name": "setup connected",
+   "answers": [],
+   "result": {
+    "apiKey": "key",
+    "apiKeyConfigured": true,
+    "hasLegacyToken": false,
+    "configured": true,
+    "authorizeUrl": "https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&key=key",
+    "accountCount": 1,
+    "hasConnectedAccount": true
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": [
+    {
+     "app_key": "trello",
+     "status": "connected",
+     "account_email": "trello:neo",
+     "scopes_json": [
+      "trello:api"
+     ],
+     "metadata_json": {
+      "access_mode": "read_write",
+      "trelloMemberId": "m1",
+      "username": "neo",
+      "fullName": "Neo",
+      "url": "https://trello.com/neo"
+     },
+     "credentials_json": {
+      "apiKey": "key",
+      "token": "tok"
+     }
+    }
+   ]
+  },
+  {
+   "name": "clear",
+   "answers": [],
+   "result": {
+    "cleared": true
+   },
+   "requests": [],
+   "op": "clear",
+   "config": null,
+   "rows": []
+  }
+ ]
+}

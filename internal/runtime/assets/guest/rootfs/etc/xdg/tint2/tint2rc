@@ -1,0 +1,65 @@
+# NeoAgent shelf — Chromebook-style bottom launcher
+rounded = 16
+border_width = 0
+background_color = #121916 92
+border_color = #121916 0
+background_color_hover = #24332c 100
+background_color_pressed = #1b2621 100
+
+rounded = 8
+border_width = 0
+background_color = #2f4a3e 100
+border_color = #2f4a3e 0
+
+rounded = 10
+border_width = 0
+background_color = #1b2621 0
+border_color = #1b2621 0
+
+panel_monitor = all
+panel_position = bottom center horizontal
+panel_size = 92% 52
+panel_margin = 0 10
+panel_padding = 10 6 10
+panel_background_id = 1
+wm_menu = 1
+panel_dock = 0
+panel_layer = top
+panel_items = LTSC
+autohide = 1
+autohide_show_timeout = 0.15
+autohide_hide_timeout = 0.4
+autohide_height = 2
+strut_policy = none
+
+launcher_icon_size = 28
+launcher_item_app = /usr/local/share/applications/neoagent-chromium.desktop
+launcher_item_app = /usr/local/share/applications/neoagent-files.desktop
+launcher_item_app = /usr/local/share/applications/neoagent-terminal.desktop
+launcher_item_app = /usr/local/share/applications/neoagent-editor.desktop
+launcher_icon_theme = Adwaita
+launcher_padding = 6 0 8
+launcher_background_id = 3
+
+task_text = 1
+task_font = sans 9
+task_font_color = #e8efe6 100
+task_active_font_color = #f4f7f2 100
+task_icon_size = 20
+task_centered = 1
+task_maximum_size = 180 38
+task_padding = 10 4 8
+task_background_id = 3
+task_active_background_id = 2
+task_tooltip = 1
+urgent_nb_of_blink = 8
+
+systray_padding = 4 0 6
+systray_icon_size = 18
+systray_icon_asb = 100 0 0
+
+clock_format = %a %H:%M
+clock_font = sans 9
+clock_font_color = #e8efe6 100
+clock_padding = 10 0
+clock_background_id = 3

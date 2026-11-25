@@ -1,0 +1,19 @@
+{
+  "name": "neoagent-docs",
+  "private": true,
+  "description": "Docusaurus site for the NeoAgent documentation in ../docs",
+  "scripts": {
+    "start": "docusaurus start",
+    "build": "docusaurus build",
+    "serve": "docusaurus serve"
+  },
+  "dependencies": {
+    "@docusaurus/core": "3.10.2",
+    "@docusaurus/preset-classic": "3.10.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,38 @@
+name: Set up Go
+description: >
+  Installs the Go version from go.mod and gives the Go tool read access to the
+  private github.com/NeoLabs-Systems/neolabs-go module.
+
+inputs:
+  token:
+    description: Token that can read NeoLabs-Systems/neolabs-go (the NEOLABS_GO_TOKEN secret).
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
+
+    - name: Configure private module access
+      shell: bash
+      env:
+        NEOLABS_GO_TOKEN: ${{ inputs.token }}
+      run: |
+        echo "GOPRIVATE=github.com/NeoLabs-Systems/*" >> "$GITHUB_ENV"
+        echo "GOWORK=off" >> "$GITHUB_ENV"
+        if [ -n "$NEOLABS_GO_TOKEN" ]; then
+          git config --global url."https://x-access-token:${NEOLABS_GO_TOKEN}@github.com/NeoLabs-Systems/".insteadOf "https://github.com/NeoLabs-Systems/"
+        fi
+
+    - name: Download modules
+      shell: bash
+      run: |
+        if ! go mod download; then
+          echo "::error::Cannot fetch github.com/NeoLabs-Systems/neolabs-go. While that repository is private, add a repository secret NEOLABS_GO_TOKEN (a fine-grained token with read access to its contents)."
+          exit 1
+        fi

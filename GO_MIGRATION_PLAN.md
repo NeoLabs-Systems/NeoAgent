@@ -376,22 +376,35 @@ The four Node repos grew the same protections by copy-and-adapt, with small diff
 
 ## 10. Progress
 
-Started 2026-11-24. Everything lives in `go/` and is uncommitted.
+Started 2026-11-24. The shared module lives in its own repo, [NeoLabs-Systems/neolabs-go](https://github.com/NeoLabs-Systems/neolabs-go) (private for now; v0.1.0 and v0.2.0 are pushed). NeoAgent's Go code is in `go/neoagent`. **Everything after the second push is uncommitted** (including a newer `neolabs-go` than v0.2.0, so tag v0.3.0 and update `go/neoagent/go.mod` before the next push).
 
-**Done and verified**
-- `go/neolabs` (shared module), all packages unit-tested and passing with `go vet` and `go test -race`:
-  - `secretbox`: opens values sealed by Node's `secrets.js` and Node opens values sealed by Go (checked both ways).
-  - `sessionx`: cookie signature identical to `cookie-signature`; reads/writes the `sessions` table rows the Node store wrote (huge ids keep precision); lifecycle, regeneration, destroy-for-user, secure-cookie rules.
-  - `passhash`: verifies bcrypt hashes produced by the Node `bcrypt` package.
-  - `secheaders`, `httpx`, `ratelimit` (matches an `express-rate-limit` 8.6.2 capture), `ssrf`, `runtimecfg`, `dbx` (pure-Go SQLite with FTS5 and JSON1, writer/reader pools, `user_version` migrations), `testkit`.
-- `go/neoagent`: `config` (same env names and defaults as the Node server, production secret rules), `httpserver` (security headers verified equal to the helmet capture, origin guard, CORS, health, Flutter web serving with SPA fallback and safe path handling, landing site), `cmd/neoagent` (boots, shuts down gracefully).
-- Booted on a throwaway home: 15 MB binary, about 16 MB RSS idle, correct headers and 0700/0600 permissions.
+**Shared module (`neolabs-go`)**: all tested with `go vet` and `go test -race`; "vectors" are cases generated from the Node implementation.
+- Foundation: `secretbox`, `sessionx`, `passhash`, `secheaders`, `httpx`, `ratelimit`, `ssrf`, `runtimecfg`, `dbx`, `testkit`, `apperr`.
+- Login: `pwpolicy`, `totp`, `lockout`, `publicerr`, `webauthnx` (passkeys).
+- Email: `servicemail`: config, SMTP sender, single-use tokens, reset-attempt limiter, and the HTML email, which renders **byte for byte** like Node.
+- `qrlogin` (screen signed in by a phone: state machine, long polling, device descriptions verified against 56 Node cases), `pairing` (phone signed in by a screen's code).
+- `oauthlogin`: OAuth 2 + PKCE sign-in engine (login, register, link, unlink, held usernames, sealed state) with a Google provider; the Google authorization URL matches Node's.
 
-**Next (NeoAgent build order, §6.3)**
-1. Port the schema creation (`lib/schema_migrations.js`, `server/db/database.js`) onto `dbx` and open a copy of a real `neoagent.db`.
-2. Auth and account routes (login, register, TOTP, passkeys, QR login, admin flag), then settings, security, setup.
-3. socket.io layer and its websocket contract tests.
-4. Data domains, AI core, integrations and messaging (WhatsApp on whatsmeow), voice and runtime, CLI and release.
+**NeoAgent**
+- `schema`, `accounts`, `authapi`: everything from the previous step, plus:
+  - Email: sign-up confirmation (an account whose mail cannot be sent is removed and its key returned), forgot/reset password (constant answer and minimum latency, per-link attempt limit, all sessions end), email change with confirmation, notices for password change, email change and unusual sign-ins. The confirmation and reset pages match Node's HTML byte for byte.
+  - QR login (challenge, status with long poll, cancel, claim, plus the phone's resolve/decline/approve; wearables get a 90-day session) and pairing.
+  - OAuth provider routes (list, begin, register, complete, unlink) and the provider callback with the confirm-in-this-browser step, for account sign-in states.
+- `settings` (built by a helper agent): 8 of 13 endpoints (settings read/write, token-usage summary, bring-your-own-key), validated by replaying 125 requests recorded from the real Node route. Three small packages came with it: `agentscope`, `cloudsec`, `timezone`.
+- `admin` (built by a helper agent): 19 of 39 endpoints (users, per-user limits, sessions, server config, sign-up policy and keys, access audit, SQL console, env admin grants), checked against ~330 Node vectors. The SQL console also runs on the read-only connection pool.
+- Sign-up policy is now read live, so closing registration in the admin page takes effect without a restart.
+- Booted against a copy of the real database: auth, providers, admin and settings answer correctly and the original database is untouched.
+
+**Still not ported**
+- Auth: OpenRouter sign-in (stores a key in AI settings), account export/delete, GeoIP locations for public addresses.
+- Settings (need the AI catalog): model lists, AI-provider list, BYOK list and test. Admin: user erasure, version/update, health, logs, analytics, providers, models, VM config, voice/integration config, messaging.
+- The OAuth callback only handles account sign-in states; model-provider and integration states belong to unported domains.
+- Unknown `/api/admin/*` paths answer 404 before the auth check (Node answers 401/403).
+- Everything else: socket.io, data domains, AI core, integrations and messaging (WhatsApp on whatsmeow, no call rejection), voice, runtime/VMs, CLI and release.
+
+**Next**
+1. socket.io layer and its websocket contract tests, then the data domains and the AI core.
+2. Tag `neolabs-go` v0.3.0, update `go.mod`, commit and push when you say so.
 
 ---
 

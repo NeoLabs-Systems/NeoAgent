@@ -1,0 +1,583 @@
+[
+ {
+  "name": "full call on the amoled wearable",
+  "steps": [
+   {
+    "json": {
+     "type": "voice:audio",
+     "sessionId": "s",
+     "audioBase64": "AQID"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:session_open"
+    }
+   },
+   {
+    "json": {
+     "type": "wearable:hello",
+     "device": {
+      "deviceId": "dev-1",
+      "platform": "esp32s3-amoled",
+      "firmwareVersion": "1.2.3",
+      "deviceLabel": "Neo Watch"
+     }
+    },
+    "listConnections": true
+   },
+   {
+    "json": {
+     "type": "voice:session_open",
+     "sessionId": "abc",
+     "agentId": "helper"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:input_start",
+     "sessionId": "abc"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:audio",
+     "sessionId": "abc",
+     "audioBase64": "AQIDBA=="
+    }
+   },
+   {
+    "json": {
+     "type": "voice:audio",
+     "sessionId": "abc",
+     "audioBase64": ""
+    }
+   },
+   {
+    "json": {
+     "type": "voice:audio",
+     "audioBase64": "AQID"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:audio",
+     "sessionId": "nope",
+     "audioBase64": "AQID"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:input_end",
+     "sessionId": "abc"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:interrupt",
+     "sessionId": "abc"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:interrupt"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:foo",
+     "sessionId": "abc"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:session_open",
+     "sessionId": "boom"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:session_open",
+     "agent_id": "second"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:session_close",
+     "sessionId": "abc"
+    }
+   },
+   {
+    "json": {
+     "type": "voice:session_close"
+    }
+   },
+   {
+    "json": [
+     1,
+     2
+    ]
+   },
+   {
+    "json": {
+     "sessionId": "x"
+    }
+   },
+   {
+    "json": {
+     "type": "  voice:input_start  ",
+     "sessionId": " abc "
+    }
+   }
+  ],
+  "rejected": null,
+  "received": [
+   {
+    "type": "voice:error",
+    "error": "wearable:hello is required before other messages."
+   },
+   {
+    "type": "voice:error",
+    "error": "wearable:hello is required before other messages."
+   },
+   {
+    "type": "wearable:hello",
+    "ok": true,
+    "deviceId": "dev-1",
+    "userId": 7,
+    "serverTime": "T"
+   },
+   {
+    "type": "voice:session_ready",
+    "sessionId": "abc",
+    "provider": "google",
+    "inputSampleRate": 16000,
+    "outputSampleRate": 24000
+   },
+   {
+    "type": "voice:audio",
+    "sessionId": "abc",
+    "audioBase64": "AQID"
+   },
+   {
+    "type": "voice:transcript",
+    "sessionId": "abc",
+    "role": "assistant",
+    "content": "Hi",
+    "final": true
+   },
+   {
+    "type": "voice:error",
+    "error": "audioBase64 is required"
+   },
+   {
+    "type": "voice:error",
+    "error": "sessionId is required"
+   },
+   {
+    "type": "voice:error",
+    "error": "Voice session was not found."
+   },
+   {
+    "type": "voice:error",
+    "error": "sessionId is required"
+   },
+   {
+    "type": "voice:error",
+    "error": "Unsupported wearable message type \"voice:foo\"."
+   },
+   {
+    "type": "voice:error",
+    "error": "Gemini Live closed before setup completed (go_away)."
+   },
+   {
+    "type": "voice:session_ready",
+    "sessionId": "session-1",
+    "provider": "google",
+    "inputSampleRate": 16000,
+    "outputSampleRate": 24000
+   },
+   {
+    "type": "voice:audio",
+    "sessionId": "session-1",
+    "audioBase64": "AQID"
+   },
+   {
+    "type": "voice:transcript",
+    "sessionId": "session-1",
+    "role": "assistant",
+    "content": "Hi",
+    "final": true
+   },
+   {
+    "type": "voice:error",
+    "error": "sessionId is required"
+   },
+   {
+    "type": "voice:error",
+    "error": "Wearable message must be a JSON object."
+   },
+   {
+    "type": "voice:error",
+    "error": "Wearable message type is required."
+   }
+  ],
+  "calls": [
+   [
+    "open",
+    {
+     "userId": 7,
+     "agentId": "helper",
+     "sessionId": "abc",
+     "devicePlatform": "esp32s3-amoled"
+    }
+   ],
+   [
+    "start",
+    {
+     "sessionId": "abc",
+     "userId": 7
+    }
+   ],
+   [
+    "audio",
+    {
+     "sessionId": "abc",
+     "bytes": [
+      1,
+      2,
+      3,
+      4
+     ],
+     "userId": 7
+    }
+   ],
+   [
+    "audio",
+    {
+     "sessionId": "nope",
+     "bytes": [
+      1,
+      2,
+      3
+     ],
+     "userId": 7
+    }
+   ],
+   [
+    "end",
+    {
+     "sessionId": "abc",
+     "userId": 7
+    }
+   ],
+   [
+    "interrupt",
+    {
+     "sessionId": "abc",
+     "userId": 7
+    }
+   ],
+   [
+    "open",
+    {
+     "userId": 7,
+     "agentId": null,
+     "sessionId": "boom",
+     "devicePlatform": "esp32s3-amoled"
+    }
+   ],
+   [
+    "open",
+    {
+     "userId": 7,
+     "agentId": "second",
+     "sessionId": null,
+     "devicePlatform": "esp32s3-amoled"
+    }
+   ],
+   [
+    "close",
+    {
+     "sessionId": "abc",
+     "reason": "wearable_client_closed",
+     "userId": 7
+    }
+   ],
+   [
+    "start",
+    {
+     "sessionId": "abc",
+     "userId": 7
+    }
+   ],
+   [
+    "close",
+    {
+     "sessionId": "session-1",
+     "reason": "wearable_socket_closed",
+     "userId": 7
+    }
+   ]
+  ],
+  "changes": [
+   {
+    "userId": 7,
+    "deviceId": "dev-1",
+    "deviceLabel": "Neo Watch",
+    "transition": "connected",
+    "occurredAt": "T"
+   },
+   {
+    "userId": 7,
+    "deviceId": "dev-1",
+    "deviceLabel": "Neo Watch",
+    "transition": "disconnected",
+    "occurredAt": "T"
+   }
+  ],
+  "connectionsDuring": [
+   {
+    "deviceId": "dev-1",
+    "connectedAt": "T",
+    "lastSeenAt": "T",
+    "remoteAddress": "127.0.0.1",
+    "userAgent": "esp32-test/1.0",
+    "hello": {
+     "platform": "esp32s3-amoled",
+     "firmwareVersion": "1.2.3",
+     "deviceLabel": "Neo Watch"
+    }
+   }
+  ],
+  "openAfter": 1,
+  "finalConnections": 0,
+  "closeInfo": {
+   "code": 1000,
+   "reason": ""
+  }
+ },
+ {
+  "name": "stickc gets no audio and hello falls back to the socket address",
+  "steps": [
+   {
+    "json": {
+     "type": "wearable:hello",
+     "device": {
+      "platform": "m5stickc-plus2"
+     }
+    },
+    "listConnections": true
+   },
+   {
+    "json": {
+     "type": "voice:session_open",
+     "sessionId": "stick"
+    }
+   },
+   {
+    "emit": {
+     "sessionId": "stick",
+     "kind": "state",
+     "payload": {
+      "sessionId": "stick",
+      "state": "speaking"
+     }
+    }
+   }
+  ],
+  "rejected": null,
+  "received": [
+   {
+    "type": "wearable:hello",
+    "ok": true,
+    "deviceId": "127.0.0.1",
+    "userId": 7,
+    "serverTime": "T"
+   },
+   {
+    "type": "voice:session_ready",
+    "sessionId": "stick",
+    "provider": "google",
+    "inputSampleRate": 16000,
+    "outputSampleRate": 24000
+   },
+   {
+    "type": "voice:transcript",
+    "sessionId": "stick",
+    "role": "assistant",
+    "content": "Hi",
+    "final": true
+   },
+   {
+    "type": "voice:state",
+    "sessionId": "stick",
+    "state": "speaking"
+   }
+  ],
+  "calls": [
+   [
+    "open",
+    {
+     "userId": 7,
+     "agentId": null,
+     "sessionId": "stick",
+     "devicePlatform": "m5stickc-plus2"
+    }
+   ],
+   [
+    "close",
+    {
+     "sessionId": "stick",
+     "reason": "wearable_socket_closed",
+     "userId": 7
+    }
+   ]
+  ],
+  "changes": [
+   {
+    "userId": 7,
+    "deviceId": "127.0.0.1",
+    "deviceLabel": null,
+    "transition": "connected",
+    "occurredAt": "T"
+   },
+   {
+    "userId": 7,
+    "deviceId": "127.0.0.1",
+    "deviceLabel": null,
+    "transition": "disconnected",
+    "occurredAt": "T"
+   }
+  ],
+  "connectionsDuring": [
+   {
+    "deviceId": "127.0.0.1",
+    "connectedAt": "T",
+    "lastSeenAt": "T",
+    "remoteAddress": "127.0.0.1",
+    "userAgent": "esp32-test/1.0",
+    "hello": {
+     "platform": "m5stickc-plus2",
+     "firmwareVersion": null,
+     "deviceLabel": null
+    }
+   }
+  ],
+  "openAfter": 1,
+  "finalConnections": 0,
+  "closeInfo": {
+   "code": 1000,
+   "reason": ""
+  }
+ },
+ {
+  "name": "mac address names the device and a second hello re-registers",
+  "steps": [
+   {
+    "json": {
+     "type": "wearable:hello",
+     "device": {
+      "macAddress": "AA:BB",
+      "deviceLabel": "  Pendant  "
+     }
+    },
+    "listConnections": true
+   },
+   {
+    "json": {
+     "type": "wearable:hello",
+     "device": {
+      "macAddress": "AA:BB",
+      "platform": "esp32s3"
+     }
+    },
+    "listConnections": true
+   },
+   {
+    "json": {
+     "type": "wearable:hello",
+     "device": {
+      "deviceId": "late"
+     }
+    }
+   }
+  ],
+  "rejected": null,
+  "received": [
+   {
+    "type": "wearable:hello",
+    "ok": true,
+    "deviceId": "AA:BB",
+    "userId": 7,
+    "serverTime": "T"
+   }
+  ],
+  "calls": [],
+  "changes": [
+   {
+    "userId": 7,
+    "deviceId": "AA:BB",
+    "deviceLabel": "Pendant",
+    "transition": "connected",
+    "occurredAt": "T"
+   },
+   {
+    "userId": 7,
+    "deviceId": "AA:BB",
+    "deviceLabel": "Pendant",
+    "transition": "disconnected",
+    "occurredAt": "T"
+   }
+  ],
+  "connectionsDuring": [
+   {
+    "deviceId": "AA:BB",
+    "connectedAt": "T",
+    "lastSeenAt": "T",
+    "remoteAddress": "127.0.0.1",
+    "userAgent": "esp32-test/1.0",
+    "hello": {
+     "platform": "esp32s3",
+     "firmwareVersion": null,
+     "deviceLabel": "Pendant"
+    }
+   }
+  ],
+  "openAfter": 1,
+  "finalConnections": 0,
+  "closeInfo": {
+   "code": 1000,
+   "reason": ""
+  }
+ },
+ {
+  "name": "no hello gets the socket closed",
+  "steps": [],
+  "waitForClose": 5300,
+  "rejected": null,
+  "received": [],
+  "calls": [],
+  "changes": [],
+  "connectionsDuring": null,
+  "openAfter": 0,
+  "finalConnections": 0,
+  "closeInfo": {
+   "code": 1008,
+   "reason": "Wearable hello timed out"
+  }
+ },
+ {
+  "name": "anonymous upgrade is refused",
+  "anonymous": true,
+  "steps": [],
+  "rejected": 401,
+  "received": [],
+  "calls": [],
+  "changes": [],
+  "connectionsDuring": null,
+  "openAfter": 0,
+  "finalConnections": 0,
+  "closeInfo": null
+ }
+]

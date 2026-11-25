@@ -1,0 +1,577 @@
+{
+ "volatile": [
+  "created_at",
+  "syncedAt",
+  "lastSeenAt"
+ ],
+ "steps": [
+  {
+   "name": "health anonymous",
+   "method": "GET",
+   "path": "/api/mobile/health/status",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "health sync anonymous",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": null,
+   "body": "{}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "health status empty",
+   "method": "GET",
+   "path": "/api/mobile/health/status",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"lastRun\":null,\"lastNonEmptyRun\":null,\"metrics\":[]}"
+   }
+  },
+  {
+   "name": "health sync empty object",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"runId\":\"<uuid>\",\"source\":\"android-health-connect\",\"provider\":null,\"windowStart\":null,\"windowEnd\":null,\"recordCount\":0,\"acceptedMetrics\":[]}"
+   }
+  },
+  {
+   "name": "health sync array",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": 1,
+   "body": "[1,2]",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Health sync payload must be a JSON object\"}"
+   }
+  },
+  {
+   "name": "health sync no body",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": 1,
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"runId\":\"<uuid>\",\"source\":\"android-health-connect\",\"provider\":null,\"windowStart\":null,\"windowEnd\":null,\"recordCount\":0,\"acceptedMetrics\":[]}"
+   }
+  },
+  {
+   "name": "health sync records",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": 1,
+   "body": "{\"source\":\" android-health-connect \",\"provider\":\"com.google\",\"windowStart\":\"2026-11-01T00:00:00Z\",\"windowEnd\":\"2026-11-02\",\"summary\":{\"steps\":12},\"records\":[{\"metricType\":\"heart_rate\",\"recordId\":\"hr-1\",\"startTime\":\"2026-11-01T10:00:00Z\",\"endTime\":\"2026-11-01T10:01:00.500Z\",\"numericValue\":61,\"unit\":\"bpm\",\"sourceAppId\":\"com.fitbit\",\"payload\":{\"zone\":\"rest\",\"nested\":{\"b\":1,\"a\":2}}},{\"type\":\"steps\",\"startTime\":\"2026-11-01T00:00:00Z\",\"endTime\":\"2026-11-01T12:00:00Z\",\"numericValue\":\"4200.5\",\"textValue\":\"  ok  \"},{\"metricType\":\"sleep_session\",\"recordId\":\" s-1 \",\"numericValue\":null,\"payload\":{\"recordId\":\"ignored\",\"startTime\":\"2026-11-01T22:00:00Z\",\"endTime\":\"garbage\",\"sourceDevice\":\"watch\"}},{\"metricType\":\"weight\",\"payload\":{\"recordId\":\"from-payload\",\"recordedAt\":1700000000000},\"numericValue\":\"abc\"},{\"metricType\":\"weight\",\"numericValue\":true,\"lastModifiedTime\":\"2026-11-01T01:02:03+02:00\"},{\"metricType\":\"heart_rate\",\"recordId\":\"hr-1\",\"numericValue\":64,\"endTime\":\"2026-11-01T10:02:00Z\"},{\"notAMetric\":1},7,\"text\",[],{\"metricType\":\"   \"},{\"metricType\":0,\"type\":\"fallback\"},{\"metricType\":{\"not\":\"text\"}}]}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"runId\":\"<uuid>\",\"source\":\"android-health-connect\",\"provider\":\"com.google\",\"windowStart\":\"2026-11-01T00:00:00.000Z\",\"windowEnd\":\"2026-11-02T00:00:00.000Z\",\"recordCount\":8,\"acceptedMetrics\":[\"heart_rate\",\"steps\",\"sleep_session\",\"weight\",\"fallback\",\"[object Object]\"]}"
+   }
+  },
+  {
+   "name": "health sync null record",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": 1,
+   "body": "{\"records\":[{\"metricType\":\"x\"},null]}",
+   "expect": {
+    "status": 500,
+    "raw": "{\"error\":\"Cannot read properties of null (reading 'metricType')\"}"
+   }
+  },
+  {
+   "name": "health sync unicode and numbers",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": 1,
+   "body": "{\"source\":\"é\",\"records\":[{\"metricType\":\"Heart Rate\",\"numericValue\":1e21,\"payload\":{\"x\":1.50,\"y\":[1e-7,12345678901234567890],\"s\":\"\\u2028\\\"q\\\"\"}}]}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"runId\":\"<uuid>\",\"source\":\"é\",\"provider\":null,\"windowStart\":null,\"windowEnd\":null,\"recordCount\":1,\"acceptedMetrics\":[\"Heart Rate\"]}"
+   }
+  },
+  {
+   "name": "health sync non-object records",
+   "method": "POST",
+   "path": "/api/mobile/health/sync",
+   "user": 1,
+   "body": "{\"records\":\"nope\",\"windowStart\":5}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"runId\":\"<uuid>\",\"source\":\"android-health-connect\",\"provider\":null,\"windowStart\":\"1970-01-01T00:00:00.005Z\",\"windowEnd\":null,\"recordCount\":0,\"acceptedMetrics\":[]}"
+   }
+  },
+  {
+   "name": "health status after",
+   "method": "GET",
+   "path": "/api/mobile/health/status",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"lastRun\":{\"id\":\"<uuid>\",\"source\":\"android-health-connect\",\"provider\":null,\"sync_window_start\":\"1970-01-01T00:00:00.005Z\",\"sync_window_end\":null,\"record_count\":0,\"summary_json\":\"{}\",\"created_at\":\"<time>\",\"summary\":{}},\"lastNonEmptyRun\":{\"id\":\"<uuid>\",\"source\":\"é\",\"provider\":null,\"sync_window_start\":null,\"sync_window_end\":null,\"record_count\":1,\"summary_json\":\"{}\",\"created_at\":\"<time>\",\"summary\":{}},\"metrics\":[{\"metricType\":\"Heart Rate\",\"sampleCount\":1,\"lastSeenAt\":null},{\"metricType\":\"[object Object]\",\"sampleCount\":1,\"lastSeenAt\":null},{\"metricType\":\"fallback\",\"sampleCount\":1,\"lastSeenAt\":null},{\"metricType\":\"heart_rate\",\"sampleCount\":1,\"lastSeenAt\":\"<time>\"},{\"metricType\":\"sleep_session\",\"sampleCount\":1,\"lastSeenAt\":\"<time>\"},{\"metricType\":\"steps\",\"sampleCount\":1,\"lastSeenAt\":\"<time>\"},{\"metricType\":\"weight\",\"sampleCount\":2,\"lastSeenAt\":\"<time>\"}]}"
+   }
+  },
+  {
+   "name": "health status bob",
+   "method": "GET",
+   "path": "/api/mobile/health/status",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "raw": "{\"lastRun\":null,\"lastNonEmptyRun\":null,\"metrics\":[]}"
+   }
+  },
+  {
+   "name": "device register anonymous",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": null,
+   "body": "{}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "register without device",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"kinds\":[\"calendar\"]}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"A valid device id is required.\"}"
+   }
+  },
+  {
+   "name": "register bad platform",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"platform\":\"windows\",\"kinds\":[\"calendar\"]}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Phone sync runs on Android and iOS.\"}"
+   }
+  },
+  {
+   "name": "register no kinds",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"platform\":\"android\",\"kinds\":[\"nope\"]}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Choose what to share.\"}"
+   }
+  },
+  {
+   "name": "register kinds not a list",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"platform\":\"android\",\"kinds\":\"calendar\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Choose what to share.\"}"
+   }
+  },
+  {
+   "name": "register ios alarms",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"ios-device-2222\",\"platform\":\"ios\",\"kinds\":[\"alarms\"]}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Alarm sharing requires Android.\"}"
+   }
+  },
+  {
+   "name": "register short id",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"short\",\"platform\":\"android\",\"kinds\":[\"calendar\"]}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"A valid device id is required.\"}"
+   }
+  },
+  {
+   "name": "register android all",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"deviceName\":\"  Pixel  \",\"platform\":\"ANDROID\",\"kinds\":[\"alarms\",\"contacts\",\"calendar\",\"calendar\"]}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"calendar\",\"contacts\",\"alarms\"],\"accountEmail\":\"Pixel\"}"
+   }
+  },
+  {
+   "name": "register ios same name",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"ios-device-2222\",\"deviceName\":\"Pixel\",\"platform\":\"ios\",\"kinds\":[\"calendar\"]}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"calendar\"],\"accountEmail\":\"Pixel (2222)\"}"
+   }
+  },
+  {
+   "name": "register ios no name",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"ios-device-3333\",\"platform\":\"ios\",\"kinds\":[\"contacts\"]}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"contacts\"],\"accountEmail\":\"iPhone\"}"
+   }
+  },
+  {
+   "name": "seed access mode",
+   "sql": "UPDATE integration_connections SET metadata_json = json_set(metadata_json, '$.access_mode', 'read_only') WHERE app_key = 'contacts'",
+   "params": []
+  },
+  {
+   "name": "register change kinds",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"platform\":\"android\",\"kinds\":[\"contacts\",\"calendar\",\"alarms\"]}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"calendar\",\"contacts\",\"alarms\"],\"accountEmail\":\"Pixel\"}"
+   }
+  },
+  {
+   "name": "sync anonymous",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": null,
+   "body": "{}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "sync unknown device",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"nope-nope-nope\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":false}"
+   }
+  },
+  {
+   "name": "sync no body",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":false}"
+   }
+  },
+  {
+   "name": "sync everything",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"calendars\":[{\"id\":\"cal-1\",\"name\":\"Work\",\"account\":\"a@b.c\",\"writable\":true,\"primary\":true},{\"id\":\"\"},{\"name\":\"no id\"},\"junk\",{\"id\":\"cal-2\"}],\"events\":[{\"key\":\"ev-1\",\"eventId\":\"e1\",\"calendarId\":\"cal-1\",\"title\":\"Standup\",\"start\":\"2026-11-25T09:00:00Z\",\"end\":\"2026-11-25T09:15:00Z\",\"location\":\"Room 1\",\"notes\":\"bring notes\",\"attendees\":[\"a\",\"b\",\"\",5]},{\"key\":\"ev-2\",\"title\":\"Open ended\",\"start\":\"2026-11-26T09:00:00Z\",\"allDay\":true},{\"key\":\"ev-3\",\"title\":\"No start\"},{\"start\":\"2026-11-25T09:00:00Z\"},{\"key\":\"ev-4\",\"start\":\"garbage\"}],\"contacts\":[{\"key\":\"c-1\",\"name\":\"Ada\",\"emails\":[\"ada@x.org\",\"\"],\"phones\":[\"+1 555\"],\"organization\":\"Lab\"},{\"key\":\"c-2\"},{\"name\":\"no key\"}],\"nextAlarm\":\"2026-11-24T19:45:30.174Z\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[]}"
+   }
+  },
+  {
+   "name": "sync alarm moves",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"nextAlarm\":\"2026-11-24T20:45:30.174Z\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[]}"
+   }
+  },
+  {
+   "name": "sync alarm cancelled",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"nextAlarm\":null}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[]}"
+   }
+  },
+  {
+   "name": "sync alarm invalid",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"nextAlarm\":\"not a time\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Invalid next alarm time.\"}"
+   }
+  },
+  {
+   "name": "sync null event",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"events\":[null]}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Cannot read properties of null (reading 'start')\"}"
+   }
+  },
+  {
+   "name": "sync lists left out",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[]}"
+   }
+  },
+  {
+   "name": "sync wrong user",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 2,
+   "body": "{\"deviceId\":\"device-aaaa-1111\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":false}"
+   }
+  },
+  {
+   "name": "sync by agent header",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\"}",
+   "headers": {
+    "x-agent-id": "nobody"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[]}"
+   }
+  },
+  {
+   "name": "enqueue commands",
+   "sql": "INSERT INTO device_sync_commands (user_id, agent_id, device_id, action, payload_json) VALUES\n  (1, '$main1', 'device-aaaa-1111', 'create_event', '{\"n\":0}'), (1, '$main1', 'device-aaaa-1111', 'delete_event', '{\"n\":1}'), (1, '$main1', 'device-aaaa-1111', 'update_event', '[1]')",
+   "params": []
+  },
+  {
+   "name": "sync gets commands",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[{\"id\":1,\"action\":\"create_event\",\"payload\":{\"n\":0}},{\"id\":2,\"action\":\"delete_event\",\"payload\":{\"n\":1}},{\"id\":3,\"action\":\"update_event\",\"payload\":{}}]}"
+   }
+  },
+  {
+   "name": "sync reports results",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"results\":[{\"id\":1,\"ok\":true,\"result\":{\"created\":\"x\"}},{\"id\":\"2\",\"ok\":false,\"error\":\"denied\"},{\"id\":3,\"ok\":false},{\"id\":99999,\"ok\":true},{\"id\":\"zzz\"}]}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[]}"
+   }
+  },
+  {
+   "name": "sync null result",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\",\"results\":[null]}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Cannot read properties of null (reading 'ok')\"}"
+   }
+  },
+  {
+   "name": "sync after results",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"device-aaaa-1111\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":true,\"kinds\":[\"alarms\",\"calendar\",\"contacts\"],\"commands\":[]}"
+   }
+  },
+  {
+   "name": "forget anonymous",
+   "method": "DELETE",
+   "path": "/api/mobile/device-sync/register?deviceId=ios-device-2222",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "forget ios",
+   "method": "DELETE",
+   "path": "/api/mobile/device-sync/register?deviceId=ios-device-2222",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":false}"
+   }
+  },
+  {
+   "name": "forget nothing",
+   "method": "DELETE",
+   "path": "/api/mobile/device-sync/register",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":false}"
+   }
+  },
+  {
+   "name": "sync forgotten",
+   "method": "POST",
+   "path": "/api/mobile/device-sync/sync",
+   "user": 1,
+   "body": "{\"deviceId\":\"ios-device-2222\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"connected\":false}"
+   }
+  }
+ ],
+ "snapshot": [
+  {
+   "table": "health_sync_runs",
+   "row": "{\"user_id\":1,\"source\":\"android-health-connect\",\"provider\":null,\"sync_window_start\":null,\"sync_window_end\":null,\"record_count\":0,\"summary_json\":\"{}\",\"payload_json\":\"{}\"}"
+  },
+  {
+   "table": "health_sync_runs",
+   "row": "{\"user_id\":1,\"source\":\"android-health-connect\",\"provider\":null,\"sync_window_start\":null,\"sync_window_end\":null,\"record_count\":0,\"summary_json\":\"{}\",\"payload_json\":\"{}\"}"
+  },
+  {
+   "table": "health_sync_runs",
+   "row": "{\"user_id\":1,\"source\":\"android-health-connect\",\"provider\":\"com.google\",\"sync_window_start\":\"2026-11-01T00:00:00.000Z\",\"sync_window_end\":\"2026-11-02T00:00:00.000Z\",\"record_count\":8,\"summary_json\":\"{\\\"steps\\\":12}\",\"payload_json\":\"{\\\"source\\\":\\\" android-health-connect \\\",\\\"provider\\\":\\\"com.google\\\",\\\"windowStart\\\":\\\"2026-11-01T00:00:00Z\\\",\\\"windowEnd\\\":\\\"2026-11-02\\\",\\\"summary\\\":{\\\"steps\\\":12},\\\"records\\\":[{\\\"metricType\\\":\\\"heart_rate\\\",\\\"recordId\\\":\\\"hr-1\\\",\\\"startTime\\\":\\\"2026-11-01T10:00:00Z\\\",\\\"endTime\\\":\\\"2026-11-01T10:01:00.500Z\\\",\\\"numericValue\\\":61,\\\"unit\\\":\\\"bpm\\\",\\\"sourceAppId\\\":\\\"com.fitbit\\\",\\\"payload\\\":{\\\"zone\\\":\\\"rest\\\",\\\"nested\\\":{\\\"b\\\":1,\\\"a\\\":2}}},{\\\"type\\\":\\\"steps\\\",\\\"startTime\\\":\\\"2026-11-01T00:00:00Z\\\",\\\"endTime\\\":\\\"2026-11-01T12:00:00Z\\\",\\\"numericValue\\\":\\\"4200.5\\\",\\\"textValue\\\":\\\"  ok  \\\"},{\\\"metricType\\\":\\\"sleep_session\\\",\\\"recordId\\\":\\\" s-1 \\\",\\\"numericValue\\\":null,\\\"payload\\\":{\\\"recordId\\\":\\\"ignored\\\",\\\"startTime\\\":\\\"2026-11-01T22:00:00Z\\\",\\\"endTime\\\":\\\"garbage\\\",\\\"sourceDevice\\\":\\\"watch\\\"}},{\\\"metricType\\\":\\\"weight\\\",\\\"payload\\\":{\\\"recordId\\\":\\\"from-payload\\\",\\\"recordedAt\\\":1700000000000},\\\"numericValue\\\":\\\"abc\\\"},{\\\"metricType\\\":\\\"weight\\\",\\\"numericValue\\\":true,\\\"lastModifiedTime\\\":\\\"2026-11-01T01:02:03+02:00\\\"},{\\\"metricType\\\":\\\"heart_rate\\\",\\\"recordId\\\":\\\"hr-1\\\",\\\"numericValue\\\":64,\\\"endTime\\\":\\\"2026-11-01T10:02:00Z\\\"},{\\\"notAMetric\\\":1},7,\\\"text\\\",[],{\\\"metricType\\\":\\\"   \\\"},{\\\"metricType\\\":0,\\\"type\\\":\\\"fallback\\\"},{\\\"metricType\\\":{\\\"not\\\":\\\"text\\\"}}]}\"}"
+  },
+  {
+   "table": "health_sync_runs",
+   "row": "{\"user_id\":1,\"source\":\"é\",\"provider\":null,\"sync_window_start\":null,\"sync_window_end\":null,\"record_count\":1,\"summary_json\":\"{}\",\"payload_json\":\"{\\\"source\\\":\\\"é\\\",\\\"records\\\":[{\\\"metricType\\\":\\\"Heart Rate\\\",\\\"numericValue\\\":1e+21,\\\"payload\\\":{\\\"x\\\":1.5,\\\"y\\\":[1e-7,12345678901234567000],\\\"s\\\":\\\" \\\\\\\"q\\\\\\\"\\\"}}]}\"}"
+  },
+  {
+   "table": "health_sync_runs",
+   "row": "{\"user_id\":1,\"source\":\"android-health-connect\",\"provider\":null,\"sync_window_start\":\"1970-01-01T00:00:00.005Z\",\"sync_window_end\":null,\"record_count\":0,\"summary_json\":\"{}\",\"payload_json\":\"{\\\"records\\\":\\\"nope\\\",\\\"windowStart\\\":5}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"heart_rate\",\"record_id\":\"hr-1\",\"start_time\":null,\"end_time\":\"2026-11-01T10:02:00.000Z\",\"recorded_at\":\"2026-11-01T10:02:00.000Z\",\"numeric_value\":64,\"text_value\":null,\"unit\":null,\"source_app_id\":null,\"source_device\":null,\"last_modified_time\":null,\"payload_json\":\"{}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"steps\",\"record_id\":\"57c30edccb858e5f2bfcadd9a29258a931d9fa3f\",\"start_time\":\"2026-11-01T00:00:00.000Z\",\"end_time\":\"2026-11-01T12:00:00.000Z\",\"recorded_at\":\"2026-11-01T12:00:00.000Z\",\"numeric_value\":4200.5,\"text_value\":\"ok\",\"unit\":null,\"source_app_id\":null,\"source_device\":null,\"last_modified_time\":null,\"payload_json\":\"{}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"sleep_session\",\"record_id\":\"s-1\",\"start_time\":\"2026-11-01T22:00:00.000Z\",\"end_time\":null,\"recorded_at\":null,\"numeric_value\":0,\"text_value\":null,\"unit\":null,\"source_app_id\":null,\"source_device\":\"watch\",\"last_modified_time\":null,\"payload_json\":\"{\\\"recordId\\\":\\\"ignored\\\",\\\"startTime\\\":\\\"2026-11-01T22:00:00Z\\\",\\\"endTime\\\":\\\"garbage\\\",\\\"sourceDevice\\\":\\\"watch\\\"}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"weight\",\"record_id\":\"from-payload\",\"start_time\":null,\"end_time\":null,\"recorded_at\":\"2023-11-14T22:13:20.000Z\",\"numeric_value\":null,\"text_value\":null,\"unit\":null,\"source_app_id\":null,\"source_device\":null,\"last_modified_time\":null,\"payload_json\":\"{\\\"recordId\\\":\\\"from-payload\\\",\\\"recordedAt\\\":1700000000000}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"weight\",\"record_id\":\"0100f14d9e90dd4db74cba3c796010d0b9d44e4d\",\"start_time\":null,\"end_time\":null,\"recorded_at\":null,\"numeric_value\":1,\"text_value\":null,\"unit\":null,\"source_app_id\":null,\"source_device\":null,\"last_modified_time\":\"2026-10-31T23:02:03.000Z\",\"payload_json\":\"{}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"fallback\",\"record_id\":\"45417f33564d70303636a2637203ba0a67b3b60d\",\"start_time\":null,\"end_time\":null,\"recorded_at\":null,\"numeric_value\":null,\"text_value\":null,\"unit\":null,\"source_app_id\":null,\"source_device\":null,\"last_modified_time\":null,\"payload_json\":\"{}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"[object Object]\",\"record_id\":\"392f6a7bb9b25c3c9be60c77c2852629ded0125e\",\"start_time\":null,\"end_time\":null,\"recorded_at\":null,\"numeric_value\":null,\"text_value\":null,\"unit\":null,\"source_app_id\":null,\"source_device\":null,\"last_modified_time\":null,\"payload_json\":\"{}\"}"
+  },
+  {
+   "table": "health_metric_samples",
+   "row": "{\"user_id\":1,\"metric_type\":\"Heart Rate\",\"record_id\":\"df48ceaca6aa50368f34b37008562cd21553ec0a\",\"start_time\":null,\"end_time\":null,\"recorded_at\":null,\"numeric_value\":1e+21,\"text_value\":null,\"unit\":null,\"source_app_id\":null,\"source_device\":null,\"last_modified_time\":null,\"payload_json\":\"{\\\"x\\\":1.5,\\\"y\\\":[1e-7,12345678901234567000],\\\"s\\\":\\\" \\\\\\\"q\\\\\\\"\\\"}\"}"
+  },
+  {
+   "table": "integration_connections",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"provider_key\":\"phone\",\"app_key\":\"calendar\",\"status\":\"connected\",\"account_email\":\"Pixel\",\"scopes_json\":\"[\\\"calendar\\\"]\",\"credentials_json\":\"{\\\"deviceId\\\":\\\"device-aaaa-1111\\\"}\",\"metadata_json\":\"{\\\"deviceId\\\":\\\"device-aaaa-1111\\\",\\\"platform\\\":\\\"android\\\",\\\"access_mode\\\":\\\"read_write\\\",\\\"syncedAt\\\":\\\"<time>\\\"}\"}"
+  },
+  {
+   "table": "integration_connections",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"provider_key\":\"phone\",\"app_key\":\"contacts\",\"status\":\"connected\",\"account_email\":\"Pixel\",\"scopes_json\":\"[\\\"contacts\\\"]\",\"credentials_json\":\"{\\\"deviceId\\\":\\\"device-aaaa-1111\\\"}\",\"metadata_json\":\"{\\\"deviceId\\\":\\\"device-aaaa-1111\\\",\\\"platform\\\":\\\"android\\\",\\\"access_mode\\\":\\\"read_only\\\",\\\"syncedAt\\\":\\\"<time>\\\"}\"}"
+  },
+  {
+   "table": "integration_connections",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"provider_key\":\"phone\",\"app_key\":\"alarms\",\"status\":\"connected\",\"account_email\":\"Pixel\",\"scopes_json\":\"[\\\"alarms\\\"]\",\"credentials_json\":\"{\\\"deviceId\\\":\\\"device-aaaa-1111\\\"}\",\"metadata_json\":\"{\\\"deviceId\\\":\\\"device-aaaa-1111\\\",\\\"platform\\\":\\\"android\\\",\\\"access_mode\\\":\\\"read_write\\\",\\\"syncedAt\\\":\\\"<time>\\\"}\"}"
+  },
+  {
+   "table": "integration_connections",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"provider_key\":\"phone\",\"app_key\":\"contacts\",\"status\":\"connected\",\"account_email\":\"iPhone\",\"scopes_json\":\"[\\\"contacts\\\"]\",\"credentials_json\":\"{\\\"deviceId\\\":\\\"ios-device-3333\\\"}\",\"metadata_json\":\"{\\\"deviceId\\\":\\\"ios-device-3333\\\",\\\"platform\\\":\\\"ios\\\",\\\"access_mode\\\":\\\"read_only\\\"}\"}"
+  },
+  {
+   "table": "device_sync_items",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"kind\":\"calendar\",\"item_key\":\"cal-1\",\"starts_at\":null,\"ends_at\":null,\"payload_json\":\"{\\\"id\\\":\\\"cal-1\\\",\\\"name\\\":\\\"Work\\\",\\\"account\\\":\\\"a@b.c\\\",\\\"writable\\\":true,\\\"primary\\\":true}\"}"
+  },
+  {
+   "table": "device_sync_items",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"kind\":\"calendar\",\"item_key\":\"cal-2\",\"starts_at\":null,\"ends_at\":null,\"payload_json\":\"{\\\"id\\\":\\\"cal-2\\\",\\\"name\\\":\\\"Calendar\\\",\\\"account\\\":null,\\\"writable\\\":false,\\\"primary\\\":false}\"}"
+  },
+  {
+   "table": "device_sync_items",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"kind\":\"contact\",\"item_key\":\"c-1\",\"starts_at\":null,\"ends_at\":null,\"payload_json\":\"{\\\"name\\\":\\\"Ada\\\",\\\"emails\\\":[\\\"ada@x.org\\\"],\\\"phones\\\":[\\\"+1 555\\\"],\\\"organization\\\":\\\"Lab\\\"}\"}"
+  },
+  {
+   "table": "device_sync_items",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"kind\":\"event\",\"item_key\":\"ev-1\",\"starts_at\":\"2026-11-25T09:00:00.000Z\",\"ends_at\":\"2026-11-25T09:15:00.000Z\",\"payload_json\":\"{\\\"eventId\\\":\\\"e1\\\",\\\"calendarId\\\":\\\"cal-1\\\",\\\"title\\\":\\\"Standup\\\",\\\"start\\\":\\\"2026-11-25T09:00:00.000Z\\\",\\\"end\\\":\\\"2026-11-25T09:15:00.000Z\\\",\\\"allDay\\\":false,\\\"location\\\":\\\"Room 1\\\",\\\"notes\\\":\\\"bring notes\\\",\\\"attendees\\\":[\\\"a\\\",\\\"b\\\",\\\"5\\\"]}\"}"
+  },
+  {
+   "table": "device_sync_items",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"kind\":\"event\",\"item_key\":\"ev-2\",\"starts_at\":\"2026-11-26T09:00:00.000Z\",\"ends_at\":\"2026-11-26T09:00:00.000Z\",\"payload_json\":\"{\\\"eventId\\\":\\\"\\\",\\\"calendarId\\\":\\\"\\\",\\\"title\\\":\\\"Open ended\\\",\\\"start\\\":\\\"2026-11-26T09:00:00.000Z\\\",\\\"end\\\":\\\"2026-11-26T09:00:00.000Z\\\",\\\"allDay\\\":true,\\\"location\\\":null,\\\"notes\\\":null,\\\"attendees\\\":[]}\"}"
+  },
+  {
+   "table": "device_sync_commands",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"action\":\"create_event\",\"payload_json\":\"{\\\"n\\\":0}\",\"status\":\"done\",\"result_json\":\"{\\\"created\\\":\\\"x\\\"}\",\"error\":null}"
+  },
+  {
+   "table": "device_sync_commands",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"action\":\"delete_event\",\"payload_json\":\"{\\\"n\\\":1}\",\"status\":\"failed\",\"result_json\":\"null\",\"error\":\"denied\"}"
+  },
+  {
+   "table": "device_sync_commands",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"device_id\":\"device-aaaa-1111\",\"action\":\"update_event\",\"payload_json\":\"[1]\",\"status\":\"failed\",\"result_json\":\"null\",\"error\":\"The phone could not make this change.\"}"
+  }
+ ]
+}

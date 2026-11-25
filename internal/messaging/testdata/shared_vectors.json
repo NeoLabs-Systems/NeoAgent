@@ -1,0 +1,317 @@
+{
+ "steps": [
+  {
+   "label": "options none",
+   "value": [],
+   "log": []
+  },
+  {
+   "label": "start link unavailable",
+   "value": {
+    "status": 409,
+    "message": "The shared telegram account is not available right now",
+    "code": "SHARED_UNAVAILABLE"
+   },
+   "log": []
+  },
+  {
+   "label": "start link discord",
+   "value": {
+    "status": 400,
+    "message": "discord cannot use an instance-wide account",
+    "code": "SHARED_PLATFORM_UNSUPPORTED"
+   },
+   "log": []
+  },
+  {
+   "label": "connected",
+   "value": {
+    "enabled": 1,
+    "available": 1,
+    "allow_personal": 1,
+    "status": "connected",
+    "status_reason": null,
+    "account_id": "neobot",
+    "account_label": "@neobot",
+    "connected": true
+   },
+   "log": [
+    [
+     "adapter_created",
+     1
+    ]
+   ]
+  },
+  {
+   "label": "options",
+   "value": [
+    {
+     "platform": "telegram",
+     "authMethod": "token",
+     "status": "connected",
+     "accountLabel": "@neobot",
+     "personalAllowed": true,
+     "link": null
+    }
+   ],
+   "log": []
+  },
+  {
+   "label": "start link",
+   "value": {
+    "platform": "telegram",
+    "code": 19,
+    "expiresAt": "string",
+    "accountLabel": "@neobot",
+    "url": "https://t.me/neobot?start=CODE"
+   },
+   "log": []
+  },
+  {
+   "label": "gate group",
+   "value": {
+    "allowed": false,
+    "reason": "shared_disabled"
+   },
+   "log": []
+  },
+  {
+   "label": "gate no sender",
+   "value": {
+    "allowed": false,
+    "reason": "unlinked"
+   },
+   "log": []
+  },
+  {
+   "label": "gate not own chat",
+   "value": {
+    "allowed": false,
+    "reason": "shared_disabled"
+   },
+   "log": []
+  },
+  {
+   "label": "gate unlinked",
+   "value": {
+    "allowed": false,
+    "reason": "unlinked"
+   },
+   "log": []
+  },
+  {
+   "label": "gate code",
+   "value": {
+    "allowed": false,
+    "reason": "link_attempt"
+   },
+   "log": [
+    [
+     "emit",
+     "user:1",
+     "messaging:linked",
+     {
+      "platform": "telegram",
+      "agentId": "a1b"
+     }
+    ],
+    [
+     "emit",
+     "user:1",
+     "messaging:connected",
+     {
+      "platform": "telegram",
+      "agentId": "a1b"
+     }
+    ],
+    [
+     "reaction",
+     "dm_77",
+     "9",
+     "👍"
+    ]
+   ]
+  },
+  {
+   "label": "links after code",
+   "value": [
+    {
+     "platform": "telegram",
+     "external_id": "77",
+     "chat_id": "dm_77",
+     "display_name": "Ann",
+     "user_id": 1,
+     "agent_id": "a1b"
+    }
+   ],
+   "log": []
+  },
+  {
+   "label": "route installed",
+   "value": true,
+   "log": []
+  },
+  {
+   "label": "gate linked",
+   "value": {
+    "allowed": true,
+    "ownerUserId": 1
+   },
+   "log": []
+  },
+  {
+   "label": "status entries",
+   "value": {
+    "telegram": {
+     "status": "connected",
+     "agentId": "a1b",
+     "lastConnected": "2026-11-25 06:19:04",
+     "authInfo": {
+      "shared": true,
+      "label": "Ann"
+     }
+    }
+   },
+   "log": []
+  },
+  {
+   "label": "status entries other agent",
+   "value": {},
+   "log": []
+  },
+  {
+   "label": "message routed",
+   "value": null,
+   "log": [
+    [
+     "ingest",
+     1,
+     "telegram",
+     "a1b",
+     "dm_77",
+     "hi there",
+     {
+      "a": 1,
+      "sharedConnection": true
+     }
+    ]
+   ]
+  },
+  {
+   "label": "stranger ignored",
+   "value": null,
+   "log": []
+  },
+  {
+   "label": "code reused",
+   "value": {
+    "decision": {
+     "allowed": false,
+     "reason": "link_attempt"
+    },
+    "links": [
+     {
+      "platform": "telegram",
+      "external_id": "77",
+      "chat_id": "dm_77",
+      "display_name": "Ann",
+      "user_id": 1,
+      "agent_id": "a1b"
+     }
+    ]
+   },
+   "log": []
+  },
+  {
+   "label": "identity taken",
+   "value": [
+    {
+     "platform": "telegram",
+     "external_id": "77",
+     "chat_id": "dm_77",
+     "display_name": "Ann",
+     "user_id": 1,
+     "agent_id": "a1b"
+    }
+   ],
+   "log": [
+    [
+     "emit",
+     "user:2",
+     "messaging:link_failed",
+     {
+      "platform": "telegram",
+      "agentId": "a2",
+      "reason": "identity_taken"
+     }
+    ]
+   ]
+  },
+  {
+   "label": "gate rate limited",
+   "value": {
+    "allowed": false,
+    "reason": "rate_limited"
+   },
+   "log": []
+  },
+  {
+   "label": "personal refused",
+   "value": {
+    "status": 403,
+    "message": "This server only allows the shared telegram account",
+    "code": "PERSONAL_NOT_ALLOWED"
+   },
+   "log": []
+  },
+  {
+   "label": "unlink other agent",
+   "value": {
+    "status": "not_configured"
+   },
+   "log": []
+  },
+  {
+   "label": "unlink",
+   "value": {
+    "status": "disconnected"
+   },
+   "log": []
+  },
+  {
+   "label": "unlink again",
+   "value": {
+    "status": "not_configured"
+   },
+   "log": []
+  },
+  {
+   "label": "route removed",
+   "value": false,
+   "log": []
+  },
+  {
+   "label": "disabled",
+   "value": {
+    "enabled": 0,
+    "available": 1,
+    "allow_personal": 0,
+    "status": "disconnected",
+    "status_reason": null,
+    "account_id": "neobot",
+    "account_label": "@neobot",
+    "connected": true
+   },
+   "log": [
+    [
+     "adapter_disconnected"
+    ]
+   ]
+  },
+  {
+   "label": "removed",
+   "value": null,
+   "log": []
+  }
+ ]
+}

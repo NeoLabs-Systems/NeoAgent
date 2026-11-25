@@ -1,0 +1,18 @@
+{
+  "key": "bitwarden",
+  "label": "Bitwarden",
+  "description": "Fill browser logins and authenticate bounded API requests while keeping secrets hidden from the AI.",
+  "icon": "password",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "password_manager",
+      "label": "Password manager",
+      "description": "Use selected Bitwarden items without exposing their secret values to the AI."
+    }
+  ],
+  "connectPrompt": "Sign in with your Bitwarden email and master password. The password is used only for that sign-in and is never stored or sent to the AI.",
+  "supportsMultipleAccounts": false,
+  "connectionMethod": "user_config",
+  "tools": []
+}

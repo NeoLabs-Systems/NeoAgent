@@ -1,27 +1,42 @@
 # syntax=docker/dockerfile:1
 
-# NeoAgent server: Express API, the bundled web client, SQLite and the QEMU
-# runtime for each user's cloud computer. Everything that changes at runtime
-# lives in the /data volume; the image itself is never modified.
+# NeoAgent server: the Go API server, the bundled web client, SQLite and the
+# QEMU runtime for each user's cloud computer. Everything that changes at
+# runtime lives in the /data volume; the image itself is never modified.
+#
+# The web client is built before `docker build` (CI runs the Flutter web build
+# into public/). The Go module is fetched inside the build stage; while
+# neolabs-go is private, pass a token: --secret id=github_token,env=GITHUB_TOKEN.
 
-ARG NODE_IMAGE=node:22.23.3-trixie-slim
+ARG GO_IMAGE=golang:1.27-trixie
+ARG BASE_IMAGE=debian:trixie-slim
 
-FROM ${NODE_IMAGE} AS deps
-# node-pty ships no Linux prebuilds, so it compiles here.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 make g++ \
- && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY package.json package-lock.json ./
-# As in the desktop runtime, the server gets no Chromium of its own: browsing runs
-# inside each cloud computer. Slide (PDF/PNG) and video export need one and stay off.
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm ci --omit=dev --no-audit --no-fund \
- && npm cache clean --force
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS build
+ARG TARGETOS
+ARG TARGETARCH
+ENV CGO_ENABLED=0 GOPRIVATE=github.com/NeoLabs-Systems/* GOWORK=off
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=secret,id=github_token \
+    --mount=type=cache,target=/go/pkg/mod \
+    if [ -s /run/secrets/github_token ]; then \
+      git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/".insteadOf "https://github.com/"; \
+    fi \
+ && go mod download \
+ && rm -f /root/.gitconfig
+COPY VERSION ./
+COPY cmd ./cmd
+COPY internal ./internal
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    version="$(cat VERSION)" \
+ && ldflags="-s -w -X main.version=${version}" \
+ && GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "$ldflags" -o /out/neoagent ./cmd/neoagent \
+ && GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "$ldflags" -o /out/neoagent-guest-linux-$TARGETARCH ./cmd/neoagent-guest
 
 # ARM64 guests boot UEFI firmware. Debian packages every firmware variant
 # (about 400 MB); the cloud computer needs only these two files.
-FROM ${NODE_IMAGE} AS firmware
+FROM ${BASE_IMAGE} AS firmware
 RUN mkdir /firmware \
  && if [ "$(dpkg --print-architecture)" = arm64 ]; then \
       apt-get update \
@@ -30,38 +45,40 @@ RUN mkdir /firmware \
       && cp /usr/share/AAVMF/AAVMF_VARS.fd /firmware/AAVMF_VARS.fd; \
     fi
 
-FROM ${NODE_IMAGE}
+FROM ${BASE_IMAGE}
 # QEMU boots cloud computers and xorriso writes their cloud-init seed. The Docker
 # CLI (which needs the system CA store to pull base images) is used only with
-# TERMINAL_ENV=docker (compose.docker.yaml).
+# TERMINAL_ENV=docker (compose.docker.yaml). Tesseract backs the ocr_extract tool.
 RUN if [ "$(dpkg --print-architecture)" = arm64 ]; then qemu=qemu-system-arm; else qemu=qemu-system-x86; fi \
  && apt-get update \
- && apt-get install -y --no-install-recommends "$qemu" qemu-utils xorriso docker-cli docker-buildx ca-certificates tini \
+ && apt-get install -y --no-install-recommends "$qemu" qemu-utils xorriso docker-cli docker-buildx ca-certificates tini tesseract-ocr tesseract-ocr-eng \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=firmware /firmware/ /usr/share/AAVMF/
 
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json LICENSE ./
-COPY bin ./bin
-COPY lib ./lib
-COPY runtime ./runtime
-COPY server ./server
-COPY landing ./landing
-RUN ln -s /app/bin/neoagent.js /usr/local/bin/neoagent \
+# uid/gid 1000 is the "node" user of the earlier Node image, so an existing
+# /data volume keeps working unchanged.
+RUN groupadd --gid 1000 neoagent \
+ && useradd --uid 1000 --gid 1000 --home-dir /data --no-create-home --shell /usr/sbin/nologin neoagent \
  && mkdir /data \
- && chown node:node /data
+ && chown neoagent:neoagent /data
+
+WORKDIR /app
+COPY --from=build /out/neoagent /usr/local/bin/neoagent
+COPY --from=build /out/neoagent-guest-linux-* /usr/local/bin/
+COPY LICENSE ./
+COPY landing ./landing
+COPY public ./public
 
 # NEOAGENT_CONTAINER_IMAGE turns off self-update: a new image replaces this one.
-ENV NODE_ENV=production \
-    NEOAGENT_HOME=/data \
+ENV NEOAGENT_HOME=/data \
+    NEOAGENT_APP_DIR=/app \
     NEOAGENT_CONTAINER_IMAGE=1
 
-USER node
+USER neoagent
 VOLUME ["/data"]
 EXPOSE 3333
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3333) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+  CMD ["neoagent", "healthcheck"]
 
 ENTRYPOINT ["tini", "--"]
-CMD ["node", "server/index.js"]
+CMD ["neoagent", "serve"]

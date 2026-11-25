@@ -1,0 +1,112 @@
+[
+ {
+  "input": "",
+  "normalize": "",
+  "jid": ""
+ },
+ {
+  "input": "  ",
+  "normalize": "",
+  "jid": ""
+ },
+ {
+  "input": "491234567890",
+  "normalize": "491234567890",
+  "jid": "491234567890@s.whatsapp.net"
+ },
+ {
+  "input": "+49 123 456",
+  "normalize": "49123456",
+  "jid": "49123456@s.whatsapp.net"
+ },
+ {
+  "input": "491234:12@s.whatsapp.net",
+  "normalize": "491234",
+  "jid": "491234@s.whatsapp.net"
+ },
+ {
+  "input": "491234@s.whatsapp.net",
+  "normalize": "491234",
+  "jid": "491234@s.whatsapp.net"
+ },
+ {
+  "input": "120363-12@g.us",
+  "normalize": "12036312",
+  "jid": "120363-12@g.us"
+ },
+ {
+  "input": "120363:4@g.us",
+  "normalize": "120363",
+  "jid": "120363@g.us"
+ },
+ {
+  "input": "123:12@lid",
+  "normalize": "123",
+  "jid": "123@lid"
+ },
+ {
+  "input": "123@lid",
+  "normalize": "123",
+  "jid": "123@lid"
+ },
+ {
+  "input": "abc",
+  "normalize": "abc",
+  "jid": "abc@s.whatsapp.net"
+ },
+ {
+  "input": "Abc:5@s.whatsapp.net",
+  "normalize": "abc",
+  "jid": "abc@s.whatsapp.net"
+ },
+ {
+  "input": "123@hosted",
+  "normalize": "123",
+  "jid": "123@s.whatsapp.net"
+ },
+ {
+  "input": "user@example.com",
+  "normalize": "user",
+  "jid": "user@s.whatsapp.net"
+ },
+ {
+  "input": "49-12-34",
+  "normalize": "491234",
+  "jid": "491234@s.whatsapp.net"
+ },
+ {
+  "input": " 491234@S.WHATSAPP.NET ",
+  "normalize": "491234",
+  "jid": "491234@s.whatsapp.net"
+ },
+ {
+  "input": "0",
+  "normalize": "0",
+  "jid": "0@s.whatsapp.net"
+ },
+ {
+  "input": "@lid",
+  "normalize": "",
+  "jid": "@lid"
+ },
+ {
+  "input": ":5@lid",
+  "normalize": "",
+  "jid": "@lid"
+ },
+ {
+  "input": "123:12@lid:7",
+  "normalize": "123",
+  "jid": "123@s.whatsapp.net"
+ },
+ {
+  "input": "a@b@c",
+  "normalize": "a",
+  "jid": "a@s.whatsapp.net"
+ },
+ {
+  "input": "dm_491234",
+  "normalize": "491234",
+  "jid": "491234@s.whatsapp.net"
+ }
+]

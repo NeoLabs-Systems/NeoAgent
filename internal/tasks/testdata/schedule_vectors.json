@@ -1,0 +1,6803 @@
+[
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-24T12:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-24T12:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-24T12:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-24T12:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T12:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-24T12:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-24T12:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-25T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-25T08:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-24T14:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-25T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T22:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-25T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-25T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T22:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T08:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T22:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T08:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T14:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T22:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T08:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T14:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-01T22:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-25T08:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-25T07:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-24T13:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-25T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T21:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-25T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-25T11:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-30T08:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-30T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-30T12:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-30T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T21:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-30T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-30T11:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-26T08:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-26T07:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-26T12:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-26T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T21:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-26T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-26T11:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-02T08:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-02T07:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-02T13:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-02T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T21:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-02T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-02T11:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T08:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T07:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T13:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-03T21:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 8 * * 1-5",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T11:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-24T12:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-24T12:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-24T12:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-24T12:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T12:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-24T12:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-24T12:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T00:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T00:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T00:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T00:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T00:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T00:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T00:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/15 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-12-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-30T23:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-12-01T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-30T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-30T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-30T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-12-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-04-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-31T22:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-04-01T04:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-31T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-04-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-31T23:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-01T04:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-31T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-31T22:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-31T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-31T23:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-31T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-31T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 1 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-29T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-29T11:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-29T17:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-29T15:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T10:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T16:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T15:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T11:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T16:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T15:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T11:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T17:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T15:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-03T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-03T11:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-03T17:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-03T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-03T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-03T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 12 * * sun",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-03T15:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-30T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-30T06:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-30T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-30T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-29T20:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-30T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-30T10:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-30T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-30T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-30T11:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-30T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T20:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-30T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-30T10:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-26T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-26T06:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-26T11:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-26T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T20:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-26T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-26T10:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T06:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T20:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T10:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T06:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T12:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-03T20:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 7 1,15 * mon",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T10:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-03T04:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-03T03:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-03T09:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-02T17:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-03T07:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T04:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T02:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T08:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-02T17:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T07:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-03T04:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-03T03:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-03T09:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-02T17:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-03T07:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T04:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T03:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T09:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-07T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-07T17:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-07T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T07:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-03T04:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-03T03:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-03T09:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-02T17:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-02T22:35:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5 4 * jan-mar 0",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-03T07:05:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 29 2 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 31 4 *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-29T23:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-29T22:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-30T04:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-29T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-29T12:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-29T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-30T02:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T23:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T21:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-30T03:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T12:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-30T02:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T23:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T22:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-26T03:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T12:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-26T02:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T23:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T22:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-02T04:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T12:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-02T02:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-03T23:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-03T22:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-04T04:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-03T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-03T12:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-03T18:29:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "59 23 * * 7",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-04T02:59:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-24T18:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-24T17:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-24T17:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-24T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T13:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-24T18:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-24T15:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T06:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T04:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T04:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T06:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T04:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T00:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T00:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T05:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T00:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-01T01:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T00:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 */6 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T03:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-25T02:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-25T01:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-25T07:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-24T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T15:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-24T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-25T05:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T02:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-30T00:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T06:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T15:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T05:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T02:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T01:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T06:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T15:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T05:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T02:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T01:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T07:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T15:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T05:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T02:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T01:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T07:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-01T15:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T20:45:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "15 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T05:15:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-25T02:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-25T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-25T07:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-24T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T15:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-24T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-25T05:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T02:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-30T00:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T15:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T05:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T02:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T15:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T05:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T02:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T07:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T15:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T05:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T02:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T07:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-01T15:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "30 2 * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T05:30:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "x * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron value \"x\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "x * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron value \"x\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "x * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron value \"x\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "x * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron value \"x\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "x * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron value \"x\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "60 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "minute value \"60\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "60 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "minute value \"60\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "60 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "minute value \"60\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "60 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "minute value \"60\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "60 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "minute value \"60\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"* * * *\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"* * * *\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"* * * *\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"* * * *\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "* * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid cron expression \"* * * *\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5-1 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute range \"5-1\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5-1 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute range \"5-1\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5-1 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute range \"5-1\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5-1 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute range \"5-1\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "5-1 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute range \"5-1\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/0 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute step \"0\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/0 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute step \"0\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/0 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute step \"0\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/0 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute step \"0\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "*/0 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "Invalid minute step \"0\""
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * 8",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-week value \"8\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * 8",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-week value \"8\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * 8",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-week value \"8\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * 8",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-week value \"8\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 9 * * 8",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-week value \"8\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 0 * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-month value \"0\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 0 * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-month value \"0\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 0 * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-month value \"0\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 0 * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-month value \"0\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "0 0 0 * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "error": "day-of-month value \"0\" is out of bounds"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-11-24T13:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-11-24T13:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-11-24T13:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-11-24T13:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-11-24T13:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-11-24T13:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-11-24T12:34:56.789Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-11-24T13:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-29T01:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-29T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-29T01:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-03-29T00:59:30.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-29T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-10-25T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-10-25T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-10-25T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-10-25T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-10-25T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-10-25T00:30:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-10-25T01:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2026-03-01T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2026-03-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-01T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-02-28T23:59:59.999Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2026-03-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2027-01-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2027-01-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2027-01-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Asia/Kolkata"
+  },
+  "output": {
+   "value": "2027-01-01T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "Australia/Lord_Howe"
+  },
+  "output": {
+   "value": "2027-01-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2027-01-01T00:31:00.000Z"
+  }
+ },
+ {
+  "fn": "findNextRun",
+  "input": {
+   "expression": "1,,2 * * * *",
+   "from": "2026-12-31T23:59:00.000Z",
+   "zone": "-03:00"
+  },
+  "output": {
+   "value": "2027-01-01T00:01:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "0 9 * * *",
+  "output": {
+   "value": "0 9 * * *"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "0 0 9 * * *",
+  "output": {
+   "value": "0 9 * * *"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "* 0 9 * * *",
+  "output": {
+   "value": "0 9 * * *"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "15 0 9 * * *",
+  "output": {
+   "error": "Cron expressions with seconds are not supported. Use a 5-field expression."
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "0 9 ? * mon",
+  "output": {
+   "value": "0 9 * * mon"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "0 9 1 * ?",
+  "output": {
+   "value": "0 9 1 * *"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "  0   9 * * *  ",
+  "output": {
+   "value": "0 9 * * *"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "",
+  "output": {
+   "error": "A valid cron expression is required."
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": null,
+  "output": {
+   "error": "A valid cron expression is required."
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "0 9 * *",
+  "output": {
+   "error": "A valid cron expression is required."
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "61 9 * * *",
+  "output": {
+   "error": "minute value \"61\" is out of bounds"
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": "0 9 * * * * *",
+  "output": {
+   "error": "A valid cron expression is required."
+  }
+ },
+ {
+  "fn": "normalizeCronExpression",
+  "input": 5,
+  "output": {
+   "error": "A valid cron expression is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00Z",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-12-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00Z",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-12-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00Z",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-12-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00Z",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-12-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-12-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-12-01T08:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-12-01T14:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-12-01T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01 09:00:00",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-12-01T09:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01 09:00:00",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-12-01T08:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01 09:00:00",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-12-01T14:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01 09:00:00",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-12-01T03:30:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00.5",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-12-01T09:00:00.500Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00.5",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-12-01T08:00:00.500Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00.5",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-12-01T14:00:00.500Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00.5",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-12-01T03:30:00.500Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-03-29T02:30",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-03-29T02:30:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-03-29T02:30",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-03-29T01:30:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-03-29T02:30",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-03-29T06:30:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-03-29T02:30",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-03-28T21:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00+02:00",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-12-01T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00+02:00",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-12-01T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00+02:00",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-12-01T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01T09:00:00+02:00",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-12-01T07:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "tomorrow",
+   "zone": null
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "tomorrow",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "tomorrow",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "tomorrow",
+   "zone": "+05:30"
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "",
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": null,
+   "zone": null
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": null,
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": null,
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": null,
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": null
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": 1795000000000,
+   "zone": null
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": 1795000000000,
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": 1795000000000,
+   "zone": "America/New_York"
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": 1795000000000,
+   "zone": "+05:30"
+  },
+  "output": {
+   "error": "A valid runAt datetime is required."
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01",
+   "zone": null
+  },
+  "output": {
+   "value": "2026-12-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01",
+   "zone": "Europe/Berlin"
+  },
+  "output": {
+   "value": "2026-12-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01",
+   "zone": "America/New_York"
+  },
+  "output": {
+   "value": "2026-12-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "normalizeRunAt",
+  "input": {
+   "value": "2026-12-01",
+   "zone": "+05:30"
+  },
+  "output": {
+   "value": "2026-12-01T00:00:00.000Z"
+  }
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": null,
+  "output": 0
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": 0,
+  "output": 0
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": -5,
+  "output": 0
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": "abc",
+  "output": 0
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": 0.4,
+  "output": 400
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": 1.5,
+  "output": 1500
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": 2.5,
+  "output": 2500
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": 42.0004,
+  "output": 42000
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": 3599.9995,
+  "output": 3600000
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": 7200,
+  "output": 3600000
+ },
+ {
+  "fn": "resolveLeadTimeMs",
+  "input": "Infinity",
+  "output": 0
+ }
+]

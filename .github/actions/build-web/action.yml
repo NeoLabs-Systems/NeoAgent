@@ -1,0 +1,29 @@
+name: Build web client
+description: >
+  Builds the Flutter web client into public/ (served by the server at /app) and
+  fails if the bundle still points at a localhost backend. Needs Go and Flutter
+  set up first.
+
+runs:
+  using: composite
+  steps:
+    - name: Build web client
+      shell: bash
+      run: |
+        set -euo pipefail
+        build_id="$(go run ./cmd/neoagent-release web-build-id)"
+        (
+          cd flutter_app
+          flutter build web --no-wasm-dry-run --output ../public \
+            --dart-define=NEOAGENT_BACKEND_URL= \
+            --dart-define=NEOAGENT_WEB_BUILD_ID="$build_id"
+        )
+        printf '%s' "$build_id" > public/.last_build_id
+
+    - name: Verify production web bundle
+      shell: bash
+      run: |
+        if grep -nE "http://localhost:3333|127\.0\.0\.1:3333" public/main.dart.js; then
+          echo "::error::Bundled web client still points at localhost."
+          exit 1
+        fi

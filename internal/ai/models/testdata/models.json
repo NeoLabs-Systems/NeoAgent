@@ -1,0 +1,4360 @@
+{
+ "catalog": [
+  {
+   "id": "openai::gpt-5",
+   "provider": "openai",
+   "available": true,
+   "createdAt": 1700000000000,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": "expensive",
+   "modelId": "gpt-5"
+  },
+  {
+   "id": "openai::gpt-5-mini",
+   "provider": "openai",
+   "available": true,
+   "createdAt": 1710000000000,
+   "supportsTools": null,
+   "purpose": "fast",
+   "priceTier": "cheap",
+   "modelId": "gpt-5-mini"
+  },
+  {
+   "id": "anthropic::claude-x",
+   "provider": "anthropic",
+   "available": true,
+   "createdAt": 1720000000000,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": "medium",
+   "modelId": "claude-x"
+  },
+  {
+   "id": "google::gemini-y",
+   "provider": "google",
+   "available": true,
+   "createdAt": 1730000000000,
+   "supportsTools": false,
+   "purpose": "general",
+   "priceTier": "medium",
+   "modelId": "gemini-y"
+  },
+  {
+   "id": "nvidia::free-model",
+   "provider": "nvidia",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": "free",
+   "modelId": "free-model"
+  },
+  {
+   "id": "openrouter::vendor/model",
+   "provider": "openrouter",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": "medium",
+   "modelId": "vendor/model"
+  },
+  {
+   "id": "openrouter::cheap/one",
+   "provider": "openrouter",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": "cheap",
+   "modelId": "cheap/one"
+  },
+  {
+   "id": "ollama::llama",
+   "provider": "ollama",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": "free",
+   "modelId": "llama"
+  },
+  {
+   "id": "neorouter::auto:smart",
+   "provider": "neorouter",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": null,
+   "modelId": "auto:smart"
+  },
+  {
+   "id": "neorouter::auto:default",
+   "provider": "neorouter",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": null,
+   "modelId": "auto:default"
+  },
+  {
+   "id": "neorouter::auto:fast",
+   "provider": "neorouter",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": null,
+   "modelId": "auto:fast"
+  },
+  {
+   "id": "openai::hidden",
+   "provider": "openai",
+   "available": false,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": null,
+   "modelId": "hidden"
+  },
+  {
+   "id": "nous::gpt-5",
+   "provider": "nous",
+   "available": true,
+   "createdAt": null,
+   "supportsTools": null,
+   "purpose": "general",
+   "priceTier": "cheap",
+   "modelId": "gpt-5"
+  }
+ ],
+ "identity": {
+  "create": [
+   "openai::gpt-5",
+   "x::y"
+  ],
+  "parse": [
+   {
+    "v": "openai::gpt-5",
+    "out": {
+     "provider": "openai",
+     "modelId": "gpt-5"
+    }
+   },
+   {
+    "v": " OpenAI :: gpt-5 ",
+    "out": {
+     "provider": "openai",
+     "modelId": "gpt-5"
+    }
+   },
+   {
+    "v": "openai::auto",
+    "out": null
+   },
+   {
+    "v": "nodelimiter",
+    "out": null
+   },
+   {
+    "v": "::x",
+    "out": null
+   },
+   {
+    "v": "a::",
+    "out": null
+   },
+   {
+    "v": "a::b::c",
+    "out": {
+     "provider": "a",
+     "modelId": "b::c"
+    }
+   },
+   {
+    "v": "",
+    "out": null
+   },
+   {
+    "v": null,
+    "out": null
+   }
+  ],
+  "resolve": [
+   {
+    "v": "openai::gpt-5",
+    "p": null,
+    "out": "openai::gpt-5"
+   },
+   {
+    "v": "gpt-5",
+    "p": null,
+    "out": "openai::gpt-5"
+   },
+   {
+    "v": "gpt-5",
+    "p": "nous",
+    "out": "nous::gpt-5"
+   },
+   {
+    "v": "gpt-5",
+    "p": "google",
+    "out": "openai::gpt-5"
+   },
+   {
+    "v": "claude-x",
+    "p": null,
+    "out": "anthropic::claude-x"
+   },
+   {
+    "v": "nope",
+    "p": null,
+    "out": null
+   },
+   {
+    "v": "",
+    "p": null,
+    "out": null
+   },
+   {
+    "v": "OPENAI::gpt-5",
+    "p": null,
+    "out": null
+   }
+  ],
+  "normalize": [
+   "openai::gpt-5",
+   "anthropic::claude-x",
+   "nous::gpt-5"
+  ],
+  "normalizeNonArray": [],
+  "matches": [
+   {
+    "id": "openai::gpt-5",
+    "set": [
+     "openai::gpt-5"
+    ],
+    "out": true
+   },
+   {
+    "id": "openai::gpt-5",
+    "set": [
+     "gpt-5"
+    ],
+    "out": true
+   },
+   {
+    "id": "openai::gpt-5",
+    "set": [
+     "other"
+    ],
+    "out": false
+   },
+   {
+    "id": "openai::gpt-5",
+    "set": null,
+    "out": false
+   }
+  ],
+  "selectable": {
+   "id": "openai::X",
+   "provider": "openai",
+   "modelId": "X"
+  }
+ },
+ "dispositions": [
+  {
+   "error": {
+    "status": 404
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_unavailable",
+    "cooldownMs": 604800000,
+    "status": 404
+   }
+  },
+  {
+   "error": {
+    "status": 404
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_unavailable",
+    "cooldownMs": 604800000,
+    "status": 404
+   }
+  },
+  {
+   "error": {
+    "code": "MODEL_NOT_SUPPORTED"
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_unavailable",
+    "cooldownMs": 604800000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "code": "MODEL_NOT_SUPPORTED"
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_unavailable",
+    "cooldownMs": 604800000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "status": 401
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_auth",
+    "cooldownMs": 3600000,
+    "status": 401
+   }
+  },
+  {
+   "error": {
+    "status": 401
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_auth",
+    "cooldownMs": 3600000,
+    "status": 401
+   }
+  },
+  {
+   "error": {
+    "status": 403
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_auth",
+    "cooldownMs": 3600000,
+    "status": 403
+   }
+  },
+  {
+   "error": {
+    "status": 403
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_auth",
+    "cooldownMs": 3600000,
+    "status": 403
+   }
+  },
+  {
+   "error": {
+    "status": 402
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_billing",
+    "cooldownMs": 900000,
+    "status": 402
+   }
+  },
+  {
+   "error": {
+    "status": 402
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "paid",
+    "failureClass": "provider_billing",
+    "cooldownMs": 900000,
+    "status": 402
+   }
+  },
+  {
+   "error": {
+    "status": 429
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_rate_limit",
+    "cooldownMs": 60000,
+    "status": 429
+   }
+  },
+  {
+   "error": {
+    "status": 429
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_rate_limit",
+    "cooldownMs": 60000,
+    "status": 429
+   }
+  },
+  {
+   "error": {
+    "status": 429,
+    "headers": {
+     "retry-after": "120"
+    }
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_rate_limit",
+    "cooldownMs": 120000,
+    "status": 429
+   }
+  },
+  {
+   "error": {
+    "status": 429,
+    "headers": {
+     "retry-after": "120"
+    }
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_rate_limit",
+    "cooldownMs": 120000,
+    "status": 429
+   }
+  },
+  {
+   "error": {
+    "status": 429,
+    "headers": {
+     "retry-after": "5000"
+    }
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_rate_limit",
+    "cooldownMs": 900000,
+    "status": 429
+   }
+  },
+  {
+   "error": {
+    "status": 429,
+    "headers": {
+     "retry-after": "5000"
+    }
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_rate_limit",
+    "cooldownMs": 900000,
+    "status": 429
+   }
+  },
+  {
+   "error": {
+    "status": 503
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_transient",
+    "cooldownMs": 60000,
+    "status": 503
+   }
+  },
+  {
+   "error": {
+    "status": 503
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_transient",
+    "cooldownMs": 60000,
+    "status": 503
+   }
+  },
+  {
+   "error": {
+    "status": 400
+   },
+   "provider": "openai",
+   "out": null
+  },
+  {
+   "error": {
+    "status": 400
+   },
+   "provider": "openrouter",
+   "out": null
+  },
+  {
+   "error": {
+    "code": "MODEL_EMPTY_RESPONSE"
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_transient",
+    "cooldownMs": 60000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "code": "MODEL_EMPTY_RESPONSE"
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_transient",
+    "cooldownMs": 60000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "code": "MODEL_CALL_TIMEOUT",
+    "headers": {
+     "retry-after-ms": "90000"
+    }
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_transient",
+    "cooldownMs": 90000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "code": "MODEL_CALL_TIMEOUT",
+    "headers": {
+     "retry-after-ms": "90000"
+    }
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "model",
+    "failureClass": "model_transient",
+    "cooldownMs": 90000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "code": "ECONNRESET"
+   },
+   "provider": "openai",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_transient",
+    "cooldownMs": 60000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "code": "ECONNRESET"
+   },
+   "provider": "openrouter",
+   "out": {
+    "scope": "provider",
+    "failureClass": "provider_transient",
+    "cooldownMs": 60000,
+    "status": null
+   }
+  },
+  {
+   "error": {
+    "message": "ordinary"
+   },
+   "provider": "openai",
+   "out": null
+  },
+  {
+   "error": {
+    "message": "ordinary"
+   },
+   "provider": "openrouter",
+   "out": null
+  },
+  {
+   "error": null,
+   "provider": "openai",
+   "out": null
+  },
+  {
+   "error": null,
+   "provider": "openrouter",
+   "out": null
+  }
+ ],
+ "errorHelpers": [
+  {
+   "error": {
+    "status": 404
+   },
+   "permanent": true,
+   "recoverable": false,
+   "switch": true
+  },
+  {
+   "error": {
+    "code": "MODEL_NOT_SUPPORTED"
+   },
+   "permanent": true,
+   "recoverable": false,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 401
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 403
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 402
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 429
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 429,
+    "headers": {
+     "retry-after": "120"
+    }
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 429,
+    "headers": {
+     "retry-after": "5000"
+    }
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 503
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "status": 400
+   },
+   "permanent": false,
+   "recoverable": false,
+   "switch": false
+  },
+  {
+   "error": {
+    "code": "MODEL_EMPTY_RESPONSE"
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "code": "MODEL_CALL_TIMEOUT",
+    "headers": {
+     "retry-after-ms": "90000"
+    }
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "code": "ECONNRESET"
+   },
+   "permanent": false,
+   "recoverable": true,
+   "switch": true
+  },
+  {
+   "error": {
+    "message": "ordinary"
+   },
+   "permanent": false,
+   "recoverable": false,
+   "switch": false
+  },
+  {
+   "error": null,
+   "permanent": false,
+   "recoverable": false,
+   "switch": false
+  }
+ ],
+ "routing": [
+  {
+   "name": "auto balanced",
+   "scenario": {
+    "name": "auto balanced",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {}
+   },
+   "route": {
+    "id": "anthropic::claude-x",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "auto with neorouter",
+   "scenario": {
+    "name": "auto with neorouter",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "neorouter::auto:smart",
+      "provider": "neorouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "auto:smart"
+     },
+     {
+      "id": "neorouter::auto:default",
+      "provider": "neorouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "auto:default"
+     },
+     {
+      "id": "neorouter::auto:fast",
+      "provider": "neorouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "auto:fast"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {}
+   },
+   "route": {
+    "id": "neorouter::auto:default",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "neorouter::auto:smart",
+    "neorouter::auto:default",
+    "neorouter::auto:fast",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "economy",
+   "scenario": {
+    "name": "economy",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "cost_mode": "economy"
+    },
+    "request": {}
+   },
+   "route": {
+    "id": "nvidia::free-model",
+    "reason": null
+   },
+   "fallback": "nvidia::free-model",
+   "fallbackPlain": "nvidia::free-model",
+   "ranked": [
+    "nvidia::free-model",
+    "ollama::llama",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "quality",
+   "scenario": {
+    "name": "quality",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "cost_mode": "quality"
+    },
+    "request": {}
+   },
+   "route": {
+    "id": "openai::gpt-5",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "openai::gpt-5",
+   "ranked": [
+    "openai::gpt-5",
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "subagent fast",
+   "scenario": {
+    "name": "subagent fast",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {
+     "isSubagent": true
+    }
+   },
+   "route": {
+    "id": "openai::gpt-5-mini",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "nvidia::free-model",
+    "ollama::llama",
+    "openai::gpt-5",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "planning hint",
+   "scenario": {
+    "name": "planning hint",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "neorouter::auto:smart",
+      "provider": "neorouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "auto:smart"
+     },
+     {
+      "id": "neorouter::auto:default",
+      "provider": "neorouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "auto:default"
+     },
+     {
+      "id": "neorouter::auto:fast",
+      "provider": "neorouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "auto:fast"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {
+     "selectionHint": {
+      "complexity": "complex"
+     }
+    }
+   },
+   "route": {
+    "id": "neorouter::auto:smart",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "neorouter::auto:smart",
+    "neorouter::auto:default",
+    "neorouter::auto:fast",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "high confidence",
+   "scenario": {
+    "name": "high confidence",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {
+     "selectionHint": {
+      "requiredConfidence": "high"
+     }
+    }
+   },
+   "route": {
+    "id": "openai::gpt-5",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "openai::gpt-5",
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "requested ok",
+   "scenario": {
+    "name": "requested ok",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "default_chat_model": "anthropic::claude-x"
+    },
+    "request": {}
+   },
+   "route": {
+    "id": "anthropic::claude-x",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "requested unavailable",
+   "scenario": {
+    "name": "requested unavailable",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "default_chat_model": "openai::hidden"
+    },
+    "request": {}
+   },
+   "route": {
+    "id": "anthropic::claude-x",
+    "reason": "requested_model_unavailable"
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "override",
+   "scenario": {
+    "name": "override",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "default_chat_model": "openai::gpt-5"
+    },
+    "request": {
+     "modelOverride": "google::gemini-y"
+    }
+   },
+   "route": {
+    "id": "google::gemini-y",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "legacy bare id",
+   "scenario": {
+    "name": "legacy bare id",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "default_chat_model": "gpt-5"
+    },
+    "request": {}
+   },
+   "route": {
+    "id": "openai::gpt-5",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "subagent pinned",
+   "scenario": {
+    "name": "subagent pinned",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "default_chat_model": "openai::gpt-5",
+     "default_subagent_model": "nvidia::free-model"
+    },
+    "request": {
+     "isSubagent": true
+    }
+   },
+   "route": {
+    "id": "nvidia::free-model",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "nvidia::free-model",
+    "ollama::llama",
+    "openai::gpt-5",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "subagent auto uses chat",
+   "scenario": {
+    "name": "subagent auto uses chat",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "default_chat_model": "openai::gpt-5",
+     "default_subagent_model": "auto"
+    },
+    "request": {
+     "isSubagent": true
+    }
+   },
+   "route": {
+    "id": "openai::gpt-5",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "nvidia::free-model",
+    "ollama::llama",
+    "openai::gpt-5",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "enabled pool",
+   "scenario": {
+    "name": "enabled pool",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "enabled_models": [
+      "google::gemini-y",
+      "nvidia::free-model"
+     ]
+    },
+    "request": {}
+   },
+   "route": {
+    "id": "nvidia::free-model",
+    "reason": null
+   },
+   "fallback": "nvidia::free-model",
+   "fallbackPlain": "nvidia::free-model",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "enabled pool empty",
+   "scenario": {
+    "name": "enabled pool empty",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "enabled_models": [
+      "zzz"
+     ]
+    },
+    "request": {}
+   },
+   "error": {
+    "message": "None of the enabled AI models are currently usable. Enable another model in Settings or wait for their recovery window.",
+    "code": "AI_MODELS_UNAVAILABLE"
+   },
+   "fallback": null,
+   "fallbackPlain": null,
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "none available",
+   "scenario": {
+    "name": "none available",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": false,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": false,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": false,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": false,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {}
+   },
+   "error": {
+    "message": "No AI model is available. Add a provider API key in Settings → API keys (or ask your server admin), then try again.",
+    "code": "AI_MODELS_UNAVAILABLE"
+   },
+   "fallback": null,
+   "fallbackPlain": null,
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "none available cooling",
+   "scenario": {
+    "name": "none available cooling",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": false,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": false,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": false,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": false,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden",
+      "runtimeUnavailable": true
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5",
+      "runtimeUnavailable": true
+     }
+    ],
+    "settings": {},
+    "request": {}
+   },
+   "error": {
+    "message": "All AI models are temporarily unavailable after provider errors. The next run will retry after their recovery window.",
+    "code": "AI_MODELS_UNAVAILABLE"
+   },
+   "fallback": null,
+   "fallbackPlain": null,
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "empty",
+   "scenario": {
+    "name": "empty",
+    "models": [],
+    "settings": {},
+    "request": {}
+   },
+   "error": {
+    "message": "No AI model is available. Add a provider API key in Settings → API keys (or ask your server admin), then try again.",
+    "code": "AI_MODELS_UNAVAILABLE"
+   },
+   "fallback": null,
+   "fallbackPlain": null,
+   "ranked": []
+  },
+  {
+   "name": "provider cooling",
+   "scenario": {
+    "name": "provider cooling",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {},
+    "ops": [
+     {
+      "failure": {
+       "selectionId": "anthropic::claude-x",
+       "error": {
+        "status": 401
+       }
+      }
+     }
+    ]
+   },
+   "route": {
+    "id": "openrouter::vendor/model",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "openai::gpt-5-mini",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "model cooling",
+   "scenario": {
+    "name": "model cooling",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {
+     "default_chat_model": "openai::gpt-5"
+    },
+    "request": {},
+    "ops": [
+     {
+      "failure": {
+       "selectionId": "openai::gpt-5",
+       "error": {
+        "status": 404
+       }
+      }
+     }
+    ]
+   },
+   "route": {
+    "id": "anthropic::claude-x",
+    "reason": "requested_model_unavailable"
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "aggregator paid cooling",
+   "scenario": {
+    "name": "aggregator paid cooling",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {
+     "selectionHint": {
+      "costMode": "quality"
+     }
+    },
+    "ops": [
+     {
+      "failure": {
+       "selectionId": "openrouter::vendor/model",
+       "error": {
+        "status": 402
+       }
+      }
+     }
+    ]
+   },
+   "route": {
+    "id": "openai::gpt-5",
+    "reason": null
+   },
+   "fallback": "nous::gpt-5",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "openai::gpt-5",
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "all cooling",
+   "scenario": {
+    "name": "all cooling",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {},
+    "ops": [
+     {
+      "failure": {
+       "selectionId": "openai::x",
+       "error": {
+        "status": 401
+       }
+      }
+     },
+     {
+      "failure": {
+       "selectionId": "anthropic::x",
+       "error": {
+        "status": 401
+       }
+      }
+     },
+     {
+      "failure": {
+       "selectionId": "google::x",
+       "error": {
+        "status": 401
+       }
+      }
+     },
+     {
+      "failure": {
+       "selectionId": "nvidia::x",
+       "error": {
+        "status": 401
+       }
+      }
+     },
+     {
+      "failure": {
+       "selectionId": "openrouter::x",
+       "error": {
+        "status": 401
+       }
+      }
+     },
+     {
+      "failure": {
+       "selectionId": "ollama::x",
+       "error": {
+        "status": 401
+       }
+      }
+     },
+     {
+      "failure": {
+       "selectionId": "nous::x",
+       "error": {
+        "status": 401
+       }
+      }
+     }
+    ]
+   },
+   "error": {
+    "message": "All discovered AI models are temporarily unavailable. The next run will retry after their recovery window.",
+    "code": "AI_MODELS_UNAVAILABLE"
+   },
+   "fallback": null,
+   "fallbackPlain": null,
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  },
+  {
+   "name": "success lifts cooling",
+   "scenario": {
+    "name": "success lifts cooling",
+    "models": [
+     {
+      "id": "openai::gpt-5",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1700000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "expensive",
+      "modelId": "gpt-5"
+     },
+     {
+      "id": "openai::gpt-5-mini",
+      "provider": "openai",
+      "available": true,
+      "createdAt": 1710000000000,
+      "supportsTools": null,
+      "purpose": "fast",
+      "priceTier": "cheap",
+      "modelId": "gpt-5-mini"
+     },
+     {
+      "id": "anthropic::claude-x",
+      "provider": "anthropic",
+      "available": true,
+      "createdAt": 1720000000000,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "claude-x"
+     },
+     {
+      "id": "google::gemini-y",
+      "provider": "google",
+      "available": true,
+      "createdAt": 1730000000000,
+      "supportsTools": false,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "gemini-y"
+     },
+     {
+      "id": "nvidia::free-model",
+      "provider": "nvidia",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "free-model"
+     },
+     {
+      "id": "openrouter::vendor/model",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "medium",
+      "modelId": "vendor/model"
+     },
+     {
+      "id": "openrouter::cheap/one",
+      "provider": "openrouter",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "cheap/one"
+     },
+     {
+      "id": "ollama::llama",
+      "provider": "ollama",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "free",
+      "modelId": "llama"
+     },
+     {
+      "id": "openai::hidden",
+      "provider": "openai",
+      "available": false,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": null,
+      "modelId": "hidden"
+     },
+     {
+      "id": "nous::gpt-5",
+      "provider": "nous",
+      "available": true,
+      "createdAt": null,
+      "supportsTools": null,
+      "purpose": "general",
+      "priceTier": "cheap",
+      "modelId": "gpt-5"
+     }
+    ],
+    "settings": {},
+    "request": {},
+    "ops": [
+     {
+      "failure": {
+       "selectionId": "anthropic::claude-x",
+       "error": {
+        "status": 401
+       }
+      }
+     },
+     {
+      "success": "anthropic::other"
+     }
+    ]
+   },
+   "route": {
+    "id": "anthropic::claude-x",
+    "reason": null
+   },
+   "fallback": "openrouter::vendor/model",
+   "fallbackPlain": "anthropic::claude-x",
+   "ranked": [
+    "anthropic::claude-x",
+    "openrouter::vendor/model",
+    "openai::hidden",
+    "openai::gpt-5-mini",
+    "openrouter::cheap/one",
+    "nous::gpt-5",
+    "openai::gpt-5",
+    "nvidia::free-model",
+    "ollama::llama",
+    "google::gemini-y"
+   ]
+  }
+ ],
+ "neoRouterTask": [
+  {
+   "kind": "coding",
+   "out": "neorouter::auto:smart"
+  },
+  {
+   "kind": "computer_use",
+   "out": "neorouter::auto:smart"
+  },
+  {
+   "kind": "android_use",
+   "out": "neorouter::auto:smart"
+  },
+  {
+   "kind": "research",
+   "out": "neorouter::auto:smart"
+  },
+  {
+   "kind": "other",
+   "out": null
+  },
+  {
+   "kind": null,
+   "out": null
+  }
+ ],
+ "health": {
+  "main": {
+   "models": [
+    "google::gemini-y"
+   ],
+   "providers": [
+    "openai"
+   ],
+   "paid": []
+  },
+  "agent": {
+   "models": [],
+   "providers": [],
+   "paid": [
+    "openrouter"
+   ]
+  },
+  "other": {
+   "models": [],
+   "providers": [],
+   "paid": []
+  },
+  "blocked": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   true,
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "cooling": [
+   true,
+   true,
+   false,
+   false
+  ],
+  "describe": [
+   "provider openai provider_auth HTTP 401 until X"
+  ],
+  "rows": [
+   {
+    "user_id": 1,
+    "agent_id": "agent-7",
+    "provider_id": "openrouter",
+    "model_selection_id": "$paid",
+    "failure_scope": "provider",
+    "failure_class": "provider_billing",
+    "failure_count": 1,
+    "last_status": 402
+   },
+   {
+    "user_id": 1,
+    "agent_id": "main",
+    "provider_id": "openai",
+    "model_selection_id": "*",
+    "failure_scope": "provider",
+    "failure_class": "provider_auth",
+    "failure_count": 1,
+    "last_status": 401
+   },
+   {
+    "user_id": 1,
+    "agent_id": "main",
+    "provider_id": "google",
+    "model_selection_id": "google::gemini-y",
+    "failure_scope": "model",
+    "failure_class": "model_unavailable",
+    "failure_count": 1,
+    "last_status": 404
+   },
+   {
+    "user_id": 2,
+    "agent_id": "main",
+    "provider_id": "google",
+    "model_selection_id": "google::gemini-y",
+    "failure_scope": "model",
+    "failure_class": "model_unavailable",
+    "failure_count": 1,
+    "last_status": 404
+   }
+  ],
+  "countAfterRepeat": 2,
+  "afterSuccess": 0
+ },
+ "taskModels": {
+  "normalize": [
+   {
+    "raw": {
+     "coding": "openai::gpt-5",
+     "research": "bad",
+     "computer_use": " neorouter::auto:smart ",
+     "other": "x::y"
+    },
+    "out": {
+     "coding": "openai::gpt-5",
+     "computer_use": "neorouter::auto:smart"
+    }
+   },
+   {
+    "raw": null,
+    "out": {}
+   },
+   {
+    "raw": [],
+    "out": {}
+   },
+   {
+    "raw": "x",
+    "out": {}
+   },
+   {
+    "raw": {
+     "android_use": "a::auto"
+    },
+    "out": {}
+   }
+  ],
+  "infer": [
+   {
+    "names": [
+     "edit_file",
+     "edit_file",
+     "browser_click"
+    ],
+    "out": "coding"
+   },
+   {
+    "names": [
+     "browser_click",
+     "desktop_type",
+     "web_search",
+     "web_fetch"
+    ],
+    "out": "computer_use"
+   },
+   {
+    "names": [
+     "android_tap"
+    ],
+    "out": "android_use"
+   },
+   {
+    "names": [
+     "memory_save"
+    ],
+    "out": null
+   },
+   {
+    "names": [],
+    "out": null
+   },
+   {
+    "names": null,
+    "out": null
+   },
+   {
+    "names": [
+     "web_x",
+     "edit_file"
+    ],
+    "out": "research"
+   },
+   {
+    "names": [
+     "search_web",
+     "write_file"
+    ],
+    "out": "research"
+   }
+  ],
+  "kinds": [
+   "coding",
+   "computer_use",
+   "android_use",
+   "research"
+  ]
+ },
+ "usage": [
+  {
+   "value": {
+    "inputTokens": 10,
+    "outputTokens": 5
+   },
+   "out": {
+    "inputTokens": 10,
+    "outputTokens": 5,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 15
+   }
+  },
+  {
+   "value": {
+    "prompt_tokens": 7,
+    "completion_tokens": 3,
+    "total_tokens": 20,
+    "prompt_tokens_details": {
+     "cached_tokens": 4
+    },
+    "completion_tokens_details": {
+     "reasoning_tokens": 2
+    }
+   },
+   "out": {
+    "inputTokens": 7,
+    "outputTokens": 3,
+    "reasoningTokens": 2,
+    "cachedReadTokens": 4,
+    "cacheWriteTokens": 0,
+    "totalTokens": 20
+   }
+  },
+  {
+   "value": {
+    "input_tokens": 9,
+    "output_tokens": 1,
+    "cache_read_input_tokens": 3,
+    "cache_creation_input_tokens": 2,
+    "output_tokens_details": {
+     "reasoning_tokens": 1
+    }
+   },
+   "out": {
+    "inputTokens": 9,
+    "outputTokens": 1,
+    "reasoningTokens": 1,
+    "cachedReadTokens": 3,
+    "cacheWriteTokens": 2,
+    "totalTokens": 10
+   }
+  },
+  {
+   "value": {
+    "cachedContentTokenCount": 8,
+    "promptTokens": 1
+   },
+   "out": {
+    "inputTokens": 1,
+    "outputTokens": 0,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 8,
+    "cacheWriteTokens": 0,
+    "totalTokens": 1
+   }
+  },
+  {
+   "value": {
+    "inputTokens": -5,
+    "outputTokens": "x"
+   },
+   "out": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 0
+   }
+  },
+  {
+   "value": {},
+   "out": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 0
+   }
+  },
+  {
+   "value": null,
+   "out": null
+  },
+  {
+   "value": {
+    "inputTokens": 1.9,
+    "outputTokens": 2.2,
+    "totalTokens": 0
+   },
+   "out": {
+    "inputTokens": 1,
+    "outputTokens": 2,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 3
+   }
+  },
+  {
+   "value": {
+    "inputTokens": 0,
+    "prompt_tokens": 50
+   },
+   "out": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 0
+   }
+  }
+ ],
+ "usageMerge": [
+  {
+   "a": {
+    "inputTokens": 10,
+    "outputTokens": 5
+   },
+   "b": {
+    "prompt_tokens": 7,
+    "completion_tokens": 3,
+    "total_tokens": 20,
+    "prompt_tokens_details": {
+     "cached_tokens": 4
+    },
+    "completion_tokens_details": {
+     "reasoning_tokens": 2
+    }
+   },
+   "out": {
+    "inputTokens": 17,
+    "outputTokens": 8,
+    "reasoningTokens": 2,
+    "cachedReadTokens": 4,
+    "cacheWriteTokens": 0,
+    "totalTokens": 35
+   }
+  },
+  {
+   "a": null,
+   "b": {
+    "inputTokens": 10,
+    "outputTokens": 5
+   },
+   "out": {
+    "inputTokens": 10,
+    "outputTokens": 5,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 15
+   }
+  },
+  {
+   "a": null,
+   "b": null,
+   "out": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "reasoningTokens": 0,
+    "cachedReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 0
+   }
+  }
+ ],
+ "grants": [
+  {
+   "raw": "[\"a\",\"b\"]",
+   "out": [
+    "a",
+    "b"
+   ]
+  },
+  {
+   "raw": "[1,\" x \",\"\"]",
+   "out": [
+    "1",
+    "x"
+   ]
+  },
+  {
+   "raw": "not json",
+   "out": []
+  },
+  {
+   "raw": "{\"a\":1}",
+   "out": []
+  },
+  {
+   "raw": "",
+   "out": []
+  },
+  {
+   "raw": null,
+   "out": []
+  }
+ ],
+ "access": [
+  {
+   "disabled": [
+    "a"
+   ],
+   "granted": [
+    "a"
+   ],
+   "out": [
+    {
+     "blocked": true,
+     "adminGranted": false
+    },
+    {
+     "blocked": false,
+     "adminGranted": false
+    }
+   ]
+  },
+  {
+   "disabled": [
+    "a"
+   ],
+   "granted": [],
+   "out": [
+    {
+     "blocked": true,
+     "adminGranted": false
+    },
+    {
+     "blocked": false,
+     "adminGranted": false
+    }
+   ]
+  },
+  {
+   "disabled": [],
+   "granted": [
+    "a"
+   ],
+   "out": [
+    {
+     "blocked": false,
+     "adminGranted": false
+    },
+    {
+     "blocked": false,
+     "adminGranted": false
+    }
+   ]
+  },
+  {
+   "disabled": [
+    "a"
+   ],
+   "granted": [
+    "gpt-5"
+   ],
+   "out": [
+    {
+     "blocked": false,
+     "adminGranted": true
+    },
+    {
+     "blocked": false,
+     "adminGranted": false
+    }
+   ]
+  }
+ ],
+ "visibility": {
+  "steps": [
+   [],
+   [
+    "a",
+    "b"
+   ],
+   [
+    "a",
+    "b"
+   ],
+   true,
+   [
+    "a",
+    "b"
+   ],
+   [
+    "a",
+    "b"
+   ],
+   false,
+   false,
+   [
+    "a",
+    "b",
+    "m4",
+    "m5"
+   ],
+   [
+    "a",
+    "b",
+    "m4",
+    "m5"
+   ],
+   [
+    "a",
+    "b",
+    "m4",
+    "m5"
+   ],
+   [
+    "a",
+    "b",
+    "m4",
+    "m5",
+    "d2"
+   ],
+   true,
+   [
+    "a",
+    "b",
+    "m4",
+    "m5",
+    "d2"
+   ]
+  ],
+  "env": {
+   "NEOAGENT_DISABLED_MODELS": "a,b,m4,m5,d2",
+   "NEOAGENT_AUTO_ENABLE_NEW_MODELS": "true",
+   "NEOAGENT_KNOWN_MODELS": "m1,m2,m3,m4,m5,m6",
+   "NEOAGENT_KNOWN_SYSTEM_ONE_MODELS": "d1,d2"
+  }
+ }
+}

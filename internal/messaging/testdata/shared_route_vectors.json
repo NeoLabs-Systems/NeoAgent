@@ -1,0 +1,205 @@
+[
+ {
+  "label": "tg send dm_77",
+  "result": {
+   "success": true,
+   "messageId": "m1"
+  },
+  "error": null,
+  "calls": [
+   [
+    "send",
+    "dm_77",
+    "hi"
+   ]
+  ]
+ },
+ {
+  "label": "tg send 77",
+  "result": {
+   "success": true,
+   "messageId": "m1"
+  },
+  "error": null,
+  "calls": [
+   [
+    "send",
+    "dm_77",
+    "hi"
+   ]
+  ]
+ },
+ {
+  "label": "tg send other",
+  "result": null,
+  "error": {
+   "message": "The shared telegram account can only message your own linked chat.",
+   "code": "SHARED_RECIPIENT_NOT_ALLOWED"
+  },
+  "calls": []
+ },
+ {
+  "label": "tg typing",
+  "result": null,
+  "error": null,
+  "calls": [
+   [
+    "typing",
+    "dm_77",
+    true
+   ]
+  ]
+ },
+ {
+  "label": "tg reaction",
+  "result": null,
+  "error": {
+   "message": "Platform telegram cannot send reactions",
+   "code": null
+  },
+  "calls": []
+ },
+ {
+  "label": "tg prompt",
+  "result": {
+   "success": true,
+   "messageId": "m1"
+  },
+  "error": null,
+  "calls": [
+   [
+    "send",
+    "dm_77",
+    "Allow?\n\nReply yes"
+   ]
+  ]
+ },
+ {
+  "label": "tg status",
+  "result": "connected",
+  "error": null,
+  "calls": []
+ },
+ {
+  "label": "tg auth",
+  "result": {
+   "shared": true,
+   "label": "Ann"
+  },
+  "error": null,
+  "calls": []
+ },
+ {
+  "label": "tg aliases",
+  "result": [
+   "dm_77",
+   "alias"
+  ],
+  "error": null,
+  "calls": []
+ },
+ {
+  "label": "wa send jid",
+  "result": {
+   "success": true,
+   "messageId": "m1"
+  },
+  "error": null,
+  "calls": [
+   [
+    "send",
+    "4915@s.whatsapp.net",
+    "x"
+   ]
+  ]
+ },
+ {
+  "label": "wa send device jid",
+  "result": {
+   "success": true,
+   "messageId": "m1"
+  },
+  "error": null,
+  "calls": [
+   [
+    "send",
+    "4915@s.whatsapp.net",
+    "x"
+   ]
+  ]
+ },
+ {
+  "label": "wa auth",
+  "result": {
+   "shared": true,
+   "label": null
+  },
+  "error": null,
+  "calls": []
+ },
+ {
+  "label": "broadcast refused",
+  "result": null,
+  "error": {
+   "message": "The shared whatsapp account can only message your own linked chat.",
+   "code": "SHARED_RECIPIENT_NOT_ALLOWED"
+  },
+  "calls": []
+ },
+ {
+  "label": "other agent",
+  "result": null,
+  "error": {
+   "message": "This agent is no longer linked to the shared whatsapp account.",
+   "code": null
+  },
+  "calls": []
+ },
+ {
+  "label": "other agent status",
+  "result": "disconnected",
+  "error": null,
+  "calls": []
+ },
+ {
+  "label": "unlinked",
+  "result": null,
+  "error": {
+   "message": "This agent is no longer linked to the shared telegram account.",
+   "code": null
+  },
+  "calls": []
+ },
+ {
+  "label": "not connected",
+  "result": null,
+  "error": {
+   "message": "The shared telegram account is not connected.",
+   "code": null
+  },
+  "calls": []
+ },
+ {
+  "label": "not connected status",
+  "result": "disconnected",
+  "error": null,
+  "calls": []
+ },
+ {
+  "label": "not connected aliases",
+  "result": [
+   "dm_77"
+  ],
+  "error": null,
+  "calls": []
+ },
+ {
+  "label": "rate limited",
+  "result": null,
+  "error": {
+   "message": "Too many messages through the shared telegram account; try again in a minute.",
+   "code": "SHARED_RATE_LIMITED"
+  },
+  "calls": []
+ }
+]

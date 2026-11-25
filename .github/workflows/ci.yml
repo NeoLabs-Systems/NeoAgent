@@ -10,37 +10,63 @@ on:
     branches:
       - beta
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      NEOLABS_GO_TOKEN:
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
-  backend-test:
-    name: Backend tests (Node ${{ matrix.node-version }})
+  go:
+    name: Go vet, lint, test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [20, 22]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
+          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l cmd internal)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed:"; echo "$unformatted"; exit 1
+          fi
 
-      - name: Run backend tests
-        run: npm run test:backend
+      - name: Vet
+        run: go vet ./...
+
+      - name: Staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+
+      - name: Vulnerability check
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Static build
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            GOOS="${target%/*}" GOARCH="${target#*/}" go build -o /dev/null ./cmd/neoagent
+          done
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH="$arch" go build -o /dev/null ./cmd/neoagent-guest
+          done
+
+      - name: Setup contract is current
+        run: go run ./cmd/neoagent-release setup-contract --check
 
   flutter-test:
     name: Flutter tests
@@ -65,4 +91,5 @@ jobs:
         run: flutter analyze --no-pub
 
       - name: Run Flutter unit and widget tests
-        run: npm run flutter:test
+        working-directory: flutter_app
+        run: flutter test ../test/flutter/unit ../test/flutter/widget

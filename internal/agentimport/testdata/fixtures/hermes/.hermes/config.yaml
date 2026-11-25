@@ -1,0 +1,19 @@
+model:
+  default: gpt-4o
+  provider: custom
+  base_url: http://localhost:8080/v1
+  api_key: local-key
+timezone: Europe/Berlin
+custom_providers:
+  - name: ollama-box
+    base_url: http://box:11434/v1
+  - name: another
+    base_url: https://another.test/v1
+mcp_servers:
+  web:
+    url: https://web.example.test/mcp
+    headers:
+      Authorization: "Bearer ${WEB_TOKEN}"
+  stdio:
+    command: uvx
+    args: [thing]

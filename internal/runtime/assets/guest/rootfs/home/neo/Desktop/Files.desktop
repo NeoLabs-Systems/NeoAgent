@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+Exec=pcmanfm /home/neo/workspace
+Icon=system-file-manager
+Terminal=false

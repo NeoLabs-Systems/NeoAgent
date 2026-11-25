@@ -97,17 +97,13 @@ class LocalSetupEngine {
     required Directory versionDirectory,
     required LocalRuntimePaths paths,
     required LocalBackendSetupProfile profile,
-    required File nodeExecutable,
+    required File executable,
     required String channel,
   }) async {
     _cancelled = false;
-    final cli =
-        '${versionDirectory.path}${Platform.pathSeparator}app'
-        '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js';
     final process = await Process.start(
-      nodeExecutable.path,
+      executable.path,
       <String>[
-        cli,
         'install',
         profile == LocalBackendSetupProfile.full ? '--full' : '--quick',
         '--non-interactive',

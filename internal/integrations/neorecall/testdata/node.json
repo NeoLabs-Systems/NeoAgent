@@ -1,0 +1,1419 @@
+{
+ "agent": "97950a8c-71eb-4d79-bbda-0405681575f7",
+ "now": 1767268800000,
+ "state": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "verifier": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+ "steps": [
+  {
+   "name": "setup before save",
+   "answers": [],
+   "result": {
+    "baseUrl": "",
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get"
+  },
+  {
+   "name": "env before save",
+   "answers": [],
+   "result": {
+    "configured": false,
+    "missing": [
+     "baseUrl"
+    ],
+    "summary": "Add the NeoRecall backend URL to enable personal recall tools.",
+    "setupMode": "user"
+   },
+   "requests": [],
+   "op": "env"
+  },
+  {
+   "name": "save bad url",
+   "answers": [],
+   "error": "NeoRecall backend URL must be HTTP(S), without credentials or a fragment.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "baseUrl": "ftp://x"
+   }
+  },
+  {
+   "name": "save unhealthy",
+   "answers": [
+    {
+     "body": {
+      "status": "ok",
+      "process": "worker"
+     }
+    }
+   ],
+   "error": "The configured endpoint did not identify itself as a healthy NeoRecall HTTP service.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "cloud.example"
+   }
+  },
+  {
+   "name": "save bootstrap rejected",
+   "answers": [
+    {
+     "body": {
+      "status": "ok",
+      "process": "http"
+     }
+    },
+    {
+     "status": 400,
+     "body": {
+      "error": "redirect not allowed"
+     }
+    }
+   ],
+   "error": "NeoRecall rejected NeoAgent OAuth setup (NeoRecall companion bootstrap request failed: redirect not allowed). Confirm NeoAgent PUBLIC_URL is reachable from this browser and uses HTTPS, or HTTP on a private/loopback address, ending at /api/integrations/oauth/callback.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "http://192.168.1.5:8080/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "http://192.168.1.5:8080/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "192.168.1.5:8080/"
+   }
+  },
+  {
+   "name": "save not a companion",
+   "answers": [
+    {
+     "body": {
+      "status": "ok",
+      "process": "http"
+     }
+    },
+    {
+     "body": {
+      "companion": "other"
+     }
+    }
+   ],
+   "error": "The NeoRecall server does not expose the NeoAgent companion OAuth contract.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/root/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/root/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://Cloud.example:443/root/"
+   }
+  },
+  {
+   "name": "save",
+   "answers": [
+    {
+     "body": {
+      "status": "ok",
+      "process": "http"
+     }
+    },
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    }
+   ],
+   "result": {
+    "baseUrl": "https://cloud.example",
+    "configured": true,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://cloud.example/"
+   }
+  },
+  {
+   "name": "env after save",
+   "answers": [],
+   "result": {
+    "configured": true,
+    "missing": [],
+    "summary": "NeoRecall is ready for account connections.",
+    "setupMode": "user"
+   },
+   "requests": [],
+   "op": "env"
+  },
+  {
+   "name": "begin oauth",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback",
+      "scopes": [
+       "search:read"
+      ]
+     }
+    }
+   ],
+   "result": {
+    "url": "https://cloud.example/oauth/authorize?response_type=code&client_id=client-1&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&state=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&code_challenge=w1TpKUdYE9hUAcNSeeSRFioHDxfUxuHho_JHAfZ_vDM&code_challenge_method=S256&scope=search%3Aread"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "begin"
+  },
+  {
+   "name": "finish without refresh token",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {
+      "access_token": "a"
+     }
+    }
+   ],
+   "error": "NeoRecall did not return durable OAuth credentials.",
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=authorization_code&client_id=client-1&code=c&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&code_verifier=vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+    }
+   ],
+   "op": "finish",
+   "code": "c"
+  },
+  {
+   "name": "finish email account",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {
+      "access_token": "a",
+      "refresh_token": "r",
+      "scope": "search:read",
+      "expires_in": 120
+     }
+    },
+    {
+     "body": {
+      "email": "u@example.com"
+     }
+    }
+   ],
+   "result": {
+    "accountEmail": "u@example.com",
+    "scopes": [
+     "search:read"
+    ],
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "a",
+     "refresh_token": "r",
+     "scope": "search:read",
+     "expires_at_ms": 1767268920000
+    },
+    "metadata": {
+     "baseUrl": "https://cloud.example",
+     "username": "",
+     "email": "u@example.com"
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=authorization_code&client_id=client-1&code=c&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&code_verifier=vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/oauth/userinfo",
+     "headers": {
+      "authorization": "Bearer a",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "finish",
+   "code": " c "
+  },
+  {
+   "name": "finish host account",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {
+      "access_token": "a",
+      "refresh_token": "r"
+     }
+    },
+    {
+     "body": {}
+    }
+   ],
+   "result": {
+    "accountEmail": "neorecall:cloud.example",
+    "scopes": [],
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "a",
+     "refresh_token": "r",
+     "scope": "",
+     "expires_at_ms": 1767272400000
+    },
+    "metadata": {
+     "baseUrl": "https://cloud.example",
+     "username": "",
+     "email": null
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=authorization_code&client_id=client-1&code=c&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&code_verifier=vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/oauth/userinfo",
+     "headers": {
+      "authorization": "Bearer a",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "finish",
+   "code": " c "
+  },
+  {
+   "name": "search",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/search?q=dinner&kinds=memory%2Csegment&limit=3",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {
+    "query": "dinner",
+    "kinds": [
+     "memory",
+     " ",
+     "segment"
+    ],
+    "limit": 3
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "search empty kinds",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/search?q=x",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {
+    "query": "x",
+    "kinds": []
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "search needs query",
+   "answers": [],
+   "error": "query is required.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "list memories",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/memories?type=event&from=2026-01-01&pinned=false",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_list_memories",
+   "args": {
+    "type": "event",
+    "from": "2026-01-01",
+    "pinned": false,
+    "archived": null,
+    "topic": ""
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "get memory",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/memories/m%2F1",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_get_memory",
+   "args": {
+    "memory_id": "m/1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "mini memories",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/mini-memories?kind=task&limit=0",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_list_mini_memories",
+   "args": {
+    "kind": "task",
+    "limit": 0
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "daily summaries",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/daily-summaries?from=2026-01-01&to=2026-01-02",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_list_daily_summaries",
+   "args": {
+    "from": "2026-01-01",
+    "to": "2026-01-02"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "conversations",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/conversations?state=done",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_list_conversations",
+   "args": {
+    "state": "done"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "get conversation",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/conversations/c1",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_get_conversation",
+   "args": {
+    "conversation_id": "c1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "unknown tool",
+   "answers": [],
+   "error": "Unsupported NeoRecall tool: neorecall_nope",
+   "requests": [],
+   "op": "exec",
+   "tool": "neorecall_nope",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "refresh then call",
+   "answers": [
+    {
+     "body": {
+      "access_token": "at2",
+      "expires_in": 60,
+      "scope": ""
+     }
+    },
+    {
+     "body": {
+      "items": []
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "items": []
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at2",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767268860000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=refresh_token&client_id=client-1&refresh_token=rt"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/search?q=dinner&kinds=memory%2Csegment&limit=3",
+     "headers": {
+      "authorization": "Bearer at2",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {
+    "query": "dinner",
+    "kinds": [
+     "memory",
+     " ",
+     "segment"
+    ],
+    "limit": 3
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767268830000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "refresh missing",
+   "answers": [],
+   "error": "NeoRecall refresh token is missing. Reconnect the NeoRecall account.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {
+    "query": "dinner",
+    "kinds": [
+     "memory",
+     " ",
+     "segment"
+    ],
+    "limit": 3
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767268830000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "api error",
+   "answers": [
+    {
+     "status": 400,
+     "body": {
+      "error": "Already there",
+      "code": "ALREADY_EXISTS"
+     }
+    }
+   ],
+   "error": "NeoRecall API request failed: Already there",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/search?q=dinner&kinds=memory%2Csegment&limit=3",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {
+    "query": "dinner",
+    "kinds": [
+     "memory",
+     " ",
+     "segment"
+    ],
+    "limit": 3
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "api error after refresh",
+   "answers": [
+    {
+     "body": {
+      "access_token": "at3",
+      "refresh_token": "rt3",
+      "expires_in": 100
+     }
+    },
+    {
+     "status": 400,
+     "body": {
+      "error": "Conflict: CONFLICT",
+      "code": "CONFLICT"
+     }
+    }
+   ],
+   "error": "NeoRecall API request failed: Conflict: CONFLICT",
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=refresh_token&client_id=client-1&refresh_token=rt"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/search?q=dinner&kinds=memory%2Csegment&limit=3",
+     "headers": {
+      "authorization": "Bearer at3",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {
+    "query": "dinner",
+    "kinds": [
+     "memory",
+     " ",
+     "segment"
+    ],
+    "limit": 3
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767268830000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "empty answer",
+   "answers": [
+    {
+     "status": 204
+    }
+   ],
+   "result": {
+    "result": null,
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/search?q=dinner&kinds=memory%2Csegment&limit=3",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neorecall_search",
+   "args": {
+    "query": "dinner",
+    "kinds": [
+     "memory",
+     " ",
+     "segment"
+    ],
+    "limit": 3
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "search:read",
+    "memories:read",
+    "recordings:read"
+   ]
+  },
+  {
+   "name": "test connection",
+   "answers": [
+    {
+     "body": {
+      "access_token": "at4"
+     }
+    },
+    {
+     "body": {
+      "sub": "u"
+     }
+    }
+   ],
+   "result": {
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at4",
+     "refresh_token": "rt",
+     "scope": "search:read memories:read recordings:read",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=refresh_token&client_id=client-1&refresh_token=rt"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/oauth/userinfo",
+     "headers": {
+      "authorization": "Bearer at4",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "test",
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767268830000
+   }
+  },
+  {
+   "name": "disconnect",
+   "answers": [
+    {
+     "body": {}
+    },
+    {
+     "status": 400,
+     "body": {
+      "error": "bad token"
+     }
+    }
+   ],
+   "error": "NeoRecall OAuth revocation request failed: bad token",
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=rt"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=at"
+    }
+   ],
+   "op": "disconnect",
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   }
+  },
+  {
+   "name": "add account",
+   "op": "upsert",
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   }
+  },
+  {
+   "name": "setup with account",
+   "answers": [],
+   "result": {
+    "baseUrl": "https://cloud.example",
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true
+   },
+   "requests": [],
+   "op": "get"
+  },
+  {
+   "name": "save new server removes accounts",
+   "answers": [
+    {
+     "body": {
+      "status": "ok",
+      "process": "http"
+     }
+    },
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {}
+    },
+    {
+     "body": {}
+    }
+   ],
+   "result": {
+    "baseUrl": "https://other.example",
+    "configured": true,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://other.example/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "https://other.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=rt"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=at"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://other.example"
+   }
+  },
+  {
+   "name": "add account again",
+   "op": "upsert",
+   "credentials": {
+    "baseUrl": "https://other.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "search:read memories:read recordings:read",
+    "expires_at_ms": 1767272400000
+   }
+  },
+  {
+   "name": "clear",
+   "answers": [
+    {
+     "body": {}
+    },
+    {
+     "body": {}
+    }
+   ],
+   "result": {
+    "cleared": true
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://other.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=rt"
+    },
+    {
+     "method": "POST",
+     "url": "https://other.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=at"
+    }
+   ],
+   "op": "clear"
+  },
+  {
+   "name": "setup after clear",
+   "answers": [],
+   "result": {
+    "baseUrl": "",
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get"
+  }
+ ]
+}

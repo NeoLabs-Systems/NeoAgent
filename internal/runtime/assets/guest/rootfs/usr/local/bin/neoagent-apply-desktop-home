@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+install -d -m 0755 /home/neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
+cp -a /usr/share/neoagent/desktop-skel/. /home/neo/
+chmod 0755 /home/neo/Desktop/*.desktop
+chown -R neo:neo /home/neo/.config /home/neo/Desktop /home/neo/Downloads /home/neo/workspace

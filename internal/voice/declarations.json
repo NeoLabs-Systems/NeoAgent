@@ -1,0 +1,59 @@
+[
+  {
+    "name": "run_task",
+    "description": "Start new work in the NeoAgent task runtime, which does it with the owner's tools, integrations, memory, and approvals. Returns at once with the task_id while the task runs in the background, so the conversation can go on and more tasks can start. Progress and the outcome, success or failure, arrive later as separate messages.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "request": {
+          "type": "STRING",
+          "description": "The complete, self-contained request in the owner's words, including every detail from the conversation the task needs."
+        }
+      },
+      "required": [
+        "request"
+      ]
+    }
+  },
+  {
+    "name": "check_tasks",
+    "description": "See how the owner's running tasks are going right now: each task_id, request, status, how long it has been running, and its latest steps."
+  },
+  {
+    "name": "update_task",
+    "description": "Pass a change, an addition, or the owner's answer to its question on to a running task; it applies it at its next step.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "task_id": {
+          "type": "STRING",
+          "description": "The task_id from run_task or check_tasks. May be left out when only one task is running."
+        },
+        "instruction": {
+          "type": "STRING",
+          "description": "The change in the owner's words, complete enough to apply without the conversation."
+        }
+      },
+      "required": [
+        "instruction"
+      ]
+    }
+  },
+  {
+    "name": "cancel_task",
+    "description": "Stop a running task.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "task_id": {
+          "type": "STRING",
+          "description": "The task_id from run_task or check_tasks. May be left out when only one task is running."
+        }
+      }
+    }
+  },
+  {
+    "name": "end_call",
+    "description": "Hang up the call. Use it when the conversation is over or the owner wants to end the call, after you have said goodbye; nothing can be said after it. Tasks already running keep going and report in chat."
+  }
+]

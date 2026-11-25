@@ -173,12 +173,7 @@ class LocalRuntimeManager {
   }
 
   bool _runtimeFilesExist(Directory versionDirectory) {
-    final node = _activationService.nodeExecutable(versionDirectory);
-    final cli = File(
-      '${versionDirectory.path}${_paths.separator}app'
-      '${_paths.separator}bin${_paths.separator}neoagent.js',
-    );
-    return node.existsSync() && cli.existsSync();
+    return _activationService.runtimeExecutable(versionDirectory).existsSync();
   }
 
   Future<List<Map<String, dynamic>>> _runCli(
@@ -186,13 +181,9 @@ class LocalRuntimeManager {
     List<String> arguments, {
     Duration timeout = const Duration(seconds: 20),
   }) async {
-    final node = _activationService.nodeExecutable(versionDirectory);
-    final cli =
-        '${versionDirectory.path}${_paths.separator}app'
-        '${_paths.separator}bin${_paths.separator}neoagent.js';
     final process = await Process.start(
-      node.path,
-      <String>[cli, ...arguments],
+      _activationService.runtimeExecutable(versionDirectory).path,
+      arguments,
       environment: <String, String>{
         ...Platform.environment,
         'NEOAGENT_HOME': _paths.runtimeHome,

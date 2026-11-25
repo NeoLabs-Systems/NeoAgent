@@ -1,0 +1,279 @@
+{
+ "a.js": {
+  "parseErrors": [],
+  "symbols": [
+   {
+    "name": "answer",
+    "type": "VariableDeclaration",
+    "startLine": 4,
+    "endLine": 4,
+    "excerpt": "const answer = 42;"
+   },
+   {
+    "name": "template",
+    "type": "VariableDeclaration",
+    "startLine": 5,
+    "endLine": 5,
+    "excerpt": "let template = `value ${ { a: 1 }.a } and } brace`;"
+   },
+   {
+    "name": "re",
+    "type": "VariableDeclaration",
+    "startLine": 6,
+    "endLine": 6,
+    "excerpt": "var re = /}\\/{/g, other = 1"
+   },
+   {
+    "name": "plain",
+    "type": "FunctionDeclaration",
+    "startLine": 7,
+    "endLine": 10,
+    "excerpt": "function plain(a, b = { c: 1 }) {\n  if (a) { return \"}\"; }\n  return b;\n}"
+   },
+   {
+    "name": "gen",
+    "type": "FunctionDeclaration",
+    "startLine": 11,
+    "endLine": 11,
+    "excerpt": "async function* gen() { yield 1; }"
+   },
+   {
+    "name": "Animal",
+    "type": "ClassDeclaration",
+    "startLine": 12,
+    "endLine": 15,
+    "excerpt": "class Animal extends Base {\n  constructor() { super(); this.s = '{'; }\n  speak() { return `${this.s}}`; }\n}"
+   }
+  ]
+ },
+ "b.ts": {
+  "parseErrors": [],
+  "symbols": [
+   {
+    "name": "Shape",
+    "type": "TSInterfaceDeclaration",
+    "startLine": 2,
+    "endLine": 5,
+    "excerpt": "interface Shape {\n  area(): number;\n  nested: { a: string };\n}"
+   },
+   {
+    "name": "Id",
+    "type": "TSTypeAliasDeclaration",
+    "startLine": 6,
+    "endLine": 6,
+    "excerpt": "type Id = string | number;"
+   },
+   {
+    "name": "Pair",
+    "type": "TSTypeAliasDeclaration",
+    "startLine": 7,
+    "endLine": 7,
+    "excerpt": "type Pair<T> = [T, T];"
+   },
+   {
+    "name": "Color",
+    "type": "TSEnumDeclaration",
+    "startLine": 8,
+    "endLine": 8,
+    "excerpt": "enum Color { Red, Green = 'g' }"
+   },
+   {
+    "name": "Flag",
+    "type": "TSEnumDeclaration",
+    "startLine": 9,
+    "endLine": 9,
+    "excerpt": "const enum Flag { A = 1 }"
+   },
+   {
+    "name": "default",
+    "type": "FunctionDeclaration",
+    "startLine": 10,
+    "endLine": 12,
+    "excerpt": "function () {\n  return 1;\n}"
+   },
+   {
+    "name": "Base",
+    "type": "ClassDeclaration",
+    "startLine": 13,
+    "endLine": 15,
+    "excerpt": "abstract class Base<T> implements Shape {\n  abstract area(): number;\n}"
+   },
+   {
+    "name": "handler",
+    "type": "VariableDeclaration",
+    "startLine": 16,
+    "endLine": 18,
+    "excerpt": "const handler = async (req: Request): Promise<void> => {\n  await fetch(req);\n};"
+   },
+   {
+    "name": "overload",
+    "type": "FunctionDeclaration",
+    "startLine": 20,
+    "endLine": 20,
+    "excerpt": "function overload(a: any) { return a; }"
+   },
+   {
+    "name": "arrow",
+    "type": "VariableDeclaration",
+    "startLine": 24,
+    "endLine": 24,
+    "excerpt": "const arrow = (x: number) => x * 2"
+   },
+   {
+    "name": "second",
+    "type": "VariableDeclaration",
+    "startLine": 25,
+    "endLine": 25,
+    "excerpt": "const second = 2;"
+   }
+  ]
+ },
+ "c.tsx": {
+  "parseErrors": [],
+  "symbols": [
+   {
+    "name": "App",
+    "type": "VariableDeclaration",
+    "startLine": 2,
+    "endLine": 5,
+    "excerpt": "const App = () => {\n  const s = \"</div>\";\n  return <div className=\"x\">{s}{'}'}</div>;\n};"
+   },
+   {
+    "name": "Page",
+    "type": "ClassDeclaration",
+    "startLine": 6,
+    "endLine": 8,
+    "excerpt": "class Page extends React.Component {\n  render() { return <App />; }\n}"
+   }
+  ]
+ },
+ "d.mjs": {
+  "parseErrors": [],
+  "symbols": [
+   {
+    "name": "config",
+    "type": "VariableDeclaration",
+    "startLine": 1,
+    "endLine": 3,
+    "excerpt": "const config = {\n  a: [1, 2, { b: '}' }],\n}"
+   },
+   {
+    "name": "counter",
+    "type": "VariableDeclaration",
+    "startLine": 4,
+    "endLine": 4,
+    "excerpt": "let counter = 0"
+   },
+   {
+    "name": "inc",
+    "type": "FunctionDeclaration",
+    "startLine": 5,
+    "endLine": 5,
+    "excerpt": "function inc() { counter++ }"
+   },
+   {
+    "name": "é",
+    "type": "VariableDeclaration",
+    "startLine": 6,
+    "endLine": 6,
+    "excerpt": "const é = 'ünicode 😀 }';"
+   },
+   {
+    "name": "after",
+    "type": "FunctionDeclaration",
+    "startLine": 7,
+    "endLine": 7,
+    "excerpt": "function after() {}"
+   }
+  ]
+ },
+ "e.ts": {
+  "parseErrors": [],
+  "symbols": [
+   {
+    "name": "named",
+    "type": "FunctionDeclaration",
+    "startLine": 5,
+    "endLine": 7,
+    "excerpt": "async function named(): Promise<{ ok: boolean }> {\n  const r = /\\/\\*not a comment/.test('x'); return { ok: r };\n}"
+   },
+   {
+    "name": "a",
+    "type": "VariableDeclaration",
+    "startLine": 8,
+    "endLine": 8,
+    "excerpt": "let a = 1, b = 2;"
+   },
+   {
+    "name": "fn",
+    "type": "VariableDeclaration",
+    "startLine": 9,
+    "endLine": 12,
+    "excerpt": "var fn = function () {\n  return a\n    + b;\n};"
+   },
+   {
+    "name": "multi",
+    "type": "VariableDeclaration",
+    "startLine": 13,
+    "endLine": 15,
+    "excerpt": "const multi =\n  'line one' +\n  'line two';"
+   },
+   {
+    "name": "divide",
+    "type": "FunctionDeclaration",
+    "startLine": 16,
+    "endLine": 16,
+    "excerpt": "function divide(x) { return x / 2 / 1; }"
+   },
+   {
+    "name": "ratio",
+    "type": "VariableDeclaration",
+    "startLine": 17,
+    "endLine": 17,
+    "excerpt": "const ratio = a / b;"
+   },
+   {
+    "name": "next",
+    "type": "VariableDeclaration",
+    "startLine": 17,
+    "endLine": 17,
+    "excerpt": "const next = 3;"
+   },
+   {
+    "name": "Decorated",
+    "type": "ClassDeclaration",
+    "startLine": 18,
+    "endLine": 19,
+    "excerpt": "@decorator()\nclass Decorated {}"
+   },
+   {
+    "name": "Mapped",
+    "type": "TSTypeAliasDeclaration",
+    "startLine": 20,
+    "endLine": 22,
+    "excerpt": "type Mapped<T> = {\n  [K in keyof T]: T[K];\n};"
+   },
+   {
+    "name": "Merge",
+    "type": "TSInterfaceDeclaration",
+    "startLine": 23,
+    "endLine": 23,
+    "excerpt": "interface Merge extends A, B<{ x: 1 }> { y: string }"
+   },
+   {
+    "name": "obj",
+    "type": "VariableDeclaration",
+    "startLine": 24,
+    "endLine": 26,
+    "excerpt": "const obj = {\n  get value() { return 1 },\n};"
+   },
+   {
+    "name": "last",
+    "type": "FunctionDeclaration",
+    "startLine": 28,
+    "endLine": 28,
+    "excerpt": "async function last() {}"
+   }
+  ]
+ }
+}

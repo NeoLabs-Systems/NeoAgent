@@ -1,0 +1,208 @@
+{
+ "identities": {
+  "42": {
+   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+   "platform": "MacIntel",
+   "viewport": {
+    "width": 1280,
+    "height": 720
+   },
+   "webglVendor": "Google Inc. (Apple)",
+   "webglRenderer": "ANGLE (Apple, Apple M1, OpenGL 4.1)",
+   "hardwareConcurrency": 12,
+   "deviceMemory": 4
+  },
+  "default": {
+   "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+   "platform": "Linux x86_64",
+   "viewport": {
+    "width": 1366,
+    "height": 768
+   },
+   "webglVendor": "Google Inc. (Intel)",
+   "webglRenderer": "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620, OpenGL 4.6)",
+   "hardwareConcurrency": 16,
+   "deviceMemory": 8
+  },
+  "/home/neo/.neoagent/data/browser-profiles/default": {
+   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+   "platform": "MacIntel",
+   "viewport": {
+    "width": 1366,
+    "height": 768
+   },
+   "webglVendor": "Google Inc. (Apple)",
+   "webglRenderer": "ANGLE (Apple, Apple M1, OpenGL 4.1)",
+   "hardwareConcurrency": 12,
+   "deviceMemory": 8
+  },
+  "user-7": {
+   "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+   "platform": "Win32",
+   "viewport": {
+    "width": 1366,
+    "height": 768
+   },
+   "webglVendor": "Google Inc. (NVIDIA)",
+   "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+   "hardwareConcurrency": 4,
+   "deviceMemory": 8
+  },
+  "": {
+   "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+   "platform": "Linux x86_64",
+   "viewport": {
+    "width": 1366,
+    "height": 768
+   },
+   "webglVendor": "Google Inc. (Intel)",
+   "webglRenderer": "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620, OpenGL 4.6)",
+   "hardwareConcurrency": 16,
+   "deviceMemory": 8
+  },
+  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+   "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+   "platform": "Linux x86_64",
+   "viewport": {
+    "width": 1280,
+    "height": 720
+   },
+   "webglVendor": "Google Inc. (Intel)",
+   "webglRenderer": "ANGLE (Intel, Mesa Intel(R) UHD Graphics 620, OpenGL 4.6)",
+   "hardwareConcurrency": 16,
+   "deviceMemory": 16
+  }
+ },
+ "challenges": [
+  {
+   "input": {
+    "title": "Just a moment..."
+   },
+   "result": {
+    "detected": true,
+    "provider": "cloudflare"
+   }
+  },
+  {
+   "input": {
+    "html": "<input name=\"cf-turnstile-response\">"
+   },
+   "result": {
+    "detected": true,
+    "provider": "cloudflare"
+   }
+  },
+  {
+   "input": {
+    "url": "https://site/cdn-cgi/challenge-platform/h/b"
+   },
+   "result": {
+    "detected": true,
+    "provider": "cloudflare"
+   }
+  },
+  {
+   "input": {
+    "pageContent": "Please verify you are a human"
+   },
+   "result": {
+    "detected": true,
+    "provider": "perimeterx"
+   }
+  },
+  {
+   "input": {
+    "html": "PRESS & HOLD TO CONFIRM"
+   },
+   "result": {
+    "detected": true,
+    "provider": "perimeterx"
+   }
+  },
+  {
+   "input": {
+    "html": "<script src=\"https://geo.captcha-delivery.com/x.js\">"
+   },
+   "result": {
+    "detected": true,
+    "provider": "datadome"
+   }
+  },
+  {
+   "input": {
+    "text": "We detected unusual traffic from your network"
+   },
+   "result": {
+    "detected": true,
+    "provider": "generic"
+   }
+  },
+  {
+   "input": {
+    "title": "Are you a robot?"
+   },
+   "result": {
+    "detected": true,
+    "provider": "generic"
+   }
+  },
+  {
+   "input": {
+    "pageContent": "Complete the security check to continue"
+   },
+   "result": {
+    "detected": true,
+    "provider": "generic"
+   }
+  },
+  {
+   "input": {
+    "title": "Welcome",
+    "html": "<p>hello</p>",
+    "url": "https://example.com"
+   },
+   "result": {
+    "detected": false,
+    "provider": null
+   }
+  },
+  {
+   "input": {},
+   "result": {
+    "detected": false,
+    "provider": null
+   }
+  }
+ ],
+ "referrer": {
+  "direct": "direct",
+  "GOOGLE": "google",
+  " current ": "current",
+  "other": "direct",
+  "": "direct"
+ },
+ "waitUntil": {
+  "networkidle0": "networkidle",
+  "networkidle2": "networkidle",
+  "LOAD": "load",
+  "domcontentloaded": "domcontentloaded",
+  "networkidle": "networkidle",
+  "commit": "commit",
+  "x": "domcontentloaded",
+  "": "domcontentloaded"
+ },
+ "isolated": [
+  [
+   "1 + 1",
+   "(() => eval(\"1 + 1\"))()"
+  ],
+  [
+   "const a = \"q\\u2028\"; a",
+   "(() => eval(\"const a = \\\"q\\\\u2028\\\"; a\"))()"
+  ],
+  [
+   "",
+   "(() => eval(\"undefined\"))()"
+  ]
+ ]
+}

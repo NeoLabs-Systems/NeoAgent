@@ -1,0 +1,946 @@
+{
+  "key": "nextcloud",
+  "label": "Nextcloud",
+  "description": "Connect a Nextcloud instance so agents can manage files, shares, calendars, and contacts.",
+  "icon": "nextcloud",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "files",
+      "label": "Files",
+      "description": "Browse, search, upload, share, and restore files in a connected Nextcloud account."
+    },
+    {
+      "id": "calendar",
+      "label": "Calendar",
+      "description": "List calendars and create, update, or delete events in Nextcloud Calendar."
+    },
+    {
+      "id": "contacts",
+      "label": "Contacts",
+      "description": "List address books and create, update, or delete Nextcloud contacts."
+    }
+  ],
+  "connectPrompt": "Add your Nextcloud URL once, then sign in on the Nextcloud login page.",
+  "supportsMultipleAccounts": true,
+  "connectionMethod": "user_config",
+  "tools": [
+    {
+      "name": "nextcloud_list_files",
+      "access": "read",
+      "description": "List files and folders in a Nextcloud path. Omit path for the account root. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Folder path relative to the user root, for example Documents."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": []
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_search_files",
+      "access": "read",
+      "description": "Search Nextcloud files by name or content using unified search. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum results, default 20."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_read_file",
+      "access": "read",
+      "description": "Read a small text file from Nextcloud. Use nextcloud_download_file for binary or large files. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path relative to the user root."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_download_file",
+      "access": "read",
+      "description": "Download a Nextcloud file to a local destination path. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Remote Nextcloud file path."
+          },
+          "destination_path": {
+            "type": "string",
+            "description": "Absolute local file path to write."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path",
+          "destination_path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_upload_file",
+      "access": "write",
+      "fileArgs": [
+        "file_path"
+      ],
+      "description": "Upload a file from your workspace into Nextcloud. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "The file to upload: a path in your workspace or an owned artifact."
+          },
+          "path": {
+            "type": "string",
+            "description": "Destination Nextcloud path, including file name."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "file_path",
+          "path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_write_file",
+      "access": "write",
+      "description": "Create or overwrite a Nextcloud text file with the given content. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Destination Nextcloud path."
+          },
+          "content": {
+            "type": "string",
+            "description": "File contents to write."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_mkdir",
+      "access": "write",
+      "description": "Create a Nextcloud folder. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Folder path to create."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_move_file",
+      "access": "write",
+      "description": "Move or rename a Nextcloud file or folder. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Current Nextcloud path."
+          },
+          "destination": {
+            "type": "string",
+            "description": "New Nextcloud path."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "Overwrite an existing destination. Defaults to false."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path",
+          "destination"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_copy_file",
+      "access": "write",
+      "description": "Copy a Nextcloud file or folder. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Source Nextcloud path."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Destination Nextcloud path."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "Overwrite an existing destination. Defaults to false."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path",
+          "destination"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_delete_file",
+      "access": "write",
+      "description": "Delete a Nextcloud file or folder. Deleted items go to trash when trash is enabled. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Nextcloud path to delete."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_list_shares",
+      "access": "read",
+      "description": "List Nextcloud shares the connected account made, or those shared with it, optionally filtered by path. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Optional file or folder path to filter shares."
+          },
+          "shared_with_me": {
+            "type": "boolean",
+            "description": "List shares other people made with this account instead."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": []
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_create_share",
+      "access": "write",
+      "description": "Create a Nextcloud share. share_type 3 is a public link, 0 is a user, 1 is a group. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File or folder path to share."
+          },
+          "share_type": {
+            "type": "number",
+            "description": "Nextcloud share type. Defaults to 3 (public link)."
+          },
+          "share_with": {
+            "type": "string",
+            "description": "User, group, or email for non-link shares."
+          },
+          "permissions": {
+            "type": "number",
+            "description": "Share permissions bitmask. Defaults to 1 (read)."
+          },
+          "password": {
+            "type": "string",
+            "description": "Optional password for a public link."
+          },
+          "expire_date": {
+            "type": "string",
+            "description": "Optional expiration date YYYY-MM-DD."
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional share note."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_delete_share",
+      "access": "write",
+      "description": "Delete a Nextcloud share by share id. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "description": "Share id from nextcloud_list_shares."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "share_id"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_list_trash",
+      "access": "read",
+      "description": "List items in the Nextcloud trash bin. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": []
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_restore_trash",
+      "access": "write",
+      "description": "Restore a Nextcloud trash item by the path returned from nextcloud_list_trash. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "trash_path": {
+            "type": "string",
+            "description": "Trash item path from nextcloud_list_trash."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "trash_path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_ocs_request",
+      "access": "dynamic_http_method",
+      "description": "Make an authenticated Nextcloud OCS request under /ocs/v2.php/ for apps such as Notes or Deck. Talk messaging stays in Settings → Messaging. When multiple Files accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "description": "HTTP method: GET, POST, PUT, PATCH, or DELETE."
+          },
+          "path": {
+            "type": "string",
+            "description": "Path starting with /ocs/v2.php/."
+          },
+          "query": {
+            "type": "object",
+            "description": "Optional query parameters."
+          },
+          "body": {
+            "type": "object",
+            "description": "Optional JSON request body."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Files account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Files account email or identifier."
+          }
+        },
+        "required": [
+          "method",
+          "path"
+        ]
+      },
+      "appId": "files"
+    },
+    {
+      "name": "nextcloud_list_calendars",
+      "access": "read",
+      "description": "List CalDAV calendars for the connected Nextcloud account. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": []
+      },
+      "appId": "calendar"
+    },
+    {
+      "name": "nextcloud_list_events",
+      "access": "read",
+      "description": "List events in a Nextcloud calendar. Defaults to the next 30 days when start/end are omitted. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar": {
+            "type": "string",
+            "description": "Calendar path from nextcloud_list_calendars."
+          },
+          "start": {
+            "type": "string",
+            "description": "Inclusive ISO-8601 lower bound."
+          },
+          "end": {
+            "type": "string",
+            "description": "Exclusive ISO-8601 upper bound."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "calendar"
+        ]
+      },
+      "appId": "calendar"
+    },
+    {
+      "name": "nextcloud_get_event",
+      "access": "read",
+      "description": "Get one Nextcloud calendar event by calendar path and event path. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar": {
+            "type": "string",
+            "description": "Calendar path."
+          },
+          "event_path": {
+            "type": "string",
+            "description": "Event href path, for example personal/event.ics."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "calendar",
+          "event_path"
+        ]
+      },
+      "appId": "calendar"
+    },
+    {
+      "name": "nextcloud_create_event",
+      "access": "write",
+      "description": "Create a Nextcloud calendar event. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar": {
+            "type": "string",
+            "description": "Calendar path."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Event title."
+          },
+          "start": {
+            "type": "string",
+            "description": "Start ISO datetime or YYYY-MM-DD."
+          },
+          "end": {
+            "type": "string",
+            "description": "End ISO datetime or YYYY-MM-DD."
+          },
+          "description": {
+            "type": "string",
+            "description": "Event description."
+          },
+          "location": {
+            "type": "string",
+            "description": "Event location."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "calendar",
+          "summary",
+          "start",
+          "end"
+        ]
+      },
+      "appId": "calendar"
+    },
+    {
+      "name": "nextcloud_update_event",
+      "access": "write",
+      "description": "Replace a Nextcloud calendar event. Include the full replacement fields. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar": {
+            "type": "string",
+            "description": "Calendar path."
+          },
+          "event_path": {
+            "type": "string",
+            "description": "Existing event path."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Event title."
+          },
+          "start": {
+            "type": "string",
+            "description": "Start ISO datetime or YYYY-MM-DD."
+          },
+          "end": {
+            "type": "string",
+            "description": "End ISO datetime or YYYY-MM-DD."
+          },
+          "description": {
+            "type": "string",
+            "description": "Event description."
+          },
+          "location": {
+            "type": "string",
+            "description": "Event location."
+          },
+          "uid": {
+            "type": "string",
+            "description": "Optional UID to preserve."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "calendar",
+          "event_path",
+          "summary",
+          "start",
+          "end"
+        ]
+      },
+      "appId": "calendar"
+    },
+    {
+      "name": "nextcloud_delete_event",
+      "access": "write",
+      "description": "Delete a Nextcloud calendar event. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar": {
+            "type": "string",
+            "description": "Calendar path."
+          },
+          "event_path": {
+            "type": "string",
+            "description": "Event path from nextcloud_list_events."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "calendar",
+          "event_path"
+        ]
+      },
+      "appId": "calendar"
+    },
+    {
+      "name": "nextcloud_list_addressbooks",
+      "access": "read",
+      "description": "List CardDAV address books for the connected Nextcloud account. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": []
+      },
+      "appId": "contacts"
+    },
+    {
+      "name": "nextcloud_list_contacts",
+      "access": "read",
+      "description": "List contacts in a Nextcloud address book. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "addressbook": {
+            "type": "string",
+            "description": "Address book path from nextcloud_list_addressbooks."
+          },
+          "query": {
+            "type": "string",
+            "description": "Optional name or email filter."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": [
+          "addressbook"
+        ]
+      },
+      "appId": "contacts"
+    },
+    {
+      "name": "nextcloud_get_contact",
+      "access": "read",
+      "description": "Get one Nextcloud contact by address book and contact path. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "addressbook": {
+            "type": "string",
+            "description": "Address book path."
+          },
+          "contact_path": {
+            "type": "string",
+            "description": "Contact href path, for example contacts/person.vcf."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": [
+          "addressbook",
+          "contact_path"
+        ]
+      },
+      "appId": "contacts"
+    },
+    {
+      "name": "nextcloud_create_contact",
+      "access": "write",
+      "description": "Create a Nextcloud contact in an address book. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "addressbook": {
+            "type": "string",
+            "description": "Address book path."
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number."
+          },
+          "organization": {
+            "type": "string",
+            "description": "Organization name."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": [
+          "addressbook",
+          "full_name"
+        ]
+      },
+      "appId": "contacts"
+    },
+    {
+      "name": "nextcloud_update_contact",
+      "access": "write",
+      "description": "Replace a Nextcloud contact. Include the full replacement fields. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "addressbook": {
+            "type": "string",
+            "description": "Address book path."
+          },
+          "contact_path": {
+            "type": "string",
+            "description": "Existing contact path."
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number."
+          },
+          "organization": {
+            "type": "string",
+            "description": "Organization name."
+          },
+          "uid": {
+            "type": "string",
+            "description": "Optional UID to preserve."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": [
+          "addressbook",
+          "contact_path",
+          "full_name"
+        ]
+      },
+      "appId": "contacts"
+    },
+    {
+      "name": "nextcloud_delete_contact",
+      "access": "write",
+      "description": "Delete a Nextcloud contact. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "addressbook": {
+            "type": "string",
+            "description": "Address book path."
+          },
+          "contact_path": {
+            "type": "string",
+            "description": "Contact path from nextcloud_list_contacts."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": [
+          "addressbook",
+          "contact_path"
+        ]
+      },
+      "appId": "contacts"
+    }
+  ]
+}

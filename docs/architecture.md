@@ -6,12 +6,12 @@ description: How the server, clients, persistence layer, and execution runtimes 
 
 # Architecture
 
-**One Node.js service owns accounts, agents, tools, memory and automation; every app, chat platform and device is a client of it.**
+**One Go service owns accounts, agents, tools, memory and automation; every app, chat platform and device is a client of it.**
 
 ```text
 Clients    Flutter apps · messaging platforms · task webhooks · wearable
    │
-Edge       Express routes · Socket.IO · WebSocket gateways
+Edge       HTTP routes · Socket.IO · WebSocket gateways
    │
 Services   agent engine · tasks · integrations · messaging · memory · voice
    │
@@ -24,52 +24,52 @@ State      SQLite and files under NEOAGENT_HOME
 
 | Path | Contents |
 |---|---|
-| `server/index.js` | Entry point: HTTP server, Socket.IO, gateways, service startup |
-| `server/http/` | Middleware, route table (`routes.js`), Socket.IO setup, static files, error handler |
-| `server/routes/` | One thin Express router per domain |
-| `server/services/` | Business logic, one directory per domain |
-| `server/db/` | SQLite connection, base schema, HTTP session store |
-| `server/guest_agent.js` | HTTP agent that runs inside the cloud computer |
-| `lib/` | `neoagent` CLI (`manager.js`, `cli/`), setup engine (`setup/`), schema migrations |
-| `runtime/` | Runtime paths, env parsing, release channel |
-| `bin/` | `neoagent.js` (CLI) and `neoagent-bootstrap.js` (standalone CLI entry) |
+| `cmd/neoagent/` | The `neoagent` binary: the server (`neoagent serve`) and the CLI |
+| `cmd/neoagent-guest/` | HTTP agent that runs inside the cloud computer |
+| `cmd/neoagent-release/` | Release tooling: runtime archives, signed manifests, setup contract |
+| `internal/httpserver/` | Security headers, origin checks, static clients, error pages |
+| `internal/wiring/` | Builds every domain once and connects them; mounts the routes |
+| `internal/<domain>/` | One package per domain: routes and business logic |
+| `internal/schema/` | SQLite base schema and ordered migration steps |
+| `internal/manager/` | CLI commands: install, update, service, backup |
 | `flutter_app/` | Flutter client for web, Android, macOS, Windows and Linux |
+| `public/` | The built web client, served at `/app` |
 | `firmware/` | ESP32-S3 wearable firmware (ESP-IDF) |
 | `landing/` | Landing page at `/` and status page at `/status` |
-| `scripts/` | Release, runtime staging and signing helpers |
-| `test/` | Backend, security, contract, e2e, WebSocket, Flutter and install tests |
+| `website/` | Docusaurus site for these docs |
+| `test/flutter/` | Flutter unit and widget tests; Go tests sit next to their packages |
+
+Shared building blocks (sessions, sign-in, sealed secrets, rate limits, SSRF-safe HTTP, LLM clients, the CLI shell) come from the [`neolabs-go`](https://github.com/NeoLabs-Systems/neolabs-go) module.
 
 ## Startup sequence
 
-1. **Runtime home.** `runtime/paths.js` sets a private umask, migrates legacy in-repo data and creates the runtime directories.
-2. **Environment.** dotenv loads the checkout's `.env`, then `NEOAGENT_HOME/.env` with override.
-3. **Database.** `server/db/database.js` opens SQLite, applies migrations and marks runs left by a dead process as interrupted.
-4. **HTTP edge.** Middleware, session store, Socket.IO, API routes, static routes and the error handler are registered.
-5. **Gateways.** The display, desktop-companion and wearable WebSocket gateways attach to the HTTP server.
-6. **Listen.** The server listens on `PORT` (default `3333`), then calls `startServices()`.
-7. **Services.** `server/services/manager.js` builds the service graph, restores messaging and MCP connections, starts the task runtime and resumes interrupted runs.
+1. **Environment.** `NEOAGENT_HOME/.env` fills in what the real environment does not set; `internal/config` reads the result and creates the runtime directories.
+2. **Sessions.** `data/sessions.db` opens as the HTTP session store.
+3. **Database.** `data/neoagent.db` opens and `internal/schema` applies pending migrations.
+4. **Services.** `wiring.Build` creates each long-lived service once and connects them through small interfaces.
+5. **Listen.** The HTTP server, Socket.IO and the WebSocket gateways listen on `PORT` (default `3333`).
+6. **Start.** `App.Start` restores messaging and MCP connections, starts the task runtime and resumes interrupted runs.
 
 ## Service graph
 
-`startServices()` creates each long-lived service once and stores it on `app.locals`.
+`wiring.Build` creates each long-lived service once.
 
-| `app.locals` key | Module (`server/services/`) | Owns |
+| Service | Package (`internal/`) | Owns |
 |---|---|---|
-| `agentEngine` | `ai/engine.js` | Agent runs, subagents, delegation |
-| `runtimeManager` | `runtime/manager.js` | Cloud and local computers, control leases, Android controllers |
-| `taskRuntime` | `tasks/runtime.js` | Schedules, triggers, task runs and result delivery |
-| `messagingManager` | `messaging/manager.js` | Messaging platform adapters and the inbound queue |
-| `integrationManager` | `integrations/manager.js` | Official integrations, OAuth, integration tools |
-| `memoryManager` | `memory/manager.js` | Memories, facts, recall, core memory |
-| `memoryIngestionService` | `memory/ingestion.js` | Background ingestion from connected accounts |
-| `mcpClient` | `mcp/client.js` | Remote MCP server connections and their tools |
-| `skillRunner` | `ai/toolRunner.js` | Skills loaded from `agent-data/skills` |
-| `skillLearningService` | `skills/learning_service.js` | Skills learned from completed runs |
-| `toolPolicyService`, `approvalGateService` | `security/` | Tool permissions and approval prompts |
-| `credentialBroker` | `credentials/broker.js` | Bitwarden-backed credential use |
-| `voiceRuntimeManager` | `voice/runtimeManager.js` | Live voice sessions |
-| `wearableService` | `wearable/service.js` | Wearable sessions and firmware updates |
-| `teachService` | `teach/service.js` | Teach Mode recordings |
+| Agent engine | `agent`, `ai`, `runledger` | Agent runs, subagents, delegation, delivery |
+| Runtime manager | `runtime`, `desktop` | Cloud and local computers, control leases |
+| Android | `android` | Android emulators and devices over ADB |
+| Task runtime | `tasks`, `triggers` | Schedules, triggers, task runs and result delivery |
+| Messaging manager | `messaging`, `sharedmessaging` | Messaging platform adapters and the inbound queue |
+| Integration manager | `integrations` | Official integrations, OAuth, integration tools |
+| Memory | `memory` | Memories, facts, recall, core memory, ingestion from connected accounts |
+| MCP client | `mcpserver` | Remote MCP server connections and their tools |
+| Skills | `skills`, `skilllearning` | Skills from `agent-data/skills`, skills learned from runs |
+| Security | `security`, `securityapi` | Tool permissions and approval prompts |
+| Credential broker | `credentials` | Bitwarden-backed credential use |
+| Voice | `voice` | Live voice sessions |
+| Wearable | `wearable` | Wearable sessions and firmware updates |
+| Teach Mode | `teach` | Teach Mode recordings |
 
 ## Real-time channels
 
@@ -99,7 +99,7 @@ Each user picks a computer provider (`computer_provider` in `user_settings`); th
 
 ## State
 
-- **Database.** One SQLite file, `data/neoagent.db`, through `server/db/database.js`; HTTP sessions use `data/sessions.db`.
+- **Database.** One SQLite file, `data/neoagent.db`, opened once; HTTP sessions use `data/sessions.db`.
 - **Files.** Skills, workspaces, artifacts and computer disks live under `NEOAGENT_HOME` (default `~/.neoagent`).
 - **Details.** See [Persistence and migrations](persistence.md).
 

@@ -1,0 +1,1 @@
+{"profiles":{"a":{"provider":"google","type":"api_key","key":"g-key"},"b":{"provider":"xai","type":"oauth","access":"tok"},"c":{"provider":"nous","token":"n-tok","type":"token"}}}

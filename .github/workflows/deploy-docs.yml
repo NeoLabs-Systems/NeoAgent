@@ -8,10 +8,7 @@ on:
       - docs/**
       - landing/**
       - README.md
-      - docusaurus.config.js
-      - sidebars.js
-      - package.json
-      - package-lock.json
+      - website/**
       - .github/workflows/deploy-docs.yml
   workflow_dispatch:
 
@@ -39,21 +36,24 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: website/package-lock.json
 
       - name: Set up Pages
         uses: actions/configure-pages@v5
 
-      - name: Install dependencies
+      - name: Install docs tooling
+        working-directory: website
         run: npm ci
 
       - name: Build docs
-        run: npm run docs:build
+        working-directory: website
+        run: npm run build
 
       - name: Assemble site
         run: |
           mkdir -p _site
           cp -r landing/* _site/
-          cp -r build _site/docs
+          cp -r website/build _site/docs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

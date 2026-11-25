@@ -1,0 +1,206 @@
+{
+  "key": "slack",
+  "label": "Slack",
+  "description": "Official Slack OAuth integration for workspace, channel, and messaging workflows.",
+  "icon": "slack",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "slack",
+      "label": "Slack",
+      "description": "Browse conversations, read and search messages, and post to Slack."
+    }
+  ],
+  "connectPrompt": "Connect Slack to browse conversations, read and search messages, and post replies.",
+  "supportsMultipleAccounts": true,
+  "connectionMethod": "oauth",
+  "tools": [
+    {
+      "appId": "slack",
+      "name": "slack_list_conversations",
+      "access": "read",
+      "description": "List Slack channels, groups, IMs, or MPIMs visible to the connected user. When multiple Slack accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "string",
+            "description": "Conversation types, default public_channel,private_channel,im,mpim."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum conversations, default 50."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Slack account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Slack account email or identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "slack",
+      "name": "slack_get_conversation_history",
+      "access": "read",
+      "description": "Read recent Slack conversation messages. When multiple Slack accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Slack channel/conversation ID."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum messages, default 20."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Slack account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Slack account email or identifier."
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      }
+    },
+    {
+      "appId": "slack",
+      "name": "slack_post_message",
+      "access": "write",
+      "description": "Post a Slack message to a channel or conversation. When multiple Slack accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Slack channel/conversation ID."
+          },
+          "text": {
+            "type": "string",
+            "description": "Plain-text message."
+          },
+          "thread_ts": {
+            "type": "string",
+            "description": "Optional parent message timestamp for a threaded reply."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Slack account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Slack account email or identifier."
+          }
+        },
+        "required": [
+          "channel",
+          "text"
+        ]
+      }
+    },
+    {
+      "appId": "slack",
+      "name": "slack_search_messages",
+      "access": "read",
+      "description": "Search Slack messages. When multiple Slack accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Slack search query."
+          },
+          "count": {
+            "type": "number",
+            "description": "Maximum results, default 20."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Slack account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Slack account email or identifier."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "appId": "slack",
+      "name": "slack_get_user_info",
+      "access": "read",
+      "description": "Get Slack user profile information. When multiple Slack accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Slack user ID."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Slack account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Slack account email or identifier."
+          }
+        },
+        "required": [
+          "user"
+        ]
+      }
+    },
+    {
+      "appId": "slack",
+      "name": "slack_api_request",
+      "access": "dynamic_http_method",
+      "description": "Make an authenticated Slack Web API request for advanced Slack operations. When multiple Slack accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method_name": {
+            "type": "string",
+            "description": "Slack Web API method name, e.g. conversations.info."
+          },
+          "http_method": {
+            "type": "string",
+            "description": "GET or POST, default POST."
+          },
+          "query": {
+            "type": "object",
+            "description": "Optional query parameters."
+          },
+          "body": {
+            "type": "object",
+            "description": "Optional JSON body."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Slack account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Slack account email or identifier."
+          }
+        },
+        "required": [
+          "method_name"
+        ]
+      }
+    }
+  ]
+}

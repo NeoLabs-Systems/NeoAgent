@@ -1,0 +1,4310 @@
+{
+ "definitions": [
+  {
+   "name": "execute_command",
+   "selection": "default",
+   "resultShape": "command",
+   "group": "shell",
+   "access": "dynamic_shell",
+   "sideEffect": "workspace",
+   "stateScope": "workspace",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "shell",
+    "terminal",
+    "git",
+    "tests",
+    "build",
+    "packages",
+    "scripts"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "shell"
+   },
+   "description": "Execute a terminal/shell command as a recoverable step inside the user's isolated cloud computer. The command shares the persistent workspace with browser, desktop, and file tools. Use it for git, builds, installs, and anything the coding tools do not cover, package managers, and shell-native work; prefer workspace file tools for direct file reads and edits. A timeout, signal, or non-zero exit is not success, and a chained command may have stopped before later segments ran.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "command": {
+      "type": "string",
+      "description": "The shell command to execute"
+     },
+     "cwd": {
+      "type": "string",
+      "description": "Working directory (optional, default $HOME)"
+     },
+     "timeout": {
+      "type": "number",
+      "description": "Maximum runtime in ms. Default 180000 (3 minutes); pass a longer value for installs, builds, test suites, or package managers."
+     },
+     "stdin_input": {
+      "type": "string",
+      "description": "Input to pipe to stdin"
+     },
+     "pty": {
+      "type": "boolean",
+      "description": "Use PTY for interactive programs, progress UIs, or commands that need a real terminal (default false)"
+     },
+     "inputs": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Sequence of inputs for interactive PTY prompts"
+     }
+    },
+    "required": [
+     "command"
+    ]
+   }
+  },
+  {
+   "name": "browser_navigate",
+   "egress": true,
+   "group": "browser",
+   "access": "read",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "web",
+    "page",
+    "open"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "the page needs a real browser: JavaScript, a login, or interaction"
+   ],
+   "whenNotToUse": [
+    "a plain fetch of a known URL is enough (http_request)"
+   ],
+   "family": "browser_page",
+   "description": "Open a URL in the computer Chromium and return page content or a screenshot.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "url": {
+      "type": "string",
+      "description": "Full URL to navigate to, including the scheme (https://...)"
+     },
+     "screenshot": {
+      "type": "boolean",
+      "description": "Take a screenshot (default true)"
+     },
+     "waitFor": {
+      "type": "string",
+      "description": "CSS selector to wait for"
+     },
+     "fullPage": {
+      "type": "boolean",
+      "description": "Full page screenshot (default false)"
+     },
+     "referrerMode": {
+      "type": "string",
+      "enum": [
+       "direct",
+       "google",
+       "current"
+      ],
+      "description": "Navigation referrer strategy for the VM browser (default direct). google sends a Google referrer; current navigates from the current page when possible."
+     },
+     "challengeRetry": {
+      "type": "boolean",
+      "description": "Retry once with a Google referrer if a known bot challenge is detected (default true)."
+     }
+    },
+    "required": [
+     "url"
+    ]
+   }
+  },
+  {
+   "name": "browser_click",
+   "group": "browser",
+   "access": "write",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "click",
+    "page"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "family": "browser_page",
+   "description": "Click an element on the current page by CSS selector or visible text.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "selector": {
+      "type": "string",
+      "description": "CSS selector of element to click"
+     },
+     "text": {
+      "type": "string",
+      "description": "Click element containing this text"
+     },
+     "screenshot": {
+      "type": "boolean",
+      "description": "Screenshot after click (default true)"
+     }
+    }
+   }
+  },
+  {
+   "name": "browser_type",
+   "egress": true,
+   "group": "browser",
+   "access": "write",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "form",
+    "input",
+    "page"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "family": "browser_page",
+   "description": "Type text into an input field on the current page.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "selector": {
+      "type": "string",
+      "description": "CSS selector of input"
+     },
+     "text": {
+      "type": "string",
+      "description": "Text to type"
+     },
+     "clear": {
+      "type": "boolean",
+      "description": "Clear field before typing (default true)"
+     },
+     "pressEnter": {
+      "type": "boolean",
+      "description": "Press Enter after typing"
+     }
+    },
+    "required": [
+     "selector",
+     "text"
+    ]
+   }
+  },
+  {
+   "name": "browser_act",
+   "egress": true,
+   "group": "browser",
+   "access": "write",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "form",
+    "click",
+    "automation"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "family": "browser_page",
+   "description": "Fast, accurate control of the web page for multi-step interaction: search boxes, forms, filters, menus, dropdowns, and date pickers. Give the goal for the page, with every value to enter, and optionally a URL to open first. A SystemOne model picks each click, field, and option from the visible controls in a fraction of a second. Prefer it over browser_click and browser_type for interactive steps. Returns the actions taken and the final page; confirm the result there before reporting it.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "goal": {
+      "type": "string",
+      "description": "What to accomplish on the page, including every value to enter, e.g. \"Search one-way flights from Zurich to London on 20 September for 1 adult\""
+     },
+     "url": {
+      "type": "string",
+      "description": "URL to open before starting (optional; defaults to the current page)"
+     }
+    },
+    "required": [
+     "goal"
+    ]
+   }
+  },
+  {
+   "name": "browser_extract",
+   "resultShape": "page_extract",
+   "group": "browser",
+   "access": "read",
+   "stateScope": "browser",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "page",
+    "extract",
+    "scrape"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "family": "browser_page",
+   "description": "Extract content from the current page.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "selector": {
+      "type": "string",
+      "description": "CSS selector to extract from (default body)"
+     },
+     "attribute": {
+      "type": "string",
+      "description": "Attribute to extract (default innerText)"
+     },
+     "all": {
+      "type": "boolean",
+      "description": "Extract from all matching elements"
+     }
+    }
+   }
+  },
+  {
+   "name": "browser_screenshot",
+   "group": "browser",
+   "access": "read",
+   "stateScope": "browser",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "screenshot",
+    "page"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Take a screenshot of the current page",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "fullPage": {
+      "type": "boolean",
+      "description": "Full page screenshot"
+     },
+     "selector": {
+      "type": "string",
+      "description": "Screenshot specific element"
+     }
+    }
+   }
+  },
+  {
+   "name": "browser_evaluate",
+   "group": "browser",
+   "access": "write",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "javascript"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "browser_privileged"
+   },
+   "description": "Execute JavaScript in the browser page context",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "script": {
+      "type": "string",
+      "description": "JavaScript to execute"
+     }
+    },
+    "required": [
+     "script"
+    ]
+   }
+  },
+  {
+   "name": "credential_fill_browser",
+   "group": "browser",
+   "access": "write",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "credentials",
+    "login"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "credential_use"
+   },
+   "description": "Fill a configured credential binding into the current HTTPS login page without revealing the username or password. This enters protected mode; call credential_submit_browser or credential_cancel_browser next.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "binding_id": {
+      "type": "string",
+      "description": "Opaque browser credential binding ID from the Bitwarden integration summary."
+     },
+     "stage": {
+      "type": "string",
+      "enum": [
+       "both",
+       "username",
+       "password"
+      ],
+      "description": "Use username then password in separate protected fills for multi-step sign-in pages; default both."
+     },
+     "username_selector": {
+      "type": "string",
+      "description": "CSS selector for the username or email input. Required for both or username stage."
+     },
+     "password_selector": {
+      "type": "string",
+      "description": "CSS selector for the password input. Required for both or password stage."
+     }
+    },
+    "required": [
+     "binding_id"
+    ]
+   }
+  },
+  {
+   "name": "credential_submit_browser",
+   "group": "browser",
+   "access": "write",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "credentials",
+    "login"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "description": "Submit an active protected credential fill. Normal browser capabilities resume after this call.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "protected_fill_id": {
+      "type": "string",
+      "description": "Opaque protected fill ID returned by credential_fill_browser."
+     }
+    },
+    "required": [
+     "protected_fill_id"
+    ]
+   }
+  },
+  {
+   "name": "credential_cancel_browser",
+   "group": "browser",
+   "access": "write",
+   "sideEffect": "navigation",
+   "stateScope": "browser",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "browser",
+    "credentials"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "description": "Clear and cancel an active protected credential fill. Normal browser capabilities resume after this call.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "protected_fill_id": {
+      "type": "string",
+      "description": "Opaque protected fill ID returned by credential_fill_browser."
+     }
+    },
+    "required": [
+     "protected_fill_id"
+    ]
+   }
+  },
+  {
+   "name": "credential_http_request",
+   "group": "web",
+   "access": "write",
+   "sideEffect": "external",
+   "stateScope": "external",
+   "latencyClass": "remote",
+   "repeatable": true,
+   "capabilities": [
+    "http",
+    "api",
+    "credentials"
+   ],
+   "policy": {
+    "category": "credential_use"
+   },
+   "description": "Make an HTTPS request through a configured credential binding. Authentication is injected by the host and never exposed; only the bounded origin, path prefix, and methods are allowed.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "binding_id": {
+      "type": "string",
+      "description": "Opaque HTTP credential binding ID from the Bitwarden integration summary."
+     },
+     "method": {
+      "type": "string",
+      "enum": [
+       "GET",
+       "POST",
+       "PUT",
+       "PATCH",
+       "DELETE"
+      ]
+     },
+     "url": {
+      "type": "string",
+      "description": "Full HTTPS URL allowed by the binding."
+     },
+     "headers": {
+      "type": "object",
+      "description": "Optional non-authentication request headers."
+     },
+     "body": {
+      "type": "string",
+      "description": "Optional request body."
+     },
+     "timeout_ms": {
+      "type": "number",
+      "description": "Optional timeout from 1000 to 120000 milliseconds."
+     }
+    },
+    "required": [
+     "binding_id",
+     "method",
+     "url"
+    ]
+   }
+  },
+  {
+   "name": "desktop_observe",
+   "group": "desktop",
+   "access": "read",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "screen"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "policy": {
+    "category": "desktop_control"
+   },
+   "description": "Capture the current cloud computer screen plus its accessibility tree.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "includeTree": {
+      "type": "boolean",
+      "description": "Include accessibility tree or semantic nodes when available."
+     }
+    }
+   }
+  },
+  {
+   "name": "desktop_click",
+   "group": "desktop",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "click"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "policy": {
+    "category": "desktop_control"
+   },
+   "description": "Click at an absolute coordinate in the cloud computer desktop.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "x": {
+      "type": "number",
+      "description": "Absolute X coordinate in desktop pixels."
+     },
+     "y": {
+      "type": "number",
+      "description": "Absolute Y coordinate in desktop pixels."
+     },
+     "button": {
+      "type": "string",
+      "description": "Optional mouse button name, default left."
+     }
+    },
+    "required": [
+     "x",
+     "y"
+    ]
+   }
+  },
+  {
+   "name": "desktop_drag",
+   "group": "desktop",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "drag"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "policy": {
+    "category": "desktop_control"
+   },
+   "description": "Drag the mouse from one point to another in the cloud computer desktop.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "x1": {
+      "type": "number",
+      "description": "Start X coordinate."
+     },
+     "y1": {
+      "type": "number",
+      "description": "Start Y coordinate."
+     },
+     "x2": {
+      "type": "number",
+      "description": "End X coordinate."
+     },
+     "y2": {
+      "type": "number",
+      "description": "End Y coordinate."
+     },
+     "durationMs": {
+      "type": "number",
+      "description": "Optional drag duration in milliseconds."
+     }
+    },
+    "required": [
+     "x1",
+     "y1",
+     "x2",
+     "y2"
+    ]
+   }
+  },
+  {
+   "name": "desktop_scroll",
+   "group": "desktop",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "scroll"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "description": "Scroll in the cloud computer desktop.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "deltaX": {
+      "type": "number",
+      "description": "Horizontal scroll delta."
+     },
+     "deltaY": {
+      "type": "number",
+      "description": "Vertical scroll delta."
+     }
+    }
+   }
+  },
+  {
+   "name": "desktop_type",
+   "group": "desktop",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "keyboard",
+    "input"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "policy": {
+    "category": "desktop_control"
+   },
+   "description": "Type text into the focused element in the cloud computer desktop.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string",
+      "description": "Text to type."
+     },
+     "pressEnter": {
+      "type": "boolean",
+      "description": "Press Enter after typing."
+     }
+    },
+    "required": [
+     "text"
+    ]
+   }
+  },
+  {
+   "name": "desktop_press_key",
+   "group": "desktop",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "keyboard"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "policy": {
+    "category": "desktop_control"
+   },
+   "description": "Press a named key in the cloud computer desktop.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string",
+      "description": "Key to press, for example Enter, Escape, Meta, or Tab."
+     }
+    },
+    "required": [
+     "key"
+    ]
+   }
+  },
+  {
+   "name": "desktop_launch_app",
+   "group": "desktop",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "apps"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "policy": {
+    "category": "desktop_control"
+   },
+   "description": "Launch an allowed application in the cloud computer desktop.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "app": {
+      "type": "string",
+      "description": "Application identifier, executable, or app name."
+     }
+    },
+    "required": [
+     "app"
+    ]
+   }
+  },
+  {
+   "name": "desktop_get_tree",
+   "group": "desktop",
+   "access": "read",
+   "stateScope": "desktop",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "desktop",
+    "accessibility"
+   ],
+   "prerequisites": [
+    "desktop"
+   ],
+   "description": "Return the cloud computer accessibility tree or semantic node snapshot.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "android_start_emulator",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "emulator"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Bootstrap Android tools if needed and start the managed Android emulator.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "headless": {
+      "type": "boolean",
+      "description": "Run the emulator headless (default true)"
+     },
+     "timeoutMs": {
+      "type": "number",
+      "description": "Boot timeout in milliseconds (default 240000)"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_stop_emulator",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "emulator"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Stop the managed Android emulator.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "android_list_devices",
+   "group": "android",
+   "access": "read",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "devices"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "List ADB-connected Android devices and emulators.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "android_open_app",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "apps"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "policy": {
+    "category": "android_privileged"
+   },
+   "description": "Open an installed Android app by package name, optionally with a specific activity.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "packageName": {
+      "type": "string",
+      "description": "Android package name, e.g. com.google.android.apps.maps"
+     },
+     "activity": {
+      "type": "string",
+      "description": "Optional activity name to launch"
+     }
+    },
+    "required": [
+     "packageName"
+    ]
+   }
+  },
+  {
+   "name": "android_open_intent",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "intent"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "policy": {
+    "category": "android_privileged"
+   },
+   "description": "Open an Android intent for deep links, navigation, messaging, or app-specific actions.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "action": {
+      "type": "string",
+      "description": "Intent action, e.g. android.intent.action.VIEW"
+     },
+     "dataUri": {
+      "type": "string",
+      "description": "Intent data URI, e.g. geo:0,0?q=coffee or smsto:+1234567890"
+     },
+     "packageName": {
+      "type": "string",
+      "description": "Optional package name to target"
+     },
+     "component": {
+      "type": "string",
+      "description": "Optional fully qualified component name"
+     },
+     "mimeType": {
+      "type": "string",
+      "description": "Optional MIME type"
+     },
+     "extras": {
+      "type": "object",
+      "description": "Optional string extras added via --es"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_tap",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "tap"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Tap the Android screen at coordinates or by matching a UI element from the current UI dump.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "x": {
+      "type": "number",
+      "description": "Absolute X coordinate"
+     },
+     "y": {
+      "type": "number",
+      "description": "Absolute Y coordinate"
+     },
+     "text": {
+      "type": "string",
+      "description": "Visible text to match in the UI dump"
+     },
+     "resourceId": {
+      "type": "string",
+      "description": "Android resource-id to match"
+     },
+     "description": {
+      "type": "string",
+      "description": "content-desc / accessibility label to match"
+     },
+     "className": {
+      "type": "string",
+      "description": "Optional class name filter"
+     },
+     "packageName": {
+      "type": "string",
+      "description": "Optional package filter"
+     },
+     "clickable": {
+      "type": "boolean",
+      "description": "Prefer clickable elements"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_long_press",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "tap"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Long-press an Android UI element or screen coordinate. Useful for context menus, drag handles, rearranging icons, and long-click actions.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "x": {
+      "type": "number",
+      "description": "Absolute X coordinate"
+     },
+     "y": {
+      "type": "number",
+      "description": "Absolute Y coordinate"
+     },
+     "text": {
+      "type": "string",
+      "description": "Visible text to match in the UI dump"
+     },
+     "resourceId": {
+      "type": "string",
+      "description": "Android resource-id to match"
+     },
+     "description": {
+      "type": "string",
+      "description": "content-desc / accessibility label to match"
+     },
+     "className": {
+      "type": "string",
+      "description": "Optional class name filter"
+     },
+     "packageName": {
+      "type": "string",
+      "description": "Optional package filter"
+     },
+     "clickable": {
+      "type": "boolean",
+      "description": "Prefer clickable elements"
+     },
+     "durationMs": {
+      "type": "number",
+      "description": "Press duration in milliseconds (default 650)"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_type",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "input"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Type text into the focused Android field, optionally tapping a matched element first.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string",
+      "description": "Text to type"
+     },
+     "textSelector": {
+      "type": "string",
+      "description": "Visible text of the field to focus first"
+     },
+     "resourceId": {
+      "type": "string",
+      "description": "resource-id of the field to focus first"
+     },
+     "description": {
+      "type": "string",
+      "description": "content-desc of the field to focus first"
+     },
+     "className": {
+      "type": "string",
+      "description": "Optional class filter when focusing an element"
+     },
+     "clear": {
+      "type": "boolean",
+      "description": "Attempt to clear before typing"
+     },
+     "pressEnter": {
+      "type": "boolean",
+      "description": "Press Enter after typing"
+     }
+    },
+    "required": [
+     "text"
+    ]
+   }
+  },
+  {
+   "name": "android_swipe",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "swipe"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Swipe across the Android screen using absolute coordinates.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "x1": {
+      "type": "number",
+      "description": "Start X coordinate"
+     },
+     "y1": {
+      "type": "number",
+      "description": "Start Y coordinate"
+     },
+     "x2": {
+      "type": "number",
+      "description": "End X coordinate"
+     },
+     "y2": {
+      "type": "number",
+      "description": "End Y coordinate"
+     },
+     "durationMs": {
+      "type": "number",
+      "description": "Swipe duration in milliseconds (default 300)"
+     }
+    },
+    "required": [
+     "x1",
+     "y1",
+     "x2",
+     "y2"
+    ]
+   }
+  },
+  {
+   "name": "android_press_key",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "keyboard"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Send an Android key event such as home, back, enter, menu, app_switch, or a numeric key code.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string",
+      "description": "Named key or numeric Android key code"
+     }
+    },
+    "required": [
+     "key"
+    ]
+   }
+  },
+  {
+   "name": "android_wait_for",
+   "group": "android",
+   "access": "read",
+   "stateScope": "android",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "wait"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Poll Android UI dumps until a matching element appears.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string",
+      "description": "Visible text to wait for"
+     },
+     "resourceId": {
+      "type": "string",
+      "description": "resource-id to wait for"
+     },
+     "description": {
+      "type": "string",
+      "description": "content-desc to wait for"
+     },
+     "className": {
+      "type": "string",
+      "description": "Optional class filter"
+     },
+     "packageName": {
+      "type": "string",
+      "description": "Optional package filter"
+     },
+     "clickable": {
+      "type": "boolean",
+      "description": "Require the matched element to be clickable"
+     },
+     "timeoutMs": {
+      "type": "number",
+      "description": "Timeout in milliseconds (default 20000)"
+     },
+     "intervalMs": {
+      "type": "number",
+      "description": "Polling interval in milliseconds (default 1500)"
+     },
+     "screenshot": {
+      "type": "boolean",
+      "description": "Capture a screenshot after a match (default true)"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_observe",
+   "resultShape": "device_ui",
+   "group": "android",
+   "access": "read",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "screen"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Capture the current Android screen end-to-end: fresh screenshot, UI dump path, and a preview of visible UI nodes.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "includeNodes": {
+      "type": "boolean",
+      "description": "Include a preview of parsed UI nodes (default true)"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_dump_ui",
+   "resultShape": "device_ui",
+   "group": "android",
+   "access": "read",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "ui"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Capture the current Android UIAutomator XML dump and return a preview of the nodes.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "includeNodes": {
+      "type": "boolean",
+      "description": "Include a preview of the parsed nodes (default true)"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_screenshot",
+   "group": "android",
+   "access": "read",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "screenshot"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "Capture a screenshot from the active Android device or emulator.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "android_list_apps",
+   "resultShape": "device_apps",
+   "group": "android",
+   "access": "read",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "apps"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "description": "List installed Android app package names.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "includeSystem": {
+      "type": "boolean",
+      "description": "Include system apps (default false)"
+     }
+    }
+   }
+  },
+  {
+   "name": "android_install_apk",
+   "group": "android",
+   "access": "write",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "install"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "policy": {
+    "category": "android_privileged"
+   },
+   "description": "Install or replace an APK or universal .apks bundle on the Android emulator.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "apkPath": {
+      "type": "string",
+      "description": "Absolute path to an .apk file or universal .apks bundle on disk"
+     }
+    },
+    "required": [
+     "apkPath"
+    ]
+   }
+  },
+  {
+   "name": "android_shell",
+   "resultShape": "device_shell",
+   "group": "android",
+   "access": "dynamic_shell",
+   "sideEffect": "device",
+   "stateScope": "android",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "android",
+    "shell"
+   ],
+   "prerequisites": [
+    "android"
+   ],
+   "policy": {
+    "category": "android_privileged"
+   },
+   "description": "Run an adb shell command on the active Android device or emulator. Use this when a needed phone action is not covered by a higher-level Android tool.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "command": {
+      "type": "string",
+      "description": "Shell command to run on-device, without the leading \"adb shell\""
+     },
+     "timeoutMs": {
+      "type": "number",
+      "description": "Timeout in milliseconds (default 20000)"
+     },
+     "screenshot": {
+      "type": "boolean",
+      "description": "Capture a screenshot after the command if it changes the UI (default false)"
+     }
+    },
+    "required": [
+     "command"
+    ]
+   }
+  },
+  {
+   "name": "web_search",
+   "selection": "default",
+   "egress": true,
+   "group": "web",
+   "access": "read",
+   "latencyClass": "remote",
+   "repeatable": true,
+   "capabilities": [
+    "search",
+    "web",
+    "internet",
+    "news",
+    "research"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "current or external facts you do not already have"
+   ],
+   "whenNotToUse": [
+    "the answer is already in the conversation",
+    "the user gave the exact URL (open it instead)"
+   ],
+   "description": "Search the public web without opening the browser. Uses Brave Search API for fast result retrieval.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "Search query to run"
+     },
+     "count": {
+      "type": "number",
+      "description": "Maximum number of results to return (default 5, max 10)"
+     },
+     "country": {
+      "type": "string",
+      "description": "Optional country code bias, e.g. \"US\", \"DE\", \"GB\""
+     },
+     "search_lang": {
+      "type": "string",
+      "description": "Optional search language code, e.g. \"en\", \"de\""
+     },
+     "freshness": {
+      "type": "string",
+      "enum": [
+       "pd",
+       "pw",
+       "pm",
+       "py"
+      ],
+      "description": "Optional recency filter: past day, week, month, or year"
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  },
+  {
+   "name": "http_request",
+   "selection": "default",
+   "egress": true,
+   "resultShape": "http",
+   "group": "web",
+   "access": "dynamic_http_method",
+   "sideEffect": "external",
+   "stateScope": "external",
+   "latencyClass": "remote",
+   "repeatable": true,
+   "capabilities": [
+    "http",
+    "api",
+    "fetch",
+    "url",
+    "download"
+   ],
+   "policy": {
+    "category": "network_write"
+   },
+   "whenToUse": [
+    "fetch a known URL or call an API"
+   ],
+   "whenNotToUse": [
+    "the page needs JavaScript, a login, or clicks (browser tools)"
+   ],
+   "description": "Make an HTTP request to any URL",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "url": {
+      "type": "string",
+      "description": "Request URL"
+     },
+     "method": {
+      "type": "string",
+      "enum": [
+       "GET",
+       "POST",
+       "PUT",
+       "DELETE",
+       "PATCH"
+      ],
+      "description": "HTTP method"
+     },
+     "headers": {
+      "type": "object",
+      "description": "Request headers"
+     },
+     "body": {
+      "type": "string",
+      "description": "Request body (JSON string)"
+     },
+     "timeout_ms": {
+      "type": "number",
+      "description": "Request timeout in milliseconds (default 30000)"
+     }
+    },
+    "required": [
+     "url"
+    ]
+   }
+  },
+  {
+   "name": "share_web_page",
+   "group": "web",
+   "access": "write",
+   "sideEffect": "external",
+   "stateScope": "external",
+   "latencyClass": "local",
+   "untrusted": false,
+   "persistent": true,
+   "egress": true,
+   "prerequisites": [
+    "computer"
+   ],
+   "capabilities": [
+    "share",
+    "publish",
+    "web",
+    "page",
+    "url",
+    "host",
+    "preview"
+   ],
+   "policy": {
+    "category": "network_write"
+   },
+   "whenToUse": [
+    "a web app or page you started on your computer should be opened by the user or others in a browser"
+   ],
+   "whenNotToUse": [
+    "a file the user should receive (send it as an attachment instead)",
+    "anything private: everyone with the link can open the page",
+    "a page with profanity or hard swearing, slurs, racist or other hateful content, harassment, sexual or illegal content, even when the user asks: do not share it, and tell the user why"
+   ],
+   "description": "Publish a web app running on your computer at a public link, /<username>/<name>/, and get the link to pass on. share: the app must already answer on that port; the same name again moves it to the new port. Works only while your computer and the app run. stop: take a page offline. list: shared pages.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "action": {
+      "type": "string",
+      "enum": [
+       "share",
+       "stop",
+       "list"
+      ]
+     },
+     "name": {
+      "type": "string",
+      "description": "For share: a short title; it becomes the address (letters, digits and dashes). For stop: the shared name or link slug."
+     },
+     "port": {
+      "type": "integer",
+      "description": "For share: the port the app listens on inside your computer."
+     }
+    },
+    "required": [
+     "action"
+    ]
+   },
+   "availableWhen": true
+  },
+  {
+   "name": "memory_save",
+   "selection": "default",
+   "resultShape": "status",
+   "group": "memory",
+   "access": "write",
+   "sideEffect": "memory",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "memory",
+    "remember",
+    "save"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "a durable fact or preference worth keeping across conversations"
+   ],
+   "whenNotToUse": [
+    "run receipts or temporary task state"
+   ],
+   "description": "Save ONE specific, self-contained fact to long-term semantic memory. RULES: (1) One discrete fact per call — if you have 10 facts, call this 10 times. (2) The ENTIRE value must be IN the content string itself — never write a pointer/reference like \"user shared a profile\" or \"see chat history for details\". That is useless. (3) Content must be a complete statement a stranger could read cold and understand, at most 150 characters. (4) Only save durable facts, preferences, or stable project context — never save recent task runs, task statuses, execution receipts, or other transient operational logs. GOOD: \"XYZ lives in\" / \"XYZ prefers dark mode\". BAD: \"User pasted a profile dump\" / \"XYZ shared lots of details — see chat history\" / \"XYZ gave a big list of projects\" / \"Recent task run: backup completed\".",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "content": {
+      "type": "string",
+      "maxLength": 150,
+      "description": "The complete, self-contained fact, at most 150 characters. Must be readable standalone — no references to \"above\", \"the dump\", or \"chat history\". Write as a clear declarative sentence."
+     },
+     "category": {
+      "type": "string",
+      "enum": [
+       "user_fact",
+       "preference",
+       "personality",
+       "episodic",
+       "procedural"
+      ],
+      "description": "user_fact: facts about the user (job, location, hardware...), preference: likes/dislikes/settings, personality: how to interact with them, episodic: events/tasks/learnings, procedural: reusable workflows or repeatable tool-use procedures"
+     },
+     "importance": {
+      "type": "number",
+      "description": "Importance 1-10. 1=trivial, 5=default, 8+=critical. High-importance memories rank higher in recall."
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "user_stated",
+       "tool_observed",
+       "inference"
+      ],
+      "description": "Where the fact comes from. user_stated: the user said it in this conversation. tool_observed: a tool result in this run showed it. inference: your own conclusion, stored as an unconfirmed assumption. Leave it out if unsure; it is then treated as unverified."
+     },
+     "replaces": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Ids of memories this fact replaces, from memory_recall or memory_list. They stop being recalled as current but stay in the history."
+     }
+    },
+    "required": [
+     "content"
+    ]
+   }
+  },
+  {
+   "name": "memory_recall",
+   "selection": "default",
+   "group": "memory",
+   "access": "read",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "capabilities": [
+    "memory",
+    "recall",
+    "remember",
+    "history"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "something the user told you earlier that is not in the current context"
+   ],
+   "whenNotToUse": [
+    "the fact is already in this conversation or the recalled context",
+    "general knowledge"
+   ],
+   "description": "Search long-term memory for relevant information. Uses semantic similarity — describe what you are looking for in natural language. If the first search misses, try again with other wording, names, or related terms. Each result says its provenance: verified (the user said it or a tool showed it), retrieved (stored from elsewhere, may be out of date), or assumption (inferred, never confirmed). With include_history, current=false marks a fact that has been replaced.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "What to search for. Natural language query like \"user food preferences\" or \"python script for file watching\""
+     },
+     "limit": {
+      "type": "number",
+      "description": "Max results to return (default 6)"
+     },
+     "as_of": {
+      "type": "string",
+      "description": "ISO date. Recall what was true at that time instead of now, e.g. where the user lived in 2024."
+     },
+     "include_history": {
+      "type": "boolean",
+      "description": "Also return facts that have since been replaced, to see how something changed."
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  },
+  {
+   "name": "memory_list",
+   "group": "memory",
+   "access": "read",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "capabilities": [
+    "memory",
+    "list"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Page through every stored long-term memory, most important first. Use it to review memory as a whole, e.g. to find duplicates, outdated facts, or useless entries; use memory_recall to look something up.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "offset": {
+      "type": "number",
+      "description": "How many memories to skip (default 0). Use next_offset from the previous page."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Page size (default 30, max 40)"
+     }
+    }
+   }
+  },
+  {
+   "name": "memory_forget",
+   "resultShape": "status",
+   "group": "memory",
+   "access": "write",
+   "sideEffect": "memory",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "capabilities": [
+    "memory",
+    "forget",
+    "delete"
+   ],
+   "description": "Archive long-term memories by id so they are no longer recalled. Use for duplicates, outdated or wrong facts, and entries with no lasting value. To correct a fact, save the corrected version with memory_save and name the old one in replaces, which keeps the history.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "ids": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Ids of the memories to archive, from memory_list or memory_recall"
+     }
+    },
+    "required": [
+     "ids"
+    ]
+   }
+  },
+  {
+   "name": "session_search",
+   "group": "memory",
+   "access": "read",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "capabilities": [
+    "memory",
+    "conversation",
+    "history",
+    "search"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "find what was said in past conversations"
+   ],
+   "description": "Search past runs and message threads for commands, decisions, file paths, or context from earlier conversations.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "What to search for in prior sessions."
+     },
+     "limit": {
+      "type": "number",
+      "description": "How many matching sessions to return (default 6)."
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  },
+  {
+   "name": "memory_update_core",
+   "persistent": true,
+   "resultShape": "status",
+   "group": "memory",
+   "access": "write",
+   "sideEffect": "memory",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "memory",
+    "profile"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Update core memory — always-injected facts that appear in every prompt. Use for critical always-relevant info: user's name, their main job, key standing preferences, how they want you to behave. Keep each entry concise.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string",
+      "enum": [
+       "user_profile",
+       "preferences",
+       "ai_personality"
+      ],
+      "description": "user_profile: who the user is, preferences: standing likes/dislikes, ai_personality: short freeform notes for how this agent should usually behave and write with this user (not scripts)"
+     },
+     "value": {
+      "type": "string",
+      "description": "Value to set. Keep it concise — this is injected into every single prompt."
+     }
+    },
+    "required": [
+     "key",
+     "value"
+    ]
+   }
+  },
+  {
+   "name": "memory_write",
+   "resultShape": "status",
+   "group": "memory",
+   "access": "write",
+   "sideEffect": "memory",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "capabilities": [
+    "memory",
+    "notes"
+   ],
+   "description": "Write to the daily log or agent-managed API keys.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "content": {
+      "type": "string",
+      "description": "Content to write/append"
+     },
+     "target": {
+      "type": "string",
+      "enum": [
+       "daily",
+       "api_keys"
+      ],
+      "description": "Where to write: daily (today log) or api_keys (API_KEYS.json)"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "append",
+       "replace"
+      ],
+      "description": "append or replace (default append)"
+     }
+    },
+    "required": [
+     "content",
+     "target"
+    ]
+   }
+  },
+  {
+   "name": "memory_read",
+   "resultShape": "status",
+   "group": "memory",
+   "access": "read",
+   "stateScope": "memory",
+   "latencyClass": "local",
+   "capabilities": [
+    "memory",
+    "notes"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Read daily logs or agent-managed API key names.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "target": {
+      "type": "string",
+      "enum": [
+       "daily",
+       "api_keys",
+       "all_daily"
+      ],
+      "description": "Which memory to read"
+     },
+     "date": {
+      "type": "string",
+      "description": "Date for daily log (YYYY-MM-DD)"
+     }
+    },
+    "required": [
+     "target"
+    ]
+   }
+  },
+  {
+   "name": "send_message",
+   "selection": "always",
+   "egress": true,
+   "recipientArgs": [
+    "to"
+   ],
+   "resultShape": "sent_message",
+   "group": "messaging",
+   "stepType": "messaging",
+   "access": "write",
+   "sideEffect": "message",
+   "stateScope": "messages",
+   "latencyClass": "remote",
+   "untrusted": false,
+   "capabilities": [
+    "message",
+    "chat",
+    "telegram",
+    "whatsapp",
+    "discord",
+    "notify"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenNotToUse": [
+    "replying in the current chat: your final reply already reaches the user"
+   ],
+   "description": "Send a final message on a connected messaging platform. Use send_interim_update, not this tool, for an ongoing status reply to the originating chat. When the inbound message is a group or shared-space chat, reply in that same chat — do not switch the reply to the sender's DM. Supports WhatsApp (text/media), Discord, Telegram, Slack, Google Chat, Microsoft Teams, Matrix, Signal, iMessage/BlueBubbles, IRC, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, WeChat, WebChat, and configurable webhook bridges. Use one plain chat-style reply unless intentional bubble breaks improve it. The runtime adapts final formatting for the destination platform. For WhatsApp, media attachments still use media_path. For WhatsApp: use media_path to attach files. Use content \"[NO RESPONSE]\" only when the user explicitly asked for silence/no reply, or when a background task intentionally decides no user-visible update is needed with purpose=\"no_response\". For background task or schedule runs, set purpose to final_result, blocker, or no_response.",
+   "fileArgs": [
+    "media_path"
+   ],
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "platform": {
+      "type": "string",
+      "description": "Platform name, for example whatsapp, discord, telegram, slack, google_chat, teams, matrix, signal, imessage, bluebubbles, irc, line, mattermost, or webchat"
+     },
+     "to": {
+      "type": "string",
+      "description": "Recipient/chat ID for the connected platform, such as a WhatsApp chat ID, Slack channel ID, Matrix room ID, Discord channel snowflake / \"dm_<userId>\", Telegram \"dm_<userId>\" / raw group chat ID, IRC channel, or webhook target. \"owner\" sends to the owner's own chat on that platform, when one is verified."
+     },
+     "content": {
+      "type": "string",
+      "description": "Message text. Write one compact natural chat reply; the runtime adapts final formatting for the destination platform."
+     },
+     "media_path": {
+      "type": "string",
+      "description": "WhatsApp only: a file in your workspace (as you would give it to read_file) or an owned artifact URL. Leave empty for text-only."
+     },
+     "purpose": {
+      "type": "string",
+      "enum": [
+       "final_result",
+       "blocker",
+       "no_response"
+      ],
+      "description": "For background task or schedule runs, required intent for this outbound message. Use final_result for a concrete useful outcome, blocker for a real issue the user should know about, or no_response to intentionally send nothing."
+     }
+    },
+    "required": [
+     "platform",
+     "to",
+     "content"
+    ]
+   }
+  },
+  {
+   "name": "call_user",
+   "selection": "always",
+   "group": "messaging",
+   "stepType": "voice",
+   "access": "write",
+   "sideEffect": "message",
+   "stateScope": "messages",
+   "latencyClass": "remote",
+   "untrusted": false,
+   "capabilities": [
+    "call",
+    "phone",
+    "voice"
+   ],
+   "policy": {
+    "category": "user_contact"
+   },
+   "description": "Start an in-app voice call to the user when spoken interaction is materially useful. After the user approves and answers, opening_message is spoken first and the call continues with the originating conversation context. This does not dial a phone number. A call_later status means the user asked to be called back later.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "opening_message": {
+      "type": "string",
+      "description": "The complete natural opening statement to speak immediately after the user answers."
+     }
+    },
+    "required": [
+     "opening_message"
+    ]
+   }
+  },
+  {
+   "name": "notify_user",
+   "group": "messaging",
+   "access": "write",
+   "sideEffect": "message",
+   "stateScope": "messages",
+   "latencyClass": "remote",
+   "untrusted": false,
+   "capabilities": [
+    "notify",
+    "message"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Send an immediate update message to the user mid-task without waiting for completion. Keep it natural, short, and conversational (e.g., \"looking into it...\", \"gimme a sec...\"). Do NOT use robotic phrasing like \"I am currently processing...\".",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "message": {
+      "type": "string",
+      "description": "The message to show the user right now"
+     }
+    },
+    "required": [
+     "message"
+    ]
+   }
+  },
+  {
+   "name": "list_chats",
+   "group": "messaging",
+   "access": "read",
+   "stateScope": "messages",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "message",
+    "chat",
+    "contacts"
+   ],
+   "prerequisites": [
+    "messaging"
+   ],
+   "policy": {
+    "external": true
+   },
+   "description": "List all known groups and conversations across connected messaging platforms. Use this when the user doesn't know the exact group name or chat ID — it returns every chat that has ever sent a message, with platform, chat ID, display name, and whether it's a group or DM.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "platform": {
+      "type": "string",
+      "description": "Filter to a specific platform (e.g. telegram, whatsapp, discord). Omit to list chats across all platforms."
+     }
+    }
+   }
+  },
+  {
+   "name": "read_messages",
+   "group": "messaging",
+   "access": "read",
+   "stateScope": "messages",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "message",
+    "chat",
+    "history"
+   ],
+   "prerequisites": [
+    "messaging"
+   ],
+   "policy": {
+    "external": true
+   },
+   "description": "Read recent messages from a connected messaging platform group or conversation. Use this to get recaps, search history, or summarize what's been going on in a Telegram group, WhatsApp chat, Discord channel, Slack channel, or any other connected platform. Messages are stored locally from inbound traffic.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "platform": {
+      "type": "string",
+      "description": "Platform name (e.g. telegram, whatsapp, discord, slack, signal, teams). Omit to search across all connected platforms."
+     },
+     "chat_id": {
+      "type": "string",
+      "description": "Exact platform chat or group ID. Use this when known."
+     },
+     "group_name": {
+      "type": "string",
+      "description": "Group, channel, or chat name to find (case-insensitive partial match). Use when you don't know the exact chat_id."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Max messages to return (default 20, max 100)."
+     },
+     "search": {
+      "type": "string",
+      "description": "Optional keyword to filter messages by content."
+     }
+    }
+   }
+  },
+  {
+   "name": "send_interim_update",
+   "selection": "always",
+   "resultShape": "interim",
+   "group": "messaging",
+   "stepType": "note",
+   "access": "write",
+   "sideEffect": "message",
+   "stateScope": "messages",
+   "latencyClass": "remote",
+   "untrusted": false,
+   "capabilities": [
+    "message",
+    "progress",
+    "update"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Send the user a short message while you keep working. When a request takes more than a quick lookup (research, browsing, several steps), send one first saying what you are doing, then work. After that only for real progress, a blocker, or a question you need answered. Never for internal monologue, self-checks, tool bookkeeping, or \"nothing happened\" status.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "content": {
+      "type": "string",
+      "description": "Natural assistant message derived from user-relevant task state, not internal reasoning or progress-supervisor bookkeeping."
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "ack",
+       "progress",
+       "question",
+       "blocker"
+      ],
+      "description": "ack, progress, question, or blocker"
+     },
+     "expects_reply": {
+      "type": "boolean",
+      "description": "Set true only when the current run should pause for the user to answer."
+     },
+     "defer_follow_up": {
+      "type": "boolean",
+      "description": "Set true when you choose to deliver the final result later via the user's last connected chat target."
+     }
+    },
+    "required": [
+     "content",
+     "kind"
+    ]
+   },
+   "availableWhen": true
+  },
+  {
+   "name": "react_to_message",
+   "selection": "always",
+   "group": "messaging",
+   "access": "write",
+   "sideEffect": "message",
+   "stateScope": "messages",
+   "latencyClass": "remote",
+   "untrusted": false,
+   "capabilities": [
+    "message",
+    "reaction",
+    "emoji"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "React to the message the user just sent with one emoji, like tapping a reaction in the chat. Use it when a reaction says it better than a text (thanks, a joke, good news), or alongside a reply. Not on every message. When the reaction is all that is needed, make your final reply exactly [NO RESPONSE]; anything that asks for an answer still gets a text.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "emoji": {
+      "type": "string",
+      "description": "One emoji."
+     }
+    },
+    "required": [
+     "emoji"
+    ]
+   },
+   "availableWhen": true
+  },
+  {
+   "name": "read_file",
+   "selection": "coding",
+   "resultShape": "file",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "filesystem",
+    "read",
+    "code"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "instead of cat, head, or sed in the shell"
+   ],
+   "whenNotToUse": [
+    "several files at once (read_files)",
+    "the content is already in this conversation"
+   ],
+   "description": "Read one workspace file, or a line range of it. Without a range a long file stops after 400 lines; rangeShown and totalLines say where to continue.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Absolute or relative path inside the per-user workspace"
+     },
+     "start_line": {
+      "type": "number",
+      "description": "Starting line number (1-indexed, inclusive)"
+     },
+     "end_line": {
+      "type": "number",
+      "description": "Ending line number (1-indexed, inclusive)"
+     },
+     "line_start": {
+      "type": "number",
+      "description": "Alias for start_line; accepted for compatibility with model tool calls"
+     },
+     "line_count": {
+      "type": "number",
+      "description": "Number of lines to read starting at start_line/line_start"
+     },
+     "encoding": {
+      "type": "string",
+      "description": "File encoding (default utf-8)"
+     }
+    },
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "name": "read_files",
+   "resultShape": "files",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "filesystem",
+    "read",
+    "code"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "whenToUse": [
+    "two or more files or ranges whose paths you already know, in one call"
+   ],
+   "description": "Read up to 8 workspace files or line ranges in one call. They share a size limit, so ask for ranges when the files are long.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "files": {
+      "type": "array",
+      "description": "Files to read. Each item may be a path string or an object with path/file_path plus optional start_line/end_line or line_start/line_count.",
+      "items": {
+       "oneOf": [
+        {
+         "type": "string",
+         "description": "Path inside the per-user workspace"
+        },
+        {
+         "type": "object",
+         "properties": {
+          "path": {
+           "type": "string",
+           "description": "Absolute or relative path inside the per-user workspace"
+          },
+          "file_path": {
+           "type": "string",
+           "description": "Alias for path"
+          },
+          "start_line": {
+           "type": "number",
+           "description": "Starting line number (1-indexed, inclusive)"
+          },
+          "end_line": {
+           "type": "number",
+           "description": "Ending line number (1-indexed, inclusive)"
+          },
+          "line_start": {
+           "type": "number",
+           "description": "Alias for start_line"
+          },
+          "line_count": {
+           "type": "number",
+           "description": "Number of lines to read from start_line/line_start"
+          },
+          "encoding": {
+           "type": "string",
+           "description": "File encoding (default utf-8)"
+          }
+         },
+         "required": []
+        }
+       ]
+      }
+     },
+     "paths": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Convenience alias for reading whole files by path."
+     },
+     "encoding": {
+      "type": "string",
+      "description": "Default file encoding for items without encoding (default utf-8)"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "read_artifact",
+   "selection": "always",
+   "resultShape": "artifact",
+   "group": "files",
+   "access": "read",
+   "latencyClass": "local",
+   "capabilities": [
+    "artifact",
+    "read"
+   ],
+   "policy": {
+    "external": true
+   },
+   "whenToUse": [
+    "read the rest of a tool result that was cut, by line range",
+    "find text in a long saved result without paging through it"
+   ],
+   "description": "Read an owned text artifact by stable artifact ID. Use this for ranged inspection of command-output logs and of tool results that were cut short (full_result.artifact_id), without rerunning the call. Binary artifacts return metadata only.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "artifact_id": {
+      "type": "string",
+      "description": "Owned artifact ID returned by a previous tool result"
+     },
+     "start_line": {
+      "type": "number",
+      "description": "Starting line number (1-indexed, inclusive)"
+     },
+     "end_line": {
+      "type": "number",
+      "description": "Ending line number (1-indexed, inclusive; at most 500 lines)"
+     },
+     "query": {
+      "type": "string",
+      "description": "Text to find: returns every line containing it, with its line number, instead of a range"
+     }
+    },
+    "required": [
+     "artifact_id"
+    ]
+   }
+  },
+  {
+   "name": "write_file",
+   "selection": "coding",
+   "group": "files",
+   "access": "write",
+   "sideEffect": "workspace",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "filesystem",
+    "write",
+    "create",
+    "code"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "file_write"
+   },
+   "whenToUse": [
+    "create a new file, or replace one entirely"
+   ],
+   "whenNotToUse": [
+    "changing part of an existing file (edit_file)"
+   ],
+   "description": "Write or append content to a file, creating parent directories. Write the complete content: nothing is summarized or filled in for you.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "File path"
+     },
+     "content": {
+      "type": "string",
+      "description": "Content to write"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "write",
+       "append"
+      ],
+      "description": "Write mode (default write)"
+     }
+    },
+    "required": [
+     "path",
+     "content"
+    ]
+   }
+  },
+  {
+   "name": "edit_file",
+   "selection": "coding",
+   "group": "files",
+   "access": "write",
+   "sideEffect": "workspace",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "filesystem",
+    "edit",
+    "patch",
+    "code"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "file_write"
+   },
+   "whenToUse": [
+    "any change to part of a file, instead of sed or rewriting it",
+    "several changes to one file: put them in one call"
+   ],
+   "description": "Replace exact text in one file. Edits apply in order and all or nothing. Each oldText must match exactly one location unless replace_all is true; a failed match writes nothing and reports the nearby lines. Keep indentation exact.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "File path"
+     },
+     "edits": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "oldText": {
+         "type": "string",
+         "description": "The exact text to replace."
+        },
+        "newText": {
+         "type": "string",
+         "description": "The replacement text."
+        },
+        "old_text": {
+         "type": "string",
+         "description": "Alias for oldText"
+        },
+        "new_text": {
+         "type": "string",
+         "description": "Alias for newText"
+        },
+        "replace_all": {
+         "type": "boolean",
+         "description": "Replace every occurrence when oldText matches more than one location (default false)."
+        }
+       },
+       "required": []
+      },
+      "description": "Replacements to apply, all or none."
+     }
+    },
+    "required": [
+     "path",
+     "edits"
+    ]
+   }
+  },
+  {
+   "name": "replace_file_range",
+   "resultShape": "file_range",
+   "group": "files",
+   "access": "write",
+   "sideEffect": "workspace",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "filesystem",
+    "edit",
+    "code"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "file_write"
+   },
+   "description": "Replace a 1-indexed inclusive line range in a workspace file. Use this when you know line numbers and exact-text edit_file would be brittle. Read the target range first, then replace only the intended lines.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "File path inside the per-user workspace"
+     },
+     "start_line": {
+      "type": "number",
+      "description": "Starting line number (1-indexed, inclusive)"
+     },
+     "end_line": {
+      "type": "number",
+      "description": "Ending line number (1-indexed, inclusive)"
+     },
+     "startLine": {
+      "type": "number",
+      "description": "Alias for start_line"
+     },
+     "endLine": {
+      "type": "number",
+      "description": "Alias for end_line"
+     },
+     "content": {
+      "type": "string",
+      "description": "Replacement content for the range. Empty string deletes the range."
+     }
+    },
+    "required": [
+     "path",
+     "content"
+    ]
+   }
+  },
+  {
+   "name": "list_directory",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "filesystem",
+    "list",
+    "folder"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "List workspace files and directories with metadata. Omit path to list the workspace root.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Directory path inside the workspace (default \".\")"
+     },
+     "recursive": {
+      "type": "boolean",
+      "description": "List recursively"
+     },
+     "depth": {
+      "type": "number",
+      "description": "Maximum recursion depth (default 1, max 5)"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "search_files",
+   "selection": "coding",
+   "resultShape": "file_search",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "filesystem",
+    "search",
+    "grep",
+    "code"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "whenToUse": [
+    "find code, a symbol, or a phrase, instead of grep or find in the shell"
+   ],
+   "whenNotToUse": [
+    "the file is already known and only needs reading"
+   ],
+   "description": "Search file contents with ripgrep or grep, skipping ignored and generated files. Returns matches grouped by file: a file is named on its first line only, and context lines are numbered like \"13-\". Lower-case queries ignore case.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "File or directory to search (default the workspace root)"
+     },
+     "query": {
+      "type": "string",
+      "description": "Exact text to find, or a pattern when regex is true"
+     },
+     "regex": {
+      "type": "boolean",
+      "description": "Treat query as a regular expression (default false)"
+     },
+     "include": {
+      "type": "string",
+      "description": "Only files matching this glob, such as \"*.js\" or \"src/**/*.ts\""
+     },
+     "context": {
+      "type": "number",
+      "description": "Lines to show around each match (default 0, max 5)"
+     },
+     "case_sensitive": {
+      "type": "boolean",
+      "description": "Override the case rule"
+     },
+     "max_results": {
+      "type": "number",
+      "description": "Most matches to return (default 50, max 200)"
+     },
+     "maxDepth": {
+      "type": "number",
+      "description": "Maximum directory depth"
+     },
+     "maxFileSize": {
+      "type": "number",
+      "description": "Largest file to scan in bytes (default 1048576, ripgrep only)"
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  },
+  {
+   "name": "code_navigate",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "code",
+    "symbols",
+    "definition",
+    "references"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "whenNotToUse": [
+    "searching for text (search_files)"
+   ],
+   "description": "Navigate source code by AST-derived JavaScript/TypeScript symbols or workspace-scoped semantic retrieval. Returns excerpts and line references instead of complete files.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "mode": {
+      "type": "string",
+      "enum": [
+       "structure",
+       "semantic"
+      ],
+      "description": "Search mode."
+     },
+     "path": {
+      "type": "string",
+      "description": "Workspace file or directory."
+     },
+     "query": {
+      "type": "string",
+      "description": "Required for semantic mode."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Maximum semantic results."
+     }
+    },
+    "required": [
+     "mode",
+     "path"
+    ]
+   },
+   "availableWhen": true
+  },
+  {
+   "name": "query_structured_data",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "csv",
+    "json",
+    "sql",
+    "data"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "description": "Read workspace CSV, TSV, JSON, or SQLite data using format-aware parsers. SQLite statements must be read-only and parameters are bound separately.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Workspace data file."
+     },
+     "sql": {
+      "type": "string",
+      "description": "Read-only SQLite query."
+     },
+     "parameters": {
+      "type": "object",
+      "description": "Named SQLite query parameters."
+     },
+     "columns": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Columns to return for CSV, TSV, or JSON."
+     },
+     "equals": {
+      "type": "object",
+      "description": "Exact field filters for CSV, TSV, or JSON."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Maximum rows, capped at 1000."
+     }
+    },
+    "required": [
+     "path"
+    ]
+   },
+   "availableWhen": true
+  },
+  {
+   "name": "workspace_rollback",
+   "group": "files",
+   "access": "write",
+   "sideEffect": "workspace",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "git",
+    "undo",
+    "rollback",
+    "restore",
+    "checkpoint"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "file_write"
+   },
+   "whenToUse": [
+    "your changes made things worse and you cannot fix them forward"
+   ],
+   "description": "Automatic rollback is disabled in shared workspaces because ownership of changes cannot be proven. Use repo_diff and correct specific edits forward.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "repo_overview",
+   "selection": "coding",
+   "resultShape": "bounded",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "repo",
+    "overview",
+    "git",
+    "code",
+    "tests"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "whenToUse": [
+    "first look at a repository, instead of ls, git status, and cat package.json"
+   ],
+   "description": "One compact view of a repository: root, branch, dirty files, top-level layout, languages, manifests, docs, and how to run its tests.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Repository directory (default the workspace root)"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "repo_diff",
+   "selection": "coding",
+   "resultShape": "bounded",
+   "group": "files",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "local",
+   "capabilities": [
+    "repo",
+    "diff",
+    "git",
+    "status",
+    "review"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "whenToUse": [
+    "review what you changed, instead of git status and git diff"
+   ],
+   "description": "Changed files and a bounded diff, including new files. By default uses snapshots around this run's calls; concurrent external writes may be included. Does not modify workspace files or the Git index.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Repository directory, when the run has no changes recorded or scope is not run (default the workspace root)"
+     },
+     "scope": {
+      "type": "string",
+      "enum": [
+       "run",
+       "uncommitted"
+      ],
+      "description": "run: this run's changes (default). uncommitted: everything since HEAD."
+     },
+     "base": {
+      "type": "string",
+      "description": "Compare with where this ref branched off instead, such as \"main\""
+     },
+     "paths": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Only these files or directories; gives each more room"
+     },
+     "max_chars": {
+      "type": "number",
+      "description": "Diff size limit (default 12000, max 30000)"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "run_tests",
+   "selection": "coding",
+   "resultShape": "bounded",
+   "group": "shell",
+   "access": "write",
+   "sideEffect": "workspace",
+   "stateScope": "workspace",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "tests",
+    "verify",
+    "ci",
+    "failures"
+   ],
+   "prerequisites": [
+    "computer"
+   ],
+   "policy": {
+    "category": "shell"
+   },
+   "whenToUse": [
+    "run or re-run tests, instead of execute_command"
+   ],
+   "description": "Run the project's tests, detecting the runner or using your command. Returns the counts and only the failures, with the full log in log_artifact_id for read_artifact.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "command": {
+      "type": "string",
+      "description": "Test command, such as \"node --test test/a.test.js\". Omit to detect it."
+     },
+     "cwd": {
+      "type": "string",
+      "description": "Project directory (default the workspace root)"
+     },
+     "timeout": {
+      "type": "number",
+      "description": "Maximum runtime in ms (default 600000, max 1800000)"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "create_skill",
+   "persistent": true,
+   "group": "skills",
+   "access": "write",
+   "sideEffect": "config",
+   "stateScope": "skills",
+   "latencyClass": "local",
+   "capabilities": [
+    "skill",
+    "create"
+   ],
+   "policy": {
+    "category": "skill_mutation"
+   },
+   "description": "Create a new SKILL.md file — a persistent custom tool or workflow you can call by name in future runs. Use this sparingly and only for genuinely reusable, well-specified capabilities.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Skill name in kebab-case (e.g. check-disk-health)"
+     },
+     "description": {
+      "type": "string",
+      "description": "One-line description of what this skill does"
+     },
+     "instructions": {
+      "type": "string",
+      "description": "Full markdown body: how to use this skill, example commands, expected output, etc."
+     },
+     "metadata": {
+      "type": "object",
+      "description": "Optional extra frontmatter fields. Use { \"command\": \"...\", \"tool\": true } to make it an executable tool with parameter substitution via {param}."
+     }
+    },
+    "required": [
+     "name",
+     "description",
+     "instructions"
+    ]
+   }
+  },
+  {
+   "name": "list_skills",
+   "group": "skills",
+   "access": "read",
+   "stateScope": "skills",
+   "latencyClass": "local",
+   "capabilities": [
+    "skill",
+    "list"
+   ],
+   "description": "List all currently loaded skills (both built-in and self-created ones). Pass a skill name to load that skill's full instructions before following it.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Skill name whose full instructions to load (optional)"
+     }
+    }
+   }
+  },
+  {
+   "name": "update_skill",
+   "persistent": true,
+   "group": "skills",
+   "access": "write",
+   "sideEffect": "config",
+   "stateScope": "skills",
+   "latencyClass": "local",
+   "capabilities": [
+    "skill",
+    "update"
+   ],
+   "policy": {
+    "category": "skill_mutation"
+   },
+   "description": "Update an existing skill, including learned ones — change its description, instructions or metadata. Load the current instructions with list_skills first and send the full revised text.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Exact skill name to update"
+     },
+     "description": {
+      "type": "string",
+      "description": "New description (optional)"
+     },
+     "instructions": {
+      "type": "string",
+      "description": "New instructions body (optional)"
+     },
+     "metadata": {
+      "type": "object",
+      "description": "Metadata fields to change (optional); fields not given are kept"
+     }
+    },
+    "required": [
+     "name"
+    ]
+   }
+  },
+  {
+   "name": "delete_skill",
+   "group": "skills",
+   "access": "write",
+   "sideEffect": "config",
+   "stateScope": "skills",
+   "latencyClass": "local",
+   "capabilities": [
+    "skill",
+    "delete"
+   ],
+   "policy": {
+    "category": "skill_mutation"
+   },
+   "description": "Permanently delete a skill by name.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Exact skill name to delete"
+     }
+    },
+    "required": [
+     "name"
+    ]
+   }
+  },
+  {
+   "name": "task_ledger",
+   "selection": "always",
+   "group": "control",
+   "stepType": "note",
+   "access": "read",
+   "latencyClass": "instant",
+   "untrusted": false,
+   "repeatable": true,
+   "capabilities": [
+    "plan",
+    "checklist",
+    "steps",
+    "progress"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "multi-step work you need to keep track of, alongside your next real action"
+   ],
+   "whenNotToUse": [
+    "anything a couple of calls can settle",
+    "as a turn on its own"
+   ],
+   "description": "Keep the record of a multi-step task: its goal, constraints, steps, what you have found, and what blocks you. It survives context compaction and the user can see it. Send only the fields that changed.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "goal": {
+      "type": "string",
+      "description": "What the whole task is meant to achieve."
+     },
+     "constraints": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Rules the work has to respect."
+     },
+     "steps": {
+      "type": "array",
+      "description": "The steps, in order, with their current status.",
+      "items": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string",
+         "description": "Short step name."
+        },
+        "status": {
+         "type": "string",
+         "enum": [
+          "pending",
+          "active",
+          "done",
+          "blocked"
+         ]
+        }
+       },
+       "required": [
+        "id",
+        "status"
+       ]
+      }
+     },
+     "observations": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "What you have found out so far. These are your own notes: what the run actually did is recorded separately."
+     },
+     "blockers": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "What stops progress right now."
+     }
+    }
+   }
+  },
+  {
+   "name": "search_tools",
+   "selection": "always",
+   "group": "control",
+   "access": "read",
+   "latencyClass": "instant",
+   "untrusted": false,
+   "capabilities": [
+    "tools",
+    "discover"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Search the complete tool registry by capability. Use this only when no tool in the listed catalog fits; the result returns exact names and descriptions for activate_tools.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "Describe the capability or action you need."
+     },
+     "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 12,
+      "description": "Maximum matches to return (default 8)."
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  },
+  {
+   "name": "activate_tools",
+   "selection": "always",
+   "group": "control",
+   "access": "write",
+   "latencyClass": "instant",
+   "untrusted": false,
+   "exclusive": true,
+   "capabilities": [
+    "tools",
+    "activate"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Activate tools by exact name from the tool catalog or search_tools. Activated schemas become available on the next model turn; unrelated active schemas may be replaced when the schema limit is full.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "names": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Exact tool names from the tool catalog or search_tools."
+     }
+    },
+    "required": [
+     "names"
+    ]
+   }
+  },
+  {
+   "name": "background_task",
+   "group": "control",
+   "access": "write",
+   "sideEffect": "agent",
+   "stateScope": "agents",
+   "latencyClass": "instant",
+   "repeatable": true,
+   "capabilities": [
+    "background",
+    "task",
+    "status"
+   ],
+   "description": "Check on, instruct, or cancel a task the user started earlier that is still running in the background. Running background tasks are listed in the conversation context.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "action": {
+      "type": "string",
+      "enum": [
+       "status",
+       "instruct",
+       "cancel"
+      ],
+      "description": "status: fresh progress (omit run_id to list all); instruct: pass a change or addition on to the task; cancel: stop the task."
+     },
+     "run_id": {
+      "type": "string",
+      "description": "run_id of the background task. Required for instruct and cancel."
+     },
+     "instruction": {
+      "type": "string",
+      "description": "For instruct: the change or addition, self-contained, with everything the task needs to apply it."
+     }
+    },
+    "required": [
+     "action"
+    ]
+   },
+   "availableWhen": true
+  },
+  {
+   "name": "spawn_subagent",
+   "resultShape": "subagent_started",
+   "group": "agents",
+   "stepType": "subagent",
+   "access": "write",
+   "sideEffect": "agent",
+   "stateScope": "agents",
+   "latencyClass": "instant",
+   "repeatable": true,
+   "untrusted": false,
+   "capabilities": [
+    "subagent",
+    "parallel",
+    "delegate"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "independent sub-problems that benefit from parallel work or isolated context"
+   ],
+   "whenNotToUse": [
+    "a single sequential task you can do yourself"
+   ],
+   "description": "Start an independent sub-agent in the background for separate work: exploring several areas at once, or a task whose detail would crowd your context. Returns a handle at once; collect its result with wait_subagent. The result includes what the run recorded, so check that rather than trusting its summary. Read-only unless write is set.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "task": {
+      "type": "string",
+      "description": "The task for the sub-agent to complete"
+     },
+     "model": {
+      "type": "string",
+      "description": "Optional model override selected from the live model catalog."
+     },
+     "context": {
+      "type": "string",
+      "description": "Only the constraints and evidence the sub-agent needs."
+     },
+     "required_artifacts": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Artifacts the sub-agent must return."
+     },
+     "tools": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Limit the sub-agent to these tools. Enforced."
+     },
+     "write": {
+      "type": "boolean",
+      "description": "Allow it to change things. Off by default, and only one at a time may have it; the parent cannot change the workspace while it runs."
+     },
+     "max_turns": {
+      "type": "integer",
+      "description": "Model turns it may use. Default 30, at most 60."
+     },
+     "max_tokens": {
+      "type": "integer",
+      "description": "Tokens it may use. Default 300000."
+     },
+     "max_seconds": {
+      "type": "integer",
+      "description": "Time it may take. Default 600, at most 1800."
+     }
+    },
+    "required": [
+     "task"
+    ]
+   }
+  },
+  {
+   "name": "delegate_to_agent",
+   "group": "agents",
+   "access": "write",
+   "sideEffect": "agent",
+   "stateScope": "agents",
+   "latencyClass": "instant",
+   "repeatable": true,
+   "untrusted": false,
+   "capabilities": [
+    "agent",
+    "delegate",
+    "handoff",
+    "specialist"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "a part of the work falls squarely in another agent's responsibility and it benefits from that agent's own memory, tools or context",
+    "handoff: the request belongs to another agent from now on"
+   ],
+   "whenNotToUse": [
+    "a quick or tightly connected step you can do yourself",
+    "parallel throwaway exploration (use spawn_subagent)"
+   ],
+   "description": "Give a task to one of your fellow agents. It runs in the background in that agent's own run and returns at once with a task_id; you are not blocked. By default you stay responsible and its result comes back to you as an agent task update. Set handoff when the request belongs to that agent from now on; its result then reaches the user without you. Pass only what it needs: it does not see your conversation.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "agent": {
+      "type": "string",
+      "description": "The agent, by identifier or name."
+     },
+     "task": {
+      "type": "string",
+      "description": "What it should achieve, self-contained."
+     },
+     "context": {
+      "type": "string",
+      "description": "Only the facts, constraints and references it needs. No secrets."
+     },
+     "expected_output": {
+      "type": "string",
+      "description": "What a finished result looks like."
+     },
+     "handoff": {
+      "type": "boolean",
+      "description": "Hand the request over for good instead of getting the result back."
+     },
+     "allow_external_side_effects": {
+      "type": "boolean",
+      "description": "Set true only when the user wants that agent to send messages or change outside systems itself."
+     }
+    },
+    "required": [
+     "agent",
+     "task"
+    ]
+   }
+  },
+  {
+   "name": "agent_task",
+   "group": "agents",
+   "access": "write",
+   "sideEffect": "agent",
+   "stateScope": "agents",
+   "latencyClass": "instant",
+   "repeatable": true,
+   "untrusted": false,
+   "capabilities": [
+    "agent",
+    "task",
+    "status",
+    "message",
+    "handoff"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Work with agent tasks you asked for or own. list: your open tasks. status: one task, with its result once done; wait_seconds waits up to 120 s for it to move on. message: send an answer, a question or new information about an open task (as its owner, a question makes the task wait for the reply). handoff: as the owner, pass the task on to another agent. cancel: stop a task you asked for.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "action": {
+      "type": "string",
+      "enum": [
+       "list",
+       "status",
+       "message",
+       "handoff",
+       "cancel"
+      ]
+     },
+     "task_id": {
+      "type": "string",
+      "description": "The task, from delegate_to_agent or an agent task update."
+     },
+     "message": {
+      "type": "string",
+      "description": "For message: the text. For handoff and cancel: an optional note."
+     },
+     "agent": {
+      "type": "string",
+      "description": "For handoff: the agent that takes it over."
+     },
+     "wait_seconds": {
+      "type": "integer",
+      "description": "For status: how long to wait for a change, at most 120."
+     }
+    },
+    "required": [
+     "action"
+    ]
+   }
+  },
+  {
+   "name": "create_agent",
+   "group": "agents",
+   "access": "write",
+   "sideEffect": "agent",
+   "stateScope": "agents",
+   "latencyClass": "instant",
+   "untrusted": false,
+   "capabilities": [
+    "agent",
+    "create",
+    "specialist"
+   ],
+   "policy": {
+    "category": "agent_creation"
+   },
+   "whenToUse": [
+    "the user asks for a lasting agent for something",
+    "a lasting area of responsibility has emerged that needs its own memory, context or ownership"
+   ],
+   "whenNotToUse": [
+    "one-off work (do it, or use spawn_subagent)",
+    "something that only has to happen on a schedule (a task on an existing agent covers it)",
+    "an existing agent already covers the responsibility"
+   ],
+   "description": "Create a new persistent agent: a lasting specialist with its own chat and memory that the user sees and manages next to you. It never gets more permissions than you have. Give it one clear responsibility, not a generic helper role.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Short display name."
+     },
+     "responsibility": {
+      "type": "string",
+      "description": "The lasting area it owns, in one or two sentences."
+     },
+     "description": {
+      "type": "string",
+      "description": "One line on what it is good at."
+     },
+     "instructions": {
+      "type": "string",
+      "description": "How it should work, if it differs from the default."
+     },
+     "reason": {
+      "type": "string",
+      "description": "Why this needs its own agent; shown to the user."
+     },
+     "ask_first": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "shell",
+        "file_write",
+        "android_privileged",
+        "desktop_control",
+        "browser_privileged",
+        "credential_use",
+        "network_write",
+        "user_contact",
+        "skill_mutation",
+        "agent_creation",
+        "external"
+       ]
+      },
+      "description": "Tool categories it must ask the user about before each use."
+     },
+     "not_allowed": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "shell",
+        "file_write",
+        "android_privileged",
+        "desktop_control",
+        "browser_privileged",
+        "credential_use",
+        "network_write",
+        "user_contact",
+        "skill_mutation",
+        "agent_creation",
+        "external"
+       ]
+      },
+      "description": "Tool categories it may not use at all."
+     }
+    },
+    "required": [
+     "name",
+     "responsibility",
+     "reason"
+    ]
+   }
+  },
+  {
+   "name": "list_subagents",
+   "resultShape": "subagents",
+   "group": "agents",
+   "stepType": "subagent",
+   "access": "read",
+   "stateScope": "agents",
+   "latencyClass": "instant",
+   "repeatable": true,
+   "untrusted": false,
+   "capabilities": [
+    "subagent",
+    "status"
+   ],
+   "description": "List the async sub-agents that belong to the current parent run, including status and any finished results.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "wait_subagent",
+   "resultShape": "subagents",
+   "group": "agents",
+   "stepType": "subagent",
+   "access": "read",
+   "stateScope": "agents",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "exclusive": true,
+   "capabilities": [
+    "subagent",
+    "wait"
+   ],
+   "description": "Wait for a spawned sub-agent to finish and return its result.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "handle": {
+      "type": "string",
+      "description": "The handle returned by spawn_subagent."
+     },
+     "timeout_ms": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (default 30000)."
+     }
+    },
+    "required": [
+     "handle"
+    ]
+   }
+  },
+  {
+   "name": "cancel_subagent",
+   "resultShape": "subagents",
+   "group": "agents",
+   "stepType": "subagent",
+   "access": "write",
+   "sideEffect": "agent",
+   "stateScope": "agents",
+   "latencyClass": "instant",
+   "untrusted": false,
+   "capabilities": [
+    "subagent",
+    "cancel"
+   ],
+   "description": "Cancel a spawned sub-agent by handle.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "handle": {
+      "type": "string",
+      "description": "The handle returned by spawn_subagent."
+     }
+    },
+    "required": [
+     "handle"
+    ]
+   }
+  },
+  {
+   "name": "create_task",
+   "selection": "default",
+   "persistent": true,
+   "resultShape": "status",
+   "group": "tasks",
+   "access": "write",
+   "sideEffect": "task",
+   "stateScope": "tasks",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "task",
+    "schedule",
+    "reminder",
+    "timer",
+    "cron",
+    "later"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "whenToUse": [
+    "work that must happen later or repeat"
+   ],
+   "whenNotToUse": [
+    "work you can do right now"
+   ],
+   "description": "Create a future, recurring, monitored, or background automation. Do not use for immediate work. Resolve references into a self-contained prompt with exact targets, action, notification condition (every run, change, error, or matched condition), destination when known, and any supplied expiry. Use manual for run-on-demand, schedule for one-time/recurring time triggers, and an integration trigger for incoming app events. A successful result is required before claiming the task exists.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Short descriptive name for the task."
+     },
+     "trigger": {
+      "type": "object",
+      "description": "Unified trigger object. Prefer { type: \"manual\" | \"schedule\" | integration_trigger_type, config: {...} }."
+     },
+     "trigger_type": {
+      "type": "string",
+      "description": "Trigger type, one of: schedule, manual, webhook, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, whatsapp_personal_message_received, messaging_member_joined, messaging_member_left, messaging_reaction_added, messaging_platform_disconnected, google_calendar_event_starting, google_calendar_event_created, outlook_calendar_event_starting, nextcloud_calendar_event_starting, google_drive_file_added, google_sheets_row_added, onedrive_file_added, nextcloud_file_added, nextcloud_share_received, notion_database_item_added, notion_database_item_updated, trello_card_entered_list, figma_comment_added, github_issue_opened, github_pr_opened, github_workflow_run_failed, github_commit_pushed, mcp_server_disconnected, home_assistant_state_changed, spotify_track_changed, neorecall_memory_created, neorecall_daily_summary_created, neorecall_conversation_recorded, weather_event, world_news, android_notification_received, geofence_event, health_metric_recorded, phone_alarm, wearable_connection_changed, task_run_finished."
+     },
+     "trigger_config": {
+      "type": "object",
+      "description": "Trigger-specific configuration object. For schedule triggers prefer { mode: \"recurring\", cronExpression: \"m h dom mon dow\" } or { mode: \"one_time\", runAt: ISO datetime }. Cron fields and runAt values without an offset are read in the user's timezone. 5-field cron only (seconds unsupported). Integration triggers take the connectionId of the connected account. A config the trigger cannot use is answered with the fields it expects."
+     },
+     "prompt": {
+      "type": "string",
+      "description": "The instructions the agent will run when the trigger fires."
+     },
+     "enabled": {
+      "type": "boolean",
+      "description": "Whether to activate immediately."
+     },
+     "model": {
+      "type": "string",
+      "description": "Optional model override."
+     }
+    },
+    "required": [
+     "name",
+     "prompt"
+    ]
+   }
+  },
+  {
+   "name": "list_tasks",
+   "resultShape": "task_list",
+   "group": "tasks",
+   "access": "read",
+   "stateScope": "tasks",
+   "latencyClass": "local",
+   "untrusted": false,
+   "repeatable": true,
+   "capabilities": [
+    "task",
+    "schedule",
+    "list"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "List saved background/scheduled tasks for this user and agent. Do not use for ordinary immediate replies.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "delete_task",
+   "resultShape": "status",
+   "group": "tasks",
+   "access": "write",
+   "sideEffect": "task",
+   "stateScope": "tasks",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "task",
+    "delete"
+   ],
+   "description": "Delete a saved background/scheduled task by its ID.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "task_id": {
+      "type": "number",
+      "description": "The numeric ID of the task to delete."
+     }
+    },
+    "required": [
+     "task_id"
+    ]
+   }
+  },
+  {
+   "name": "update_task",
+   "persistent": true,
+   "resultShape": "status",
+   "group": "tasks",
+   "access": "write",
+   "sideEffect": "task",
+   "stateScope": "tasks",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "task",
+    "schedule",
+    "update"
+   ],
+   "policy": {
+    "safe": true
+   },
+   "description": "Update an existing saved background/scheduled task, including its trigger, prompt, or enabled state.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "task_id": {
+      "type": "number",
+      "description": "The numeric ID of the task to update."
+     },
+     "name": {
+      "type": "string",
+      "description": "New name for the task."
+     },
+     "trigger": {
+      "type": "object",
+      "description": "Unified trigger object. Use { type, config } to update trigger in one section."
+     },
+     "trigger_type": {
+      "type": "string",
+      "description": "Updated trigger type, e.g. manual, schedule, or integration trigger type."
+     },
+     "trigger_config": {
+      "type": "object",
+      "description": "Updated trigger-specific configuration. For schedule triggers use mode+cronExpression (recurring) or mode+runAt (one_time), both read in the user's timezone unless runAt carries an offset."
+     },
+     "prompt": {
+      "type": "string",
+      "description": "Updated task prompt."
+     },
+     "enabled": {
+      "type": "boolean",
+      "description": "Enable or disable the task."
+     },
+     "model": {
+      "type": "string",
+      "description": "Specific AI model ID for this task. Set to empty string to clear the override."
+     }
+    },
+    "required": [
+     "task_id"
+    ]
+   }
+  },
+  {
+   "name": "mcp_add_server",
+   "persistent": true,
+   "group": "mcp",
+   "stepType": "mcp",
+   "access": "write",
+   "sideEffect": "config",
+   "stateScope": "config",
+   "latencyClass": "remote",
+   "capabilities": [
+    "mcp",
+    "server",
+    "connect"
+   ],
+   "description": "Register and optionally start a new MCP (Model Context Protocol) server connection. Use this when the user asks to connect a new MCP server or when you discover a useful one. The server will appear in the MCP Servers page and its tools will be available to you immediately if auto_start is true.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Human-readable name for this server (e.g. \"filesystem\", \"brave-search\")"
+     },
+     "command": {
+      "type": "string",
+      "description": "The executable to run, e.g. \"npx\" or \"/usr/local/bin/my-mcp-server\""
+     },
+     "args": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Command-line arguments, e.g. [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/tmp\"]"
+     },
+     "env": {
+      "type": "object",
+      "description": "Extra environment variables to pass to the server process, e.g. { \"BRAVE_API_KEY\": \"abc123\" }"
+     },
+     "auto_start": {
+      "type": "boolean",
+      "description": "Start the server immediately after registering (default true)"
+     }
+    },
+    "required": [
+     "name",
+     "command"
+    ]
+   }
+  },
+  {
+   "name": "mcp_list_servers",
+   "group": "mcp",
+   "stepType": "mcp",
+   "access": "read",
+   "stateScope": "config",
+   "latencyClass": "local",
+   "capabilities": [
+    "mcp",
+    "server",
+    "list"
+   ],
+   "description": "List all registered MCP servers with their status and available tool counts.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "mcp_remove_server",
+   "group": "mcp",
+   "stepType": "mcp",
+   "access": "write",
+   "sideEffect": "config",
+   "stateScope": "config",
+   "latencyClass": "local",
+   "capabilities": [
+    "mcp",
+    "server",
+    "remove"
+   ],
+   "description": "Stop and remove an MCP server connection by its numeric ID (get IDs from mcp_list_servers).",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "server_id": {
+      "type": "number",
+      "description": "The numeric ID of the MCP server to remove"
+     }
+    },
+    "required": [
+     "server_id"
+    ]
+   }
+  },
+  {
+   "name": "generate_image",
+   "group": "media",
+   "access": "write",
+   "sideEffect": "artifact",
+   "latencyClass": "slow",
+   "repeatable": true,
+   "capabilities": [
+    "image",
+    "generate",
+    "picture"
+   ],
+   "description": "Generate an image from a description. Saves the image locally and returns the file path — send it via send_message with media_path to share it on WhatsApp, Discord, etc.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "prompt": {
+      "type": "string",
+      "description": "Detailed description of the image to generate"
+     },
+     "n": {
+      "type": "number",
+      "description": "Number of images to generate (default 1, max 4)"
+     }
+    },
+    "required": [
+     "prompt"
+    ]
+   }
+  },
+  {
+   "name": "generate_table",
+   "group": "media",
+   "access": "write",
+   "sideEffect": "artifact",
+   "latencyClass": "local",
+   "repeatable": true,
+   "untrusted": false,
+   "capabilities": [
+    "table",
+    "generate"
+   ],
+   "description": "Format data into a markdown table. The resulting markdown will be returned to you. You MUST include it in your next message to the user so they can see it.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "markdown_table": {
+      "type": "string",
+      "description": "The complete markdown table structure"
+     }
+    },
+    "required": [
+     "markdown_table"
+    ]
+   }
+  },
+  {
+   "name": "generate_graph",
+   "group": "media",
+   "access": "write",
+   "sideEffect": "artifact",
+   "latencyClass": "local",
+   "repeatable": true,
+   "untrusted": false,
+   "capabilities": [
+    "graph",
+    "chart",
+    "generate"
+   ],
+   "description": "Generate a chart using Mermaid.js syntax. Returns the mermaid code block to you. You MUST include it in your next message to the user (via ```mermaid ... ```) so they can see it.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "mermaid_code": {
+      "type": "string",
+      "description": "The raw Mermaid JS syntax code (e.g. graph TD\\nA-->B)"
+     }
+    },
+    "required": [
+     "mermaid_code"
+    ]
+   }
+  },
+  {
+   "name": "analyze_image",
+   "group": "media",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "remote",
+   "capabilities": [
+    "image",
+    "vision",
+    "analyze"
+   ],
+   "description": "Analyze an image file using the best available vision-capable model. Use this to describe photos, read QR codes, extract text from screenshots, or answer visual questions.",
+   "fileArgs": [
+    "image_path"
+   ],
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "image_path": {
+      "type": "string",
+      "description": "The image: a file in your workspace or an owned artifact"
+     },
+     "question": {
+      "type": "string",
+      "description": "What to answer or describe about the image (default: describe the image in detail)"
+     }
+    },
+    "required": [
+     "image_path"
+    ]
+   }
+  },
+  {
+   "name": "transcribe_audio",
+   "group": "media",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "slow",
+   "capabilities": [
+    "audio",
+    "transcribe",
+    "speech"
+   ],
+   "description": "Transcribe speech in an audio file (for example a voice note or recording the user shared) with the configured speech-to-text provider.",
+   "fileArgs": [
+    "audio_path"
+   ],
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "audio_path": {
+      "type": "string",
+      "description": "The audio: a file in your workspace or an owned artifact"
+     }
+    },
+    "required": [
+     "audio_path"
+    ]
+   }
+  },
+  {
+   "name": "ocr_extract",
+   "group": "media",
+   "access": "read",
+   "stateScope": "workspace",
+   "latencyClass": "remote",
+   "capabilities": [
+    "image",
+    "ocr",
+    "text"
+   ],
+   "description": "Extract raw text from an image locally using Tesseract OCR. This is faster and completely offline compared to analyze_image.",
+   "fileArgs": [
+    "image_path"
+   ],
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "image_path": {
+      "type": "string",
+      "description": "The image: a file in your workspace or an owned artifact"
+     }
+    },
+    "required": [
+     "image_path"
+    ]
+   }
+  },
+  {
+   "name": "read_health_data",
+   "group": "data",
+   "access": "read",
+   "latencyClass": "local",
+   "repeatable": true,
+   "capabilities": [
+    "health",
+    "fitness",
+    "steps",
+    "sleep"
+   ],
+   "description": "Read the user's synced mobile health data. Omit metric_type for a summary of all available metrics. With metric_type, returns an aggregate summary (total, avg, min, max over all stored data) plus the most recent individual records. Always report the summary figures — avoid listing every raw record.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "metric_type": {
+      "type": "string",
+      "description": "Metric to query. Canonical values: \"steps\" (also accepts: \"step\", \"step_count\"), \"heart_rate\" (also accepts: \"heartbeat\", \"heartrate\", \"pulse\", \"bpm\"), \"sleep_session\" (also accepts: \"sleep\"), \"exercise_session\" (also accepts: \"exercise\", \"workout\", \"activity\"), \"weight\" (also accepts: \"body_weight\"). Omit to see what is available."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Max recent records to return (default 10, max 200). Use a small number unless the user explicitly asks for a full history."
+     }
+    }
+   }
+  },
+  {
+   "name": "social_reach_status",
+   "group": "data",
+   "access": "read",
+   "latencyClass": "remote",
+   "repeatable": true,
+   "capabilities": [
+    "social",
+    "status"
+   ],
+   "policy": {
+    "external": true
+   },
+   "description": "List available Social Reach platforms, setup state, and active backend for social content access.",
+   "parameters": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "social_reach_read",
+   "group": "data",
+   "access": "read",
+   "latencyClass": "remote",
+   "repeatable": true,
+   "capabilities": [
+    "social",
+    "read",
+    "post"
+   ],
+   "policy": {
+    "external": true
+   },
+   "description": "Read a supported public social URL using NeoAgent Social Reach. Supports RSS/Atom, V2EX, Reddit, X posts, GitHub repositories, configured Xueqiu data, and social video links from YouTube, TikTok, Instagram/Reels, or X.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "url": {
+      "type": "string",
+      "description": "HTTP or HTTPS URL to read."
+     },
+     "platform": {
+      "type": "string",
+      "description": "Optional platform override such as rss, v2ex, reddit, x, github, social_video, youtube, tiktok, instagram, reels, or xueqiu."
+     },
+     "symbol": {
+      "type": "string",
+      "description": "Optional Xueqiu stock symbol when platform is xueqiu."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Maximum number of feed/results/replies to return."
+     }
+    }
+   }
+  },
+  {
+   "name": "social_reach_search",
+   "group": "data",
+   "access": "read",
+   "latencyClass": "remote",
+   "repeatable": true,
+   "capabilities": [
+    "social",
+    "search"
+   ],
+   "policy": {
+    "external": true
+   },
+   "description": "Search a supported Social Reach platform. Supports GitHub repositories, V2EX hot/node topics, Reddit posts, and configured Xueqiu stock search.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "platform": {
+      "type": "string",
+      "description": "Platform to search: github, v2ex, reddit, or xueqiu."
+     },
+     "query": {
+      "type": "string",
+      "description": "Search query. For V2EX, use \"hot\" or a node name."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Maximum result count."
+     }
+    },
+    "required": [
+     "platform",
+     "query"
+    ]
+   }
+  },
+  {
+   "name": "social_video_extract",
+   "egress": true,
+   "resultShape": "video_extract",
+   "group": "data",
+   "access": "read",
+   "latencyClass": "slow",
+   "exclusive": true,
+   "capabilities": [
+    "social",
+    "video",
+    "extract"
+   ],
+   "description": "Extract title, description, transcript, and one representative frame image from a public social video URL (YouTube, TikTok, Instagram, or X) without social API keys.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "url": {
+      "type": "string",
+      "description": "Public social video URL."
+     },
+     "include_frame": {
+      "type": "boolean",
+      "description": "Whether to return one representative frame image artifact (default true)."
+     },
+     "force_stt": {
+      "type": "boolean",
+      "description": "Force speech-to-text fallback even if captions are present."
+     }
+    },
+    "required": [
+     "url"
+    ]
+   }
+  }
+ ],
+ "integrated": [
+  {
+   "name": "detect_synthid_watermark",
+   "fileArgs": [
+    "image_path"
+   ],
+   "group": "media",
+   "access": "read",
+   "latencyClass": "remote",
+   "capabilities": [
+    "image",
+    "watermark",
+    "synthid"
+   ],
+   "policy": {
+    "external": true
+   }
+  },
+  {
+   "name": "settings_read",
+   "group": "config",
+   "access": "read",
+   "stateScope": "config",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "settings",
+    "configuration"
+   ]
+  },
+  {
+   "name": "settings_update",
+   "persistent": true,
+   "group": "config",
+   "access": "write",
+   "sideEffect": "config",
+   "stateScope": "config",
+   "latencyClass": "local",
+   "untrusted": false,
+   "capabilities": [
+    "settings",
+    "configuration"
+   ]
+  },
+  {
+   "name": "settings_link",
+   "group": "config",
+   "access": "read",
+   "stateScope": "config",
+   "latencyClass": "instant",
+   "untrusted": false,
+   "capabilities": [
+    "settings",
+    "link"
+   ]
+  }
+ ]
+}

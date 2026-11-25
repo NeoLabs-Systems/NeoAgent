@@ -1,0 +1,774 @@
+{
+ "clientToServer": [
+  "agent:abort",
+  "agent:history",
+  "agent:run",
+  "agent:run_detail",
+  "integrations:status",
+  "mcp:status",
+  "mcp:tools",
+  "memory:read",
+  "memory:search",
+  "messaging:connect",
+  "messaging:disconnect",
+  "messaging:send",
+  "messaging:status",
+  "stream:subscribe",
+  "stream:unsubscribe",
+  "voice:audio",
+  "voice:call_accept",
+  "voice:call_decline",
+  "voice:cancel_task",
+  "voice:input_end",
+  "voice:input_start",
+  "voice:interrupt",
+  "voice:session_close",
+  "voice:session_open"
+ ],
+ "rateLimits": {
+  "agent:run": {
+   "windowMs": 15000,
+   "max": 4
+  },
+  "agent:abort": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "agent:history": {
+   "windowMs": 10000,
+   "max": 30
+  },
+  "agent:run_detail": {
+   "windowMs": 10000,
+   "max": 30
+  },
+  "messaging:connect": {
+   "windowMs": 10000,
+   "max": 10
+  },
+  "messaging:disconnect": {
+   "windowMs": 10000,
+   "max": 10
+  },
+  "messaging:send": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "messaging:status": {
+   "windowMs": 10000,
+   "max": 40
+  },
+  "voice:session_open": {
+   "windowMs": 10000,
+   "max": 10
+  },
+  "voice:audio": {
+   "windowMs": 1000,
+   "max": 80
+  },
+  "voice:input_start": {
+   "windowMs": 10000,
+   "max": 40
+  },
+  "voice:input_end": {
+   "windowMs": 10000,
+   "max": 40
+  },
+  "voice:cancel_task": {
+   "windowMs": 10000,
+   "max": 10
+  },
+  "voice:interrupt": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "voice:session_close": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "voice:call_accept": {
+   "windowMs": 10000,
+   "max": 10
+  },
+  "voice:call_decline": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "mcp:status": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "mcp:tools": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "integrations:status": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "memory:read": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "memory:search": {
+   "windowMs": 10000,
+   "max": 20
+  },
+  "stream:subscribe": {
+   "windowMs": 10000,
+   "max": 40
+  },
+  "stream:unsubscribe": {
+   "windowMs": 10000,
+   "max": 40
+  }
+ },
+ "serverToClient": [
+  {
+   "event": "agent_task:update",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/agent_tasks.js"
+   ],
+   "shape": "{ task: tasks.serializeTask(task) }"
+  },
+  {
+   "event": "agent:aborted",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ runId: runId || null }"
+  },
+  {
+   "event": "agent:history",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ agentId, runs: runRecordsForUser(userId, { runs }).runs }"
+  },
+  {
+   "event": "agent:run_detail",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ run: null, steps: [], history: [], events: [] }"
+  },
+  {
+   "event": "agents:changed",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/tools/handlers/agents.js"
+   ],
+   "shape": "{ agentId: result.id }"
+  },
+  {
+   "event": "behavior:decision",
+   "sources": [
+    "server/services/behavior/pipeline.js"
+   ],
+   "shape": "{ platform: msg.platform, chatId: msg.chatId, agentId, isGroup: Boolean(msg.isGroup), decision: decision.decision, confidence: decision.confidence, needScore: decision.needScore, reasonCodes: decision.reasonCodes || [], urgency: decision.urgency, tokenPath: decision.tokenPath || 'gate_only', turnEpoch: decision.turnEpoch, model: decision.model || null, at: new Date().toISOString(), }"
+  },
+  {
+   "event": "computer:status",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/runtime/manager.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "device_sync:wake",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/integrations/phone/provider.js"
+   ],
+   "shape": "{ deviceId }"
+  },
+  {
+   "event": "error",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ message }"
+  },
+  {
+   "event": "integrations:status",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/websocket.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "mcp:error",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ error: `Rate limit exceeded for mcp:status. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`, }"
+  },
+  {
+   "event": "mcp:status",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "mcp:tools",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "memory:data",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ agentId, // readMemory/listDailyLogs return user-scoped shared data (not agent-specific). memory: memoryManager.readMemory(userId), assistantBehaviorNotes: memoryManager.getAssistantBehaviorNotes(userId, { agentId }), dailyLogs: memoryManager.listDailyLogs(3, userId) }"
+  },
+  {
+   "event": "memory:search_results",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "memory:sweep_progress",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/memory/ingestion.js"
+   ],
+   "shape": "{ connectionId, providerKey: connection.provider_key, appKey: connection.app_key, ...progress, }"
+  },
+  {
+   "event": "messaging:attention_required",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/manager.js"
+   ],
+   "shape": "{ agentId, platform: platformName, reason, }"
+  },
+  {
+   "event": "messaging:blocked_sender",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/automation.js",
+    "server/services/messaging/manager.js"
+   ],
+   "shape": "{ platform: msg.platform, ...payload, }"
+  },
+  {
+   "event": "messaging:connect_result",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "messaging:connected",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/manager.js",
+    "server/services/messaging/shared_connections.js"
+   ],
+   "shape": "{ agentId, platform: platformName }"
+  },
+  {
+   "event": "messaging:disconnect_result",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "messaging:disconnected",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/manager.js"
+   ],
+   "shape": "{ agentId, platform: platformName, ...info }"
+  },
+  {
+   "event": "messaging:error",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/automation.js",
+    "server/services/websocket.js"
+   ],
+   "shape": "{ error: `Command dispatch failed on ${msg.platform}: ${err.message}` }"
+  },
+  {
+   "event": "messaging:link_failed",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/shared_connections.js"
+   ],
+   "shape": "{ platform, agentId: result.agentId, reason: result.reason, }"
+  },
+  {
+   "event": "messaging:linked",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/shared_connections.js"
+   ],
+   "shape": "{ platform, agentId }"
+  },
+  {
+   "event": "messaging:logged_out",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/manager.js"
+   ],
+   "shape": "{ agentId, platform: platformName }"
+  },
+  {
+   "event": "messaging:message",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/manager.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "messaging:qr",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/manager.js"
+   ],
+   "shape": "{ agentId, platform: platformName, qr }"
+  },
+  {
+   "event": "messaging:sent",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/messaging/manager.js",
+    "server/services/websocket.js"
+   ],
+   "shape": "{ platform: platformName, agentId, to, content: normalizedContent, mediaPath: mediaReference, runId, deliveryKind, metadata, }"
+  },
+  {
+   "event": "messaging:status",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "orchestration:complete",
+   "sources": [
+    "server/services/ai/multiStep.js"
+   ],
+   "shape": "{ orchestrationId, result: result.content, totalTokens: result.totalTokens, iterations: result.iterations }"
+  },
+  {
+   "event": "orchestration:error",
+   "sources": [
+    "server/services/ai/multiStep.js"
+   ],
+   "shape": "{ orchestrationId, error: err.message }"
+  },
+  {
+   "event": "orchestration:start",
+   "sources": [
+    "server/services/ai/multiStep.js"
+   ],
+   "shape": "{ orchestrationId, task, requestedSteps, }"
+  },
+  {
+   "event": "parallel:complete",
+   "sources": [
+    "server/services/ai/multiStep.js"
+   ],
+   "shape": "{ groupId, results }"
+  },
+  {
+   "event": "parallel:start",
+   "sources": [
+    "server/services/ai/multiStep.js"
+   ],
+   "shape": "{ groupId, taskCount: tasks.length }"
+  },
+  {
+   "event": "run:analysis",
+   "sources": [
+    "flutter_app/lib/main_controller.dart"
+   ],
+   "shape": null
+  },
+  {
+   "event": "run:assistant_interim",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/callbacks.js",
+    "server/services/ai/runtime/delivery/delivery_worker.js"
+   ],
+   "shape": "{ runId, conversationId: conversationId || null, content: normalizedContent, kind: normalizedKind, expectsReply: expectsReply === true, deferFollowUp: deferFollowUp === true, triggerSource, platform: triggerSource === 'messaging' ? platform : 'web', }"
+  },
+  {
+   "event": "run:background",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/background_runs.js"
+   ],
+   "shape": "{ runId, conversationId: runMeta.conversationId || null, }"
+  },
+  {
+   "event": "run:complete",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/runtime/delivery/delivery_worker.js",
+    "server/services/ai/runtime/run_orchestrator.js",
+    "server/services/websocket.js"
+   ],
+   "shape": "{ runId: run.id, content, messageKind: entry.messageKind, outboxId: entry.id, }"
+  },
+  {
+   "event": "run:error",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/runtime/run_orchestrator.js",
+    "server/services/websocket.js"
+   ],
+   "shape": "{ runId, error, content, deliveryStatus: reason, executionCompleted: true }"
+  },
+  {
+   "event": "run:interim",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/model_io.js",
+    "server/services/ai/runtime/run_orchestrator.js",
+    "server/services/ai/tools/handlers/messaging.js"
+   ],
+   "shape": "{ runId, message: `Model service busy; retrying (attempt ${attempt}) in ${Math.max(1, Math.round(delayMs / 1000))}s.`, phase: 'recovering', }"
+  },
+  {
+   "event": "run:interrupted",
+   "sources": [
+    "flutter_app/lib/main_controller.dart"
+   ],
+   "shape": null
+  },
+  {
+   "event": "run:paused",
+   "sources": [
+    "server/services/ai/loop/run_controls.js"
+   ],
+   "shape": "{ runId, reason: control.reason || null }"
+  },
+  {
+   "event": "run:pausing",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/run_controls.js"
+   ],
+   "shape": "{ runId, reason: reason || null }"
+  },
+  {
+   "event": "run:phase",
+   "sources": [
+    "server/services/ai/runtime/run_orchestrator.js"
+   ],
+   "shape": "{ runId, conversationId: conversationId || null, phase, label, }"
+  },
+  {
+   "event": "run:plan",
+   "sources": [
+    "flutter_app/lib/main_controller.dart"
+   ],
+   "shape": null
+  },
+  {
+   "event": "run:resumed",
+   "sources": [
+    "server/services/ai/loop/run_controls.js"
+   ],
+   "shape": "{ runId }"
+  },
+  {
+   "event": "run:start",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/runtime/run_orchestrator.js"
+   ],
+   "shape": "{ runId, agentId, conversationId: conversationId || null, title: runTitle, triggerType, triggerSource, deviceTarget, runtimeKernel: 'v2', }"
+  },
+  {
+   "event": "run:steer_applied",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/run_state.js"
+   ],
+   "shape": "{ runId, conversationId: runMeta.conversationId || conversationId || null, count: queued.length, pendingCount: runMeta.steeringQueue.length, latestContent: queued[queued.length - 1]?.content || '', }"
+  },
+  {
+   "event": "run:steer_queued",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/run_state.js"
+   ],
+   "shape": "{ runId, conversationId: runMeta.conversationId || null, content: item.content, pendingCount: runMeta.steeringQueue.length, }"
+  },
+  {
+   "event": "run:stopped",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/runtime/run_orchestrator.js"
+   ],
+   "shape": "{ runId, conversationId: this.engine.getRunMeta(runId)?.conversationId || null, }"
+  },
+  {
+   "event": "run:stopping",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/run_controls.js"
+   ],
+   "shape": "{ runId }"
+  },
+  {
+   "event": "run:stream",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/model_io.js",
+    "server/services/ai/runtime/agent_loop.js"
+   ],
+   "shape": "{ runId, // Text that may yet turn out to be a written-out tool call stays back. content: mayBeRawToolCall(streamContent) ? '' : sanitizeModelOutput(streamContent, { model }), iteration, }"
+  },
+  {
+   "event": "run:subagent",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/loop/subagents.js"
+   ],
+   "shape": "{ runId: parentRunId, handle, childRunId, status: 'running', task: clampRunContext(task, 180), }"
+  },
+  {
+   "event": "run:thinking",
+   "sources": [
+    "flutter_app/lib/main_controller.dart"
+   ],
+   "shape": null
+  },
+  {
+   "event": "run:tool_end",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/runtime/tool_turn.js"
+   ],
+   "shape": "{ runId, stepId, toolName: call.name, result: compacted, status: success ? 'completed' : 'failed', error: errorMessage, }"
+  },
+  {
+   "event": "run:tool_start",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/runtime/tool_turn.js"
+   ],
+   "shape": "{ runId, stepId, stepIndex, toolName: call.name, toolArgs, type: stepType, }"
+  },
+  {
+   "event": "run:verification",
+   "sources": [
+    "flutter_app/lib/main_controller.dart"
+   ],
+   "shape": null
+  },
+  {
+   "event": "settings:changed",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/ai/integrated_tools/app_settings.js"
+   ],
+   "shape": "{ agentId, keys: [key] }"
+  },
+  {
+   "event": "skill:learned",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/skills/learning_writer.js"
+   ],
+   "shape": "{ action, name: result.name, description: proposal.description, origin: sourceKind, }"
+  },
+  {
+   "event": "skill:retired",
+   "sources": [
+    "server/services/skills/learning_writer.js"
+   ],
+   "shape": "{ name: skill.name, reason }"
+  },
+  {
+   "event": "stream:error",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ error: `Rate limit exceeded for stream:subscribe. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`, }"
+  },
+  {
+   "event": "stream:frame",
+   "sources": [
+    "flutter_app/lib/src/stream_renderer.dart",
+    "server/services/streaming/stream-hub.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "stream:subscribed",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ platform: data.platform, deviceId: data.deviceId, subscriberCount, }"
+  },
+  {
+   "event": "stream:unsubscribed",
+   "sources": [
+    "server/services/websocket.js"
+   ],
+   "shape": "{ platform: data.platform, deviceId: data.deviceId, subscriberCount, }"
+  },
+  {
+   "event": "tasks:task_complete",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/tasks/runtime.js"
+   ],
+   "shape": "{ taskId, result }"
+  },
+  {
+   "event": "tasks:task_deleted",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/tasks/runtime.js"
+   ],
+   "shape": "{ taskId: task.id }"
+  },
+  {
+   "event": "tasks:task_error",
+   "sources": [
+    "flutter_app/lib/main_controller.dart"
+   ],
+   "shape": null
+  },
+  {
+   "event": "tasks:task_running",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/tasks/runtime.js"
+   ],
+   "shape": "{ taskId, timestamp: new Date().toISOString() }"
+  },
+  {
+   "event": "tasks:task_skipped",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/tasks/runtime.js"
+   ],
+   "shape": "{ taskId, reason: 'already_running_or_queued', timestamp: new Date().toISOString(), }"
+  },
+  {
+   "event": "teach:status",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/teach/service.js"
+   ],
+   "shape": "{ ...this.serialize(session), ...extra, }"
+  },
+  {
+   "event": "tool:approval_required",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/security/approval_gate_service.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "tool:approval_resolved",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/security/approval_gate_service.js"
+   ],
+   "shape": "{ approvalId, decision: 'expired', reason, }"
+  },
+  {
+   "event": "voice:audio",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/voice_transport.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "voice:call_cancelled",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/agent_call_coordinator.js"
+   ],
+   "shape": "{ callId: invitation.callId, reason: 'answered_elsewhere', }"
+  },
+  {
+   "event": "voice:call_ended",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/agent_call_coordinator.js",
+    "server/services/websocket.js"
+   ],
+   "shape": "{ callId: invitation.callId, reason: 'unavailable', }"
+  },
+  {
+   "event": "voice:error",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/voice_transport.js",
+    "server/services/websocket.js"
+   ],
+   "shape": "{ error: `Rate limit exceeded for voice:call_accept. Retry in ${Math.ceil(limit.retryAfterMs / 1000)}s.`, }"
+  },
+  {
+   "event": "voice:incoming_call",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/agent_call_coordinator.js"
+   ],
+   "shape": "{ callId, agentId: invitation.agentId, agentName: invitation.agentName, expiresAt, }"
+  },
+  {
+   "event": "voice:interrupted",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/voice_transport.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "voice:session_ready",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/voice_transport.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "voice:state",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/voice_transport.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "voice:task",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/voice_transport.js"
+   ],
+   "shape": null
+  },
+  {
+   "event": "voice:transcript",
+   "sources": [
+    "flutter_app/lib/main_controller.dart",
+    "server/services/voice/voice_transport.js"
+   ],
+   "shape": null
+  }
+ ]
+}

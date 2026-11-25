@@ -61,9 +61,11 @@ runs:
           exit 1
         fi
 
-        if [ -f scripts/release_download.js ]; then
+        # Jobs without Go (the Android build) leave the notes to the final
+        # release-assets job, which refreshes them once everything is attached.
+        if [ -d cmd/neoagent-release ] && command -v go >/dev/null 2>&1; then
           for attempt in 1 2 3 4 5; do
-            if node scripts/release_download.js --tag "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"; then
+            if go run ./cmd/neoagent-release release-download --tag "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"; then
               exit 0
             fi
             echo "Release download notes update failed (attempt ${attempt}); retrying..."

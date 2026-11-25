@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Exec=lxterminal --working-directory=/home/neo/workspace
+Icon=utilities-terminal
+Terminal=false

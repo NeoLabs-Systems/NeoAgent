@@ -1,0 +1,29 @@
+# NeoAgent — compact dark window theme
+border.width: 1
+padding.width: 8
+padding.height: 5
+window.client.padding.width: 0
+window.handle.width: 0
+menu.border.width: 1
+menu.overlap: 0
+window.active.border.color: #3d5248
+window.inactive.border.color: #1c2621
+window.active.title.bg: Solid Flat
+window.active.title.bg.color: #1b2621
+window.inactive.title.bg: Solid Flat
+window.inactive.title.bg.color: #121916
+window.active.label.text.color: #e8efe6
+window.inactive.label.text.color: #8b968d
+window.active.label.text.font: sans:bold:size=9
+window.inactive.label.text.font: sans:bold:size=9
+window.active.button.unpressed.image.color: #d7e0d4
+window.inactive.button.unpressed.image.color: #6f7a71
+menu.items.bg: Solid Flat
+menu.items.bg.color: #17201c
+menu.items.text.color: #e8efe6
+menu.items.active.bg: Solid Flat
+menu.items.active.bg.color: #2b4036
+menu.items.active.text.color: #f4f7f2
+menu.title.bg: Solid Flat
+menu.title.bg.color: #1b2621
+menu.title.text.color: #e8efe6

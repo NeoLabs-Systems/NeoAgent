@@ -1,0 +1,309 @@
+{
+ "volatile": [
+  "occurredAt",
+  "receivedAt",
+  "timestamp"
+ ],
+ "steps": [
+  {
+   "name": "fences anonymous",
+   "method": "GET",
+   "path": "/api/triggers/geofences",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "fences none",
+   "method": "GET",
+   "path": "/api/triggers/geofences",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"geofences\":[]}"
+   }
+  },
+  {
+   "name": "seed tasks",
+   "sql": "INSERT INTO scheduled_tasks (id, user_id, agent_id, name, trigger_type, trigger_config, enabled) VALUES\n  (1, 1, 'a1', 'Home', 'geofence_event', '{\"label\":\"Home\",\"latitude\":52.52,\"longitude\":13.405,\"radiusMeters\":150,\"transition\":\"enter\"}', 1),\n  (2, 1, 'a2', 'Work', 'geofence_event', '{\"label\":\"Work\",\"latitude\":48.1,\"longitude\":11.5,\"radiusMeters\":200,\"transition\":\"exit\"}', 1),\n  (3, 1, 'a1', 'Off', 'geofence_event', '{\"label\":\"Off\",\"latitude\":1,\"longitude\":2,\"radiusMeters\":50,\"transition\":\"enter\"}', 0),\n  (4, 2, 'b1', 'Bob', 'geofence_event', '{\"label\":\"Bob\",\"latitude\":3,\"longitude\":4,\"radiusMeters\":60,\"transition\":\"enter\"}', 1),\n  (5, 1, 'a1', 'Other trigger', 'manual', '{}', 1),\n  (6, 1, 'a1', 'Sparse', 'geofence_event', '{\"latitude\":9}', 1),\n  (7, 1, 'a1', 'Broken', 'geofence_event', 'not json', 1)"
+  },
+  {
+   "name": "fences listed",
+   "method": "GET",
+   "path": "/api/triggers/geofences",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"geofences\":[{\"id\":1,\"label\":\"Home\",\"latitude\":52.52,\"longitude\":13.405,\"radius_meters\":150},{\"id\":2,\"label\":\"Work\",\"latitude\":48.1,\"longitude\":11.5,\"radius_meters\":200},{\"id\":6,\"latitude\":9},{\"id\":7}]}"
+   }
+  },
+  {
+   "name": "fences bob",
+   "method": "GET",
+   "path": "/api/triggers/geofences",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "raw": "{\"geofences\":[{\"id\":4,\"label\":\"Bob\",\"latitude\":3,\"longitude\":4,\"radius_meters\":60}]}"
+   }
+  },
+  {
+   "name": "fences by agent query ignored",
+   "method": "GET",
+   "path": "/api/triggers/geofences?agentId=other",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"geofences\":[{\"id\":1,\"label\":\"Home\",\"latitude\":52.52,\"longitude\":13.405,\"radius_meters\":150},{\"id\":2,\"label\":\"Work\",\"latitude\":48.1,\"longitude\":11.5,\"radius_meters\":200},{\"id\":6,\"latitude\":9},{\"id\":7}]}"
+   }
+  },
+  {
+   "name": "geofence anonymous",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": null,
+   "body": "{\"fence_id\":1}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "geofence no body",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"fence_id is required\"}"
+   }
+  },
+  {
+   "name": "geofence missing id",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"fence_id is required\"}"
+   }
+  },
+  {
+   "name": "geofence zero",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{\"fence_id\":0}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"fence_id is required\"}"
+   }
+  },
+  {
+   "name": "geofence negative",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{\"fence_id\":-3}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"fence_id is required\"}"
+   }
+  },
+  {
+   "name": "geofence fraction",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{\"fence_id\":1.5}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"fence_id is required\"}"
+   }
+  },
+  {
+   "name": "geofence text id",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{\"fence_id\":\"abc\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"fence_id is required\"}"
+   }
+  },
+  {
+   "name": "geofence enter",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{\"fence_id\":1,\"latitude\":52.5,\"longitude\":\"13.4\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true}"
+   }
+  },
+  {
+   "name": "geofence exit",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{\"fence_id\":\"2\",\"transition\":\"exit\",\"latitude\":0,\"longitude\":\"x\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true}"
+   }
+  },
+  {
+   "name": "geofence odd transition",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "{\"fence_id\":3,\"transition\":\"leave\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true}"
+   }
+  },
+  {
+   "name": "geofence array body",
+   "method": "POST",
+   "path": "/api/triggers/geofence",
+   "user": 1,
+   "body": "[1]",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"fence_id is required\"}"
+   }
+  },
+  {
+   "name": "notification anonymous",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": null,
+   "body": "{}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "notification no body",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "expect": {
+    "status": 500,
+    "raw": "{\"error\":\"Cannot destructure property 'app_package' of 'req.body' as it is undefined.\"}"
+   }
+  },
+  {
+   "name": "notification empty",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"message\":\"Notification trigger processed and stored\"}"
+   }
+  },
+  {
+   "name": "notification full",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "body": "{\"app_package\":\"com.whatsapp\",\"title\":\"Ada\",\"body\":\"Lunch? <b>now</b>\",\"action_taken\":\"replied\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"message\":\"Notification trigger processed and stored\"}"
+   }
+  },
+  {
+   "name": "notification numbers",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "body": "{\"app_package\":7,\"title\":1.5,\"body\":10000000000,\"action_taken\":-2}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"message\":\"Notification trigger processed and stored\"}"
+   }
+  },
+  {
+   "name": "notification boolean refused",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "body": "{\"title\":true}",
+   "expect": {
+    "status": 500,
+    "raw": "{\"error\":\"Failed to process notification trigger\"}"
+   }
+  },
+  {
+   "name": "notification object refused",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "body": "{\"body\":{\"a\":1}}",
+   "expect": {
+    "status": 500,
+    "raw": "{\"error\":\"Failed to process notification trigger\"}"
+   }
+  },
+  {
+   "name": "notification falsy values",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "body": "{\"app_package\":\"\",\"title\":0,\"body\":false,\"action_taken\":null}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"message\":\"Notification trigger processed and stored\"}"
+   }
+  },
+  {
+   "name": "notification unknown user",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 99,
+   "body": "{\"title\":\"ghost\"}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "notification array body",
+   "method": "POST",
+   "path": "/api/triggers/notification",
+   "user": 1,
+   "body": "[1]",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"message\":\"Notification trigger processed and stored\"}"
+   }
+  }
+ ],
+ "events": [
+  "{\"name\":\"geofence\",\"event\":{\"userId\":1,\"fenceId\":1,\"transition\":\"enter\",\"latitude\":52.5,\"longitude\":13.4,\"occurredAt\":\"<time>\"}}",
+  "{\"name\":\"geofence\",\"event\":{\"userId\":1,\"fenceId\":2,\"transition\":\"exit\",\"latitude\":null,\"longitude\":null,\"occurredAt\":\"<time>\"}}",
+  "{\"name\":\"geofence\",\"event\":{\"userId\":1,\"fenceId\":3,\"transition\":\"enter\",\"latitude\":null,\"longitude\":null,\"occurredAt\":\"<time>\"}}",
+  "{\"name\":\"android_notification\",\"event\":{\"userId\":1,\"appPackage\":\"unknown\",\"title\":\"\",\"body\":\"\",\"actionTaken\":\"none\",\"receivedAt\":\"<time>\"}}",
+  "{\"name\":\"android_notification\",\"event\":{\"userId\":1,\"appPackage\":\"com.whatsapp\",\"title\":\"Ada\",\"body\":\"Lunch? <b>now</b>\",\"actionTaken\":\"replied\",\"receivedAt\":\"<time>\"}}",
+  "{\"name\":\"android_notification\",\"event\":{\"userId\":1,\"appPackage\":7,\"title\":1.5,\"body\":10000000000,\"actionTaken\":-2,\"receivedAt\":\"<time>\"}}",
+  "{\"name\":\"android_notification\",\"event\":{\"userId\":1,\"appPackage\":\"unknown\",\"title\":\"\",\"body\":\"\",\"actionTaken\":\"none\",\"receivedAt\":\"<time>\"}}",
+  "{\"name\":\"android_notification\",\"event\":{\"userId\":1,\"appPackage\":\"unknown\",\"title\":\"\",\"body\":\"\",\"actionTaken\":\"none\",\"receivedAt\":\"<time>\"}}"
+ ],
+ "notifications": [
+  "{\"user_id\":1,\"app_package\":\"unknown\",\"title\":\"\",\"body\":\"\",\"action_taken\":\"none\",\"title_type\":\"text\"}",
+  "{\"user_id\":1,\"app_package\":\"com.whatsapp\",\"title\":\"Ada\",\"body\":\"Lunch? <b>now</b>\",\"action_taken\":\"replied\",\"title_type\":\"text\"}",
+  "{\"user_id\":1,\"app_package\":\"7.0\",\"title\":\"1.5\",\"body\":\"10000000000.0\",\"action_taken\":\"-2.0\",\"title_type\":\"text\"}",
+  "{\"user_id\":1,\"app_package\":\"unknown\",\"title\":\"\",\"body\":\"\",\"action_taken\":\"none\",\"title_type\":\"text\"}",
+  "{\"user_id\":1,\"app_package\":\"unknown\",\"title\":\"\",\"body\":\"\",\"action_taken\":\"none\",\"title_type\":\"text\"}"
+ ]
+}

@@ -1,0 +1,1661 @@
+{
+ "results": [
+  {
+   "tool": "execute_command",
+   "args": {
+    "command": "ls -la",
+    "cwd": "/w"
+   },
+   "result": {
+    "cwd": "/w",
+    "durationMs": 12,
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "a\nb\n"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"execute_command\",\"status\":\"ok\",\"command\":\"ls -la\",\"exitCode\":0,\"cwd\":\"/w\",\"killed\":false,\"timedOut\":false,\"durationMs\":12,\"truncated\":false,\"stdout\":\"a\\nb\"}"
+  },
+  {
+   "tool": "execute_command",
+   "args": {
+    "command": "false"
+   },
+   "result": {
+    "durationMs": 3,
+    "exitCode": 1,
+    "stderr": "boom",
+    "stdout": ""
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"execute_command\",\"status\":\"error\",\"command\":\"false\",\"exitCode\":1,\"killed\":false,\"timedOut\":false,\"durationMs\":3,\"truncated\":false,\"note\":\"Command exited non-zero. Output may be partial; later segments of a chained shell command may not have run.\",\"stderr\":\"boom\"}"
+  },
+  {
+   "tool": "execute_command",
+   "args": {
+    "command": "sleep 9"
+   },
+   "result": {
+    "durationMs": 9000,
+    "killed": true,
+    "signal": "SIGKILL",
+    "stdout": "partial",
+    "timedOut": true
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"execute_command\",\"status\":\"timed_out\",\"command\":\"sleep 9\",\"killed\":true,\"timedOut\":true,\"signal\":\"SIGKILL\",\"durationMs\":9000,\"truncated\":false,\"note\":\"Command timed out. Treat the output as partial; if it needs longer, run it again with a larger timeout, otherwise narrow it.\",\"stdout\":\"partial\"}"
+  },
+  {
+   "tool": "execute_command",
+   "args": {
+    "command": "x"
+   },
+   "result": {
+    "error": "Command refused: policy"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"execute_command\",\"status\":\"error\",\"error\":\"Command refused: policy\",\"command\":\"x\",\"killed\":false,\"timedOut\":false,\"truncated\":false}"
+  },
+  {
+   "tool": "execute_command",
+   "args": {
+    "command": "cat big"
+   },
+   "result": {
+    "exitCode": 0,
+    "outputArtifact": "art-1",
+    "stdout": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 31 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 32 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 33 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 34 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 35 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 36 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 37 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 38 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 39 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 40 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 41 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 42 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 43 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 44 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 45 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 46 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 47 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 48 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 49 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 50 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 51 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 52 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 53 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 54 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 55 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 56 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 57 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 58 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 59 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 60 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 61 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 62 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 63 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 64 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 65 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 66 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 67 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 68 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 69 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 70 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 71 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 72 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 73 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 74 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 75 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 76 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 77 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 78 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 79 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 80 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 81 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 82 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 83 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 84 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 85 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 86 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 87 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 88 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 89 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 90 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 91 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 92 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 93 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 94 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 95 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 96 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 97 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 98 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 99 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 100 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 101 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 102 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 103 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 104 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 105 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 106 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 107 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 108 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 109 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 110 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 111 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 112 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 113 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 114 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 115 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 116 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 117 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 118 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 119 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 120 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 121 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 122 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 123 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 124 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 125 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 126 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 127 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 128 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 129 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 130 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 131 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 132 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 133 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 134 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 135 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 136 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 137 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 138 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 139 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 140 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 141 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 142 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 143 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 144 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 145 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 146 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 147 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 148 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 149 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 150 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 151 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 152 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 153 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 154 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 155 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 156 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 157 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 158 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 159 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 160 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 161 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 162 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 163 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 164 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 165 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 166 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 167 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 168 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 169 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 170 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 171 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 172 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 173 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 174 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 175 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 176 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 177 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 178 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 179 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 180 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 181 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 182 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 183 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 184 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 185 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 186 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 187 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 188 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 189 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 190 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 191 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 192 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 193 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 194 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 195 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 196 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 197 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 198 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 199 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 200 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "truncated": true
+   },
+   "limits": {
+    "softLimit": 1800,
+    "hardLimit": 3200
+   },
+   "retain": false,
+   "expected": "{\"tool\":\"execute_command\",\"status\":\"ok\",\"command\":\"cat big\",\"exitCode\":0,\"killed\":false,\"timedOut\":false,\"truncated\":true,\"outputArtifact\":\"art-1\",\"stdout\":\"line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 23 xxx\\n...[truncated, 9891 chars total]\"}"
+  },
+  {
+   "tool": "execute_command",
+   "args": {
+    "command": "cat big"
+   },
+   "result": {
+    "exitCode": 0,
+    "stdout": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 31 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 32 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 33 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 34 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 35 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 36 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 37 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 38 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 39 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 40 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 41 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 42 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 43 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 44 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 45 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 46 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 47 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 48 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 49 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 50 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 51 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 52 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 53 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 54 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 55 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 56 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 57 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 58 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 59 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 60 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 61 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 62 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 63 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 64 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 65 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 66 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 67 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 68 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 69 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 70 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 71 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 72 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 73 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 74 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 75 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 76 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 77 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 78 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 79 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 80 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 81 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 82 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 83 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 84 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 85 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 86 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 87 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 88 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 89 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 90 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 91 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 92 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 93 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 94 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 95 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 96 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 97 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 98 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 99 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 100 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 101 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 102 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 103 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 104 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 105 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 106 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 107 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 108 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 109 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 110 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 111 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 112 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 113 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 114 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 115 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 116 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 117 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 118 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 119 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 120 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 121 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 122 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 123 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 124 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 125 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 126 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 127 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 128 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 129 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 130 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 131 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 132 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 133 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 134 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 135 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 136 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 137 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 138 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 139 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 140 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 141 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 142 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 143 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 144 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 145 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 146 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 147 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 148 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 149 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 150 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 151 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 152 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 153 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 154 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 155 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 156 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 157 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 158 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 159 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 160 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 161 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 162 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 163 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 164 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 165 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 166 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 167 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 168 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 169 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 170 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 171 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 172 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 173 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 174 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 175 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 176 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 177 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 178 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 179 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 180 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 181 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 182 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 183 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 184 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 185 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 186 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 187 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 188 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 189 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 190 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 191 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 192 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 193 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 194 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 195 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 196 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 197 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 198 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 199 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 200 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "limits": {
+    "softLimit": 1800,
+    "hardLimit": 3200
+   },
+   "retain": true,
+   "expected": "{\"tool\":\"execute_command\",\"status\":\"ok\",\"command\":\"cat big\",\"exitCode\":0,\"killed\":false,\"timedOut\":false,\"truncated\":false,\"stdout\":\"line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 23 xxx\\n...[truncated, 9891 chars total]\"}"
+  },
+  {
+   "tool": "execute_command",
+   "args": {
+    "command": "npm test"
+   },
+   "result": {
+    "exitCode": 1,
+    "stderr": "",
+    "stdout": "✖ failing tests:\ntest at /a/b.test.js:3:4\n✖ adds (1.2ms)\n  AssertionError: expected 1\n  at x\nℹ tests 3\nℹ pass 2\nℹ fail 1\n"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"execute_command\",\"status\":\"error\",\"command\":\"npm test\",\"exitCode\":1,\"killed\":false,\"timedOut\":false,\"truncated\":false,\"note\":\"Command exited non-zero. Output may be partial; later segments of a chained shell command may not have run.\",\"test_result\":{\"runner\":\"node:test\",\"passed\":2,\"failed\":1,\"summary\":\"1 failed, 2 passed\",\"failures\":[{\"test\":\"adds\",\"file\":\"/a/b.test.js\",\"location\":\"3:4\",\"message\":\"AssertionError: expected 1\"}],\"failures_omitted\":0},\"stdout\":\"✖ failing tests:\\ntest at /a/b.test.js:3:4\\n✖ adds (1.2ms)\\n  AssertionError: expected 1\\n  at x\\nℹ tests 3\\nℹ pass 2\\nℹ fail 1\"}"
+  },
+  {
+   "tool": "read_file",
+   "args": {
+    "end_line": 5,
+    "path": "a.js",
+    "start_line": 1
+   },
+   "result": {
+    "content": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "rangeShown": "1-5",
+    "totalLines": 5
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"read_file\",\"path\":\"a.js\",\"startLine\":1,\"endLine\":5,\"rangeShown\":\"1-5\",\"totalLines\":5,\"truncated\":false,\"content\":\"line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+  },
+  {
+   "tool": "read_file",
+   "args": {
+    "path": "a.js"
+   },
+   "result": {
+    "content": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 31 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 32 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 33 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 34 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 35 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 36 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 37 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 38 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 39 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 40 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 41 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 42 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 43 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 44 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 45 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 46 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 47 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 48 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 49 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 50 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 51 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 52 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 53 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 54 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 55 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 56 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 57 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 58 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 59 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 60 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 61 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 62 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 63 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 64 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 65 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 66 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 67 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 68 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 69 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 70 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 71 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 72 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 73 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 74 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 75 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 76 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 77 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 78 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 79 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 80 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 81 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 82 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 83 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 84 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 85 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 86 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 87 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 88 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 89 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 90 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 91 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 92 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 93 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 94 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 95 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 96 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 97 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 98 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 99 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 100 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 101 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 102 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 103 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 104 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 105 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 106 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 107 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 108 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 109 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 110 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 111 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 112 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 113 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 114 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 115 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 116 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 117 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 118 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 119 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 120 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 121 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 122 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 123 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 124 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 125 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 126 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 127 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 128 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 129 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 130 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 131 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 132 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 133 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 134 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 135 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 136 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 137 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 138 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 139 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 140 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 141 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 142 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 143 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 144 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 145 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 146 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 147 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 148 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 149 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 150 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 151 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 152 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 153 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 154 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 155 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 156 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 157 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 158 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 159 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 160 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 161 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 162 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 163 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 164 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 165 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 166 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 167 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 168 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 169 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 170 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 171 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 172 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 173 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 174 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 175 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 176 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 177 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 178 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 179 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 180 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 181 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 182 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 183 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 184 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 185 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 186 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 187 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 188 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 189 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 190 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 191 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 192 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 193 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 194 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 195 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 196 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 197 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 198 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 199 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 200 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 201 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 202 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 203 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 204 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 205 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 206 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 207 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 208 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 209 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 210 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 211 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 212 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 213 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 214 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 215 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 216 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 217 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 218 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 219 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 220 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 221 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 222 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 223 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 224 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 225 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 226 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 227 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 228 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 229 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 230 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 231 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 232 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 233 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 234 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 235 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 236 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 237 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 238 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 239 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 240 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 241 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 242 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 243 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 244 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 245 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 246 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 247 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 248 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 249 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 250 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 251 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 252 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 253 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 254 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 255 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 256 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 257 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 258 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 259 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 260 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 261 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 262 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 263 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 264 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 265 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 266 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 267 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 268 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 269 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 270 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 271 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 272 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 273 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 274 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 275 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 276 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 277 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 278 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 279 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 280 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 281 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 282 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 283 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 284 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 285 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 286 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 287 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 288 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 289 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 290 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 291 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 292 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 293 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 294 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 295 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 296 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 297 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 298 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 299 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 300 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 301 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 302 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 303 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 304 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 305 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 306 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 307 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 308 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 309 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 310 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 311 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 312 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 313 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 314 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 315 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 316 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 317 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 318 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 319 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 320 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 321 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 322 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 323 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 324 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 325 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 326 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 327 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 328 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 329 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 330 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 331 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 332 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 333 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 334 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 335 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 336 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 337 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 338 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 339 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 340 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 341 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 342 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 343 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 344 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 345 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 346 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 347 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 348 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 349 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 350 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 351 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 352 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 353 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 354 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 355 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 356 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 357 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 358 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 359 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 360 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 361 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 362 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 363 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 364 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 365 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 366 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 367 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 368 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 369 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 370 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 371 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 372 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 373 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 374 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 375 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 376 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 377 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 378 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 379 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 380 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 381 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 382 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 383 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 384 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 385 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 386 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 387 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 388 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 389 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 390 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 391 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 392 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 393 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 394 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 395 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 396 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 397 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 398 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 399 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 400 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "totalLines": 400
+   },
+   "limits": {
+    "softLimit": 3000,
+    "hardLimit": 6000
+   },
+   "retain": false,
+   "expected": "{\"tool\":\"read_file\",\"path\":\"a.js\",\"totalLines\":400,\"truncated\":true,\"note\":\"Only part of the file was returned. Read a narrower line range to recover the omitted content.\",\"content\":\"line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 31 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 32 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 33 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 34 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 35 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 36 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 37 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 38 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 39 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 40 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 41 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 42 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 43 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 44 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 45 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 46 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 47 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 48 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 49 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 50 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 51 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 52 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 53 xxx\\n...[truncated, 19891 chars total]\"}"
+  },
+  {
+   "tool": "read_file",
+   "args": {
+    "path": "a.js"
+   },
+   "result": "plain text file content",
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"read_file\",\"path\":\"a.js\",\"truncated\":false,\"content\":\"plain text file content\"}"
+  },
+  {
+   "tool": "read_file",
+   "args": {
+    "path": "a.js"
+   },
+   "result": {
+    "error": "ENOENT"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"read_file\",\"error\":\"ENOENT\",\"path\":\"a.js\",\"truncated\":false}"
+  },
+  {
+   "tool": "read_files",
+   "args": {
+    "paths": [
+     "a",
+     "b"
+    ]
+   },
+   "result": {
+    "count": 2,
+    "results": [
+     {
+      "content": "one",
+      "path": "a"
+     },
+     {
+      "content": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 31 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 32 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 33 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 34 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 35 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 36 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 37 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 38 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 39 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 40 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 41 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 42 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 43 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 44 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 45 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 46 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 47 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 48 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 49 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 50 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 51 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 52 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 53 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 54 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 55 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 56 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 57 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 58 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 59 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 60 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 61 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 62 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 63 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 64 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 65 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 66 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 67 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 68 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 69 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 70 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 71 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 72 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 73 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 74 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 75 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 76 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 77 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 78 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 79 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 80 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 81 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 82 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 83 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 84 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 85 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 86 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 87 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 88 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 89 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 90 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 91 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 92 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 93 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 94 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 95 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 96 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 97 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 98 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 99 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 100 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "path": "b",
+      "requestedPath": "b",
+      "truncated": true
+     }
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"read_files\",\"count\":2,\"truncated\":true,\"note\":\"Only part of the requested file set was returned. Split the request or read individual files and narrower line ranges.\",\"results\":[{\"path\":\"a\",\"truncated\":false,\"content\":\"one\"},{\"path\":\"b\",\"requestedPath\":\"b\",\"truncated\":true,\"content\":\"line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n...[truncated, 4891 chars total]\"}]}"
+  },
+  {
+   "tool": "read_artifact",
+   "args": {
+    "artifact_id": "a1"
+   },
+   "result": {
+    "artifactId": "a1",
+    "byteSize": 10,
+    "content": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 31 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 32 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 33 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 34 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 35 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 36 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 37 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 38 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 39 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 40 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 41 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 42 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 43 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 44 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 45 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 46 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 47 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 48 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 49 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 50 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 51 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 52 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 53 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 54 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 55 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 56 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 57 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 58 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 59 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 60 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 61 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 62 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 63 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 64 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 65 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 66 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 67 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 68 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 69 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 70 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 71 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 72 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 73 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 74 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 75 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 76 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 77 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 78 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 79 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 80 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 81 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 82 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 83 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 84 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 85 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 86 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 87 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 88 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 89 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 90 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 91 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 92 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 93 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 94 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 95 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 96 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 97 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 98 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 99 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 100 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "contentType": "text/plain",
+    "totalLines": 100
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"read_artifact\",\"artifactId\":\"a1\",\"contentType\":\"text/plain\",\"byteSize\":10,\"binary\":false,\"totalLines\":100,\"truncated\":true,\"note\":\"The requested lines did not all fit and the end of this range is cut. Read a narrower line range to see it.\",\"content\":\"line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 30 xxxxxxxxxxxxxxxxxxxx\\n...[truncated, 4891 chars total]\"}"
+  },
+  {
+   "tool": "replace_file_range",
+   "args": {
+    "end_line": 2,
+    "path": "x",
+    "start_line": 1
+   },
+   "result": {
+    "insertedLines": 3,
+    "path": "x",
+    "replacedLines": 2,
+    "success": true,
+    "totalLines": 10
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"replace_file_range\",\"status\":\"ok\",\"path\":\"x\",\"startLine\":1,\"endLine\":2,\"replacedLines\":2,\"insertedLines\":3,\"totalLines\":10}"
+  },
+  {
+   "tool": "replace_file_range",
+   "args": {
+    "path": "x"
+   },
+   "result": {
+    "error": "range invalid"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"replace_file_range\",\"status\":\"error\",\"path\":\"x\",\"error\":\"range invalid\"}"
+  },
+  {
+   "tool": "search_files",
+   "args": {
+    "pattern": "a"
+   },
+   "result": {
+    "count": 2,
+    "matches": [
+     {
+      "content": "foo",
+      "file": "a.js",
+      "line": 1
+     },
+     {
+      "content": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "file": "b.js",
+      "line": 4
+     }
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"search_files\",\"count\":2,\"truncated\":false,\"matches\":[{\"file\":\"a.js\",\"line\":1,\"content\":\"foo\"},{\"file\":\"b.js\",\"line\":4,\"content\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n...[truncated, 300 chars total]\"}]}"
+  },
+  {
+   "tool": "search_files",
+   "args": {
+    "pattern": "a"
+   },
+   "result": {
+    "count": 50,
+    "matches": [
+     {
+      "content": "m0",
+      "file": "a.js",
+      "line": 0
+     },
+     {
+      "content": "m1",
+      "file": "a.js",
+      "line": 1
+     },
+     {
+      "content": "m2",
+      "file": "a.js",
+      "line": 2
+     },
+     {
+      "content": "m3",
+      "file": "a.js",
+      "line": 3
+     },
+     {
+      "content": "m4",
+      "file": "a.js",
+      "line": 4
+     },
+     {
+      "content": "m5",
+      "file": "a.js",
+      "line": 5
+     },
+     {
+      "content": "m6",
+      "file": "a.js",
+      "line": 6
+     },
+     {
+      "content": "m7",
+      "file": "a.js",
+      "line": 7
+     },
+     {
+      "content": "m8",
+      "file": "a.js",
+      "line": 8
+     },
+     {
+      "content": "m9",
+      "file": "a.js",
+      "line": 9
+     },
+     {
+      "content": "m10",
+      "file": "a.js",
+      "line": 10
+     },
+     {
+      "content": "m11",
+      "file": "a.js",
+      "line": 11
+     },
+     {
+      "content": "m12",
+      "file": "a.js",
+      "line": 12
+     },
+     {
+      "content": "m13",
+      "file": "a.js",
+      "line": 13
+     },
+     {
+      "content": "m14",
+      "file": "a.js",
+      "line": 14
+     },
+     {
+      "content": "m15",
+      "file": "a.js",
+      "line": 15
+     },
+     {
+      "content": "m16",
+      "file": "a.js",
+      "line": 16
+     },
+     {
+      "content": "m17",
+      "file": "a.js",
+      "line": 17
+     },
+     {
+      "content": "m18",
+      "file": "a.js",
+      "line": 18
+     },
+     {
+      "content": "m19",
+      "file": "a.js",
+      "line": 19
+     },
+     {
+      "content": "m20",
+      "file": "a.js",
+      "line": 20
+     },
+     {
+      "content": "m21",
+      "file": "a.js",
+      "line": 21
+     },
+     {
+      "content": "m22",
+      "file": "a.js",
+      "line": 22
+     },
+     {
+      "content": "m23",
+      "file": "a.js",
+      "line": 23
+     },
+     {
+      "content": "m24",
+      "file": "a.js",
+      "line": 24
+     },
+     {
+      "content": "m25",
+      "file": "a.js",
+      "line": 25
+     },
+     {
+      "content": "m26",
+      "file": "a.js",
+      "line": 26
+     },
+     {
+      "content": "m27",
+      "file": "a.js",
+      "line": 27
+     },
+     {
+      "content": "m28",
+      "file": "a.js",
+      "line": 28
+     },
+     {
+      "content": "m29",
+      "file": "a.js",
+      "line": 29
+     },
+     {
+      "content": "m30",
+      "file": "a.js",
+      "line": 30
+     },
+     {
+      "content": "m31",
+      "file": "a.js",
+      "line": 31
+     },
+     {
+      "content": "m32",
+      "file": "a.js",
+      "line": 32
+     },
+     {
+      "content": "m33",
+      "file": "a.js",
+      "line": 33
+     },
+     {
+      "content": "m34",
+      "file": "a.js",
+      "line": 34
+     },
+     {
+      "content": "m35",
+      "file": "a.js",
+      "line": 35
+     },
+     {
+      "content": "m36",
+      "file": "a.js",
+      "line": 36
+     },
+     {
+      "content": "m37",
+      "file": "a.js",
+      "line": 37
+     },
+     {
+      "content": "m38",
+      "file": "a.js",
+      "line": 38
+     },
+     {
+      "content": "m39",
+      "file": "a.js",
+      "line": 39
+     },
+     {
+      "content": "m40",
+      "file": "a.js",
+      "line": 40
+     },
+     {
+      "content": "m41",
+      "file": "a.js",
+      "line": 41
+     },
+     {
+      "content": "m42",
+      "file": "a.js",
+      "line": 42
+     },
+     {
+      "content": "m43",
+      "file": "a.js",
+      "line": 43
+     },
+     {
+      "content": "m44",
+      "file": "a.js",
+      "line": 44
+     },
+     {
+      "content": "m45",
+      "file": "a.js",
+      "line": 45
+     },
+     {
+      "content": "m46",
+      "file": "a.js",
+      "line": 46
+     },
+     {
+      "content": "m47",
+      "file": "a.js",
+      "line": 47
+     },
+     {
+      "content": "m48",
+      "file": "a.js",
+      "line": 48
+     },
+     {
+      "content": "m49",
+      "file": "a.js",
+      "line": 49
+     }
+    ]
+   },
+   "limits": {},
+   "retain": true,
+   "expected": "{\"tool\":\"search_files\",\"count\":50,\"truncated\":true,\"note\":\"Only the first matches are shown. Narrow the path or search pattern, or read the matched files around the relevant lines.\",\"matches\":[{\"file\":\"a.js\",\"line\":0,\"content\":\"m0\"},{\"file\":\"a.js\",\"line\":1,\"content\":\"m1\"},{\"file\":\"a.js\",\"line\":2,\"content\":\"m2\"},{\"file\":\"a.js\",\"line\":3,\"content\":\"m3\"},{\"file\":\"a.js\",\"line\":4,\"content\":\"m4\"},{\"file\":\"a.js\",\"line\":5,\"content\":\"m5\"},{\"file\":\"a.js\",\"line\":6,\"content\":\"m6\"},{\"file\":\"a.js\",\"line\":7,\"content\":\"m7\"},{\"file\":\"a.js\",\"line\":8,\"content\":\"m8\"}]}"
+  },
+  {
+   "tool": "browser_extract",
+   "args": {
+    "selector": "h1"
+   },
+   "result": {
+    "result": "Title text",
+    "task_relevance": "high"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"browser_extract\",\"task_relevance\":\"high\",\"selector\":\"h1\",\"attribute\":\"innerText\",\"excerpt\":\"Title text\"}"
+  },
+  {
+   "tool": "browser_extract",
+   "args": {},
+   "result": {
+    "result": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "limits": {},
+   "retain": true,
+   "expected": "{\"tool\":\"browser_extract\",\"full_result\":{\"artifact_id\":\"retained-1\",\"total_lines\":1,\"note\":\"Only part of this result is shown. The complete result is saved: search it with read_artifact query, or read it by line range, before treating anything as missing. Do not run the call again for it.\"},\"selector\":\"body\",\"attribute\":\"innerText\",\"excerpt\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n...[truncated, 5000 chars total]\"}"
+  },
+  {
+   "tool": "social_video_extract",
+   "args": {},
+   "result": {
+    "description": "d",
+    "frameImage": {
+     "source": "ffmpeg",
+     "url": "u"
+    },
+    "platform": "tiktok",
+    "title": "t",
+    "transcript": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "transcriptSource": "whisper",
+    "warnings": [
+     "w"
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"social_video_extract\",\"platform\":\"tiktok\",\"title\":\"t\",\"description\":\"d\",\"transcriptSource\":\"whisper\",\"transcriptPreview\":\"line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"frameImage\":{\"url\":\"u\",\"source\":\"ffmpeg\"},\"warningCount\":1,\"errorCount\":0}"
+  },
+  {
+   "tool": "android_observe",
+   "args": {},
+   "result": {
+    "nodeCount": 4,
+    "preview": [
+     {
+      "t": "a"
+     }
+    ],
+    "screenshotPath": "/s.png",
+    "serial": "emu"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"android_observe\",\"serial\":\"emu\",\"nodeCount\":4,\"screenshotPath\":\"/s.png\",\"preview\":\"[{\\\"t\\\":\\\"a\\\"}]\"}"
+  },
+  {
+   "tool": "android_list_apps",
+   "args": {},
+   "result": {
+    "count": 30,
+    "packages": [
+     "com.app.0",
+     "com.app.1",
+     "com.app.2",
+     "com.app.3",
+     "com.app.4",
+     "com.app.5",
+     "com.app.6",
+     "com.app.7",
+     "com.app.8",
+     "com.app.9",
+     "com.app.10",
+     "com.app.11",
+     "com.app.12",
+     "com.app.13",
+     "com.app.14",
+     "com.app.15",
+     "com.app.16",
+     "com.app.17",
+     "com.app.18",
+     "com.app.19",
+     "com.app.20",
+     "com.app.21",
+     "com.app.22",
+     "com.app.23",
+     "com.app.24",
+     "com.app.25",
+     "com.app.26",
+     "com.app.27",
+     "com.app.28",
+     "com.app.29"
+    ],
+    "serial": "emu"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"android_list_apps\",\"serial\":\"emu\",\"count\":30,\"preview\":\"com.app.0\\ncom.app.1\\ncom.app.2\\ncom.app.3\\ncom.app.4\\ncom.app.5\\ncom.app.6\\ncom.app.7\\ncom.app.8\\ncom.app.9\\ncom.app.10\\ncom.app.11\\ncom.app.12\\ncom.app.13\\ncom.app.14\\ncom.app.15\\ncom.app.16\\ncom.app.17\\ncom.app.18\\ncom.app.19\"}"
+  },
+  {
+   "tool": "android_shell",
+   "args": {
+    "command": "getprop"
+   },
+   "result": {
+    "serial": "emu",
+    "stdout": "ro.x=1"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"android_shell\",\"serial\":\"emu\",\"command\":\"getprop\",\"excerpt\":\"ro.x=1\"}"
+  },
+  {
+   "tool": "http_request",
+   "args": {
+    "url": "u"
+   },
+   "result": {
+    "body": "{\"ok\":true}",
+    "headers": {
+     "content-length": "11",
+     "content-type": "application/json"
+    },
+    "status": 200
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"http_request\",\"status\":200,\"headers\":{\"contentType\":\"application/json\",\"contentLength\":\"11\"},\"excerpt\":\"{\\\"ok\\\":true}\"}"
+  },
+  {
+   "tool": "http_request",
+   "args": {
+    "url": "u"
+   },
+   "result": {
+    "body": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "headers": {
+     "Content-Type": "text/html"
+    },
+    "status": 500
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"http_request\",\"status\":500,\"headers\":{\"contentType\":\"text/html\"},\"excerpt\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n...[truncated, 4000 chars total]\"}"
+  },
+  {
+   "tool": "list_tasks",
+   "args": {},
+   "result": {
+    "count": 10,
+    "tasks": [
+     {
+      "enabled": true,
+      "id": 0,
+      "model": "",
+      "name": "t0",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 1,
+      "model": "m",
+      "name": "t1",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 2,
+      "model": "",
+      "name": "t2",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 3,
+      "model": "m",
+      "name": "t3",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 4,
+      "model": "",
+      "name": "t4",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 5,
+      "model": "m",
+      "name": "t5",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 6,
+      "model": "",
+      "name": "t6",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 7,
+      "model": "m",
+      "name": "t7",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 8,
+      "model": "",
+      "name": "t8",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     },
+     {
+      "enabled": true,
+      "id": 9,
+      "model": "m",
+      "name": "t9",
+      "triggerSummary": "s",
+      "triggerType": "cron"
+     }
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"list_tasks\",\"status\":\"ok\",\"count\":10,\"tasks\":[{\"id\":0,\"name\":\"t0\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true},{\"id\":1,\"name\":\"t1\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true,\"model\":\"m\"},{\"id\":2,\"name\":\"t2\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true},{\"id\":3,\"name\":\"t3\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true,\"model\":\"m\"},{\"id\":4,\"name\":\"t4\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true},{\"id\":5,\"name\":\"t5\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true,\"model\":\"m\"},{\"id\":6,\"name\":\"t6\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true},{\"id\":7,\"name\":\"t7\",\"triggerType\":\"cron\",\"triggerSummary\":\"s\",\"enabled\":true,\"model\":\"m\"}]}"
+  },
+  {
+   "tool": "send_message",
+   "args": {
+    "platform": "telegram",
+    "to": "1"
+   },
+   "result": {
+    "id": "m1",
+    "message": "sent",
+    "sent": true,
+    "success": true
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"send_message\",\"status\":\"ok\",\"platform\":\"telegram\",\"to\":\"1\",\"success\":true,\"sent\":true,\"message\":\"sent\",\"result\":\"{\\\"id\\\":\\\"m1\\\"}\"}"
+  },
+  {
+   "tool": "send_message",
+   "args": {
+    "platform": "telegram",
+    "to": "1"
+   },
+   "result": {
+    "error": "blocked",
+    "success": false
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"send_message\",\"status\":\"error\",\"platform\":\"telegram\",\"to\":\"1\",\"success\":false,\"message\":\"blocked\",\"result\":\"{}\"}"
+  },
+  {
+   "tool": "send_message",
+   "args": {
+    "platform": "telegram",
+    "to": "1"
+   },
+   "result": {
+    "reason": "duplicate",
+    "skipped": true,
+    "suppressed": true
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"send_message\",\"status\":\"skipped\",\"platform\":\"telegram\",\"to\":\"1\",\"skipped\":true,\"suppressed\":true,\"message\":\"duplicate\",\"result\":\"{}\"}"
+  },
+  {
+   "tool": "send_interim_update",
+   "args": {
+    "content": "working",
+    "kind": "progress"
+   },
+   "result": {
+    "content": "working",
+    "kind": "progress",
+    "sent": true
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"send_interim_update\",\"status\":\"ok\",\"kind\":\"progress\",\"expectsReply\":false,\"message\":\"working\"}"
+  },
+  {
+   "tool": "send_interim_update",
+   "args": {
+    "content": "working",
+    "kind": "ack"
+   },
+   "result": {
+    "reason": "already sent",
+    "skipped": true
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"send_interim_update\",\"status\":\"skipped\",\"kind\":\"ack\",\"expectsReply\":false,\"message\":\"working\"}"
+  },
+  {
+   "tool": "memory_save",
+   "args": {},
+   "result": {
+    "id": 7,
+    "key": "k",
+    "message": "saved",
+    "success": true
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"memory_save\",\"status\":\"ok\",\"message\":\"saved\",\"result\":\"{\\\"id\\\":7,\\\"key\\\":\\\"k\\\"}\"}"
+  },
+  {
+   "tool": "memory_read",
+   "args": {},
+   "result": {
+    "error": "missing",
+    "results": [
+     1,
+     2
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"memory_read\",\"status\":\"error\",\"message\":\"missing\",\"result\":\"{\\\"count\\\":2}\"}"
+  },
+  {
+   "tool": "spawn_subagent",
+   "args": {},
+   "result": {
+    "childRunId": "c1",
+    "handle": "h1",
+    "status": "running",
+    "task": "do it"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"spawn_subagent\",\"handle\":\"h1\",\"childRunId\":\"c1\",\"status\":\"running\",\"summary\":\"do it\"}"
+  },
+  {
+   "tool": "list_subagents",
+   "args": {},
+   "result": {
+    "subagents": [
+     {
+      "h": 1
+     },
+     {
+      "h": 2
+     }
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"list_subagents\",\"status\":\"ok\",\"summary\":\"{\\\"count\\\":2}\"}"
+  },
+  {
+   "tool": "wait_subagent",
+   "args": {},
+   "result": {
+    "childRunId": "c1",
+    "handle": "h1",
+    "result": "done",
+    "status": "completed",
+    "timedOut": false
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"wait_subagent\",\"status\":\"completed\",\"summary\":\"{\\\"handle\\\":\\\"h1\\\",\\\"childRunId\\\":\\\"c1\\\",\\\"timedOut\\\":false,\\\"result\\\":\\\"done\\\"}\"}"
+  },
+  {
+   "tool": "repo_overview",
+   "args": {},
+   "result": {
+    "files": 3,
+    "languages": [
+     "js"
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"repo_overview\",\"files\":3,\"languages\":[\"js\"]}"
+  },
+  {
+   "tool": "run_tests",
+   "args": {},
+   "result": {
+    "failed": 0,
+    "passed": 5
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"run_tests\",\"failed\":0,\"passed\":5}"
+  },
+  {
+   "tool": "google_workspace_calendar_list_events",
+   "args": {
+    "time_max": "b",
+    "time_min": "a"
+   },
+   "result": {
+    "events": [
+     {
+      "allDay": false,
+      "end": "e",
+      "id": "e1",
+      "location": "Berlin",
+      "start": "s",
+      "status": "tentative",
+      "summary": "Meet"
+     },
+     {
+      "allDay": true,
+      "end": "d2",
+      "id": "e2",
+      "start": "d1",
+      "summary": "Birthday"
+     }
+    ]
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"google_workspace_calendar_list_events\",\"queryWindow\":{\"timeMin\":\"a\",\"timeMax\":\"b\"},\"count\":2,\"timedCount\":1,\"upcomingTimedCount\":1,\"ongoingTimedCount\":0,\"allDayCount\":1,\"hasUpcomingTimedEvents\":true,\"hasOngoingTimedEvents\":false,\"hasOnlyOngoingTimedEvents\":false,\"hasOnlyAllDayEvents\":false,\"upcomingTimed\":[{\"id\":\"e1\",\"summary\":\"Meet\",\"start\":\"s\",\"end\":\"e\",\"location\":\"Berlin\",\"status\":\"tentative\"}],\"ongoingTimed\":[],\"allDay\":[{\"id\":\"e2\",\"summary\":\"Birthday\",\"start\":\"d1\",\"end\":\"d2\"}]}"
+  },
+  {
+   "tool": "microsoft_365_calendar_list_events",
+   "args": {},
+   "result": {
+    "allDayEvents": [],
+    "count": 1,
+    "ongoingTimedEvents": [
+     {
+      "end": "e",
+      "start": "s",
+      "summary": "Now"
+     }
+    ],
+    "queryWindow": {
+     "timeMax": "y",
+     "timeMin": "x"
+    },
+    "upcomingTimedEvents": [],
+    "windowMode": "overlap"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"microsoft_365_calendar_list_events\",\"windowMode\":\"overlap\",\"queryWindow\":{\"timeMin\":\"x\",\"timeMax\":\"y\"},\"count\":1,\"timedCount\":0,\"upcomingTimedCount\":0,\"ongoingTimedCount\":1,\"allDayCount\":0,\"hasUpcomingTimedEvents\":false,\"hasOngoingTimedEvents\":true,\"hasOnlyOngoingTimedEvents\":true,\"hasOnlyAllDayEvents\":false,\"upcomingTimed\":[],\"ongoingTimed\":[{\"summary\":\"Now\",\"start\":\"s\",\"end\":\"e\"}],\"allDay\":[]}"
+  },
+  {
+   "tool": "some_unknown_tool",
+   "args": {},
+   "result": {
+    "a": 1,
+    "b": [
+     1,
+     2,
+     3
+    ],
+    "c": "text"
+   },
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"some_unknown_tool\",\"summary\":\"{\\\"a\\\":1,\\\"b\\\":[1,2,3],\\\"c\\\":\\\"text\\\"}\"}"
+  },
+  {
+   "tool": "some_unknown_tool",
+   "args": {},
+   "result": "just a string",
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"some_unknown_tool\",\"summary\":\"just a string\"}"
+  },
+  {
+   "tool": "some_unknown_tool",
+   "args": {},
+   "result": {
+    "big": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "limits": {
+    "softLimit": 500,
+    "hardLimit": 900
+   },
+   "retain": true,
+   "expected": "{\"tool\":\"some_unknown_tool\",\"full_result\":{\"artifact_id\":\"retained-1\",\"total_lines\":3,\"note\":\"Only part of this result is shown. The complete result is saved: search it with read_artifact query, or read it by line range, before treating anything as missing. Do not run the call again for it.\"},\"summary\":\"{\\\"big\\\":\\\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n...[truncated, 9010 chars total]\"}"
+  },
+  {
+   "tool": "some_unknown_tool",
+   "args": {},
+   "result": null,
+   "limits": {},
+   "retain": false,
+   "expected": "{\"tool\":\"some_unknown_tool\",\"summary\":\"null\"}"
+  },
+  {
+   "tool": "some_unknown_tool",
+   "args": {},
+   "result": {
+    "ünï": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+   },
+   "limits": {
+    "softLimit": 500,
+    "hardLimit": 900
+   },
+   "retain": false,
+   "expected": "{\"tool\":\"some_unknown_tool\",\"summary\":\"{\\\"ünï\\\":\\\"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\\n...[truncated, 1810 chars total]\"}"
+  }
+ ],
+ "testOutput": [
+  {
+   "name": "node_spec",
+   "input": {
+    "command": "node --test",
+    "stdout": "▶ suite\n✖ failing tests:\n\ntest at /x/a.test.js:10:5\n✖ adds numbers (2.5ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  1 !== 2\n    at foo (a.js:1:1)\n  {\n    code: 'ERR_ASSERTION'\n  }\nℹ tests 4\nℹ pass 3\nℹ fail 1\nℹ cancelled 0\n"
+   },
+   "expected": {
+    "runner": "node:test",
+    "passed": 3,
+    "failed": 1,
+    "summary": "1 failed, 3 passed",
+    "failures": [
+     {
+      "test": "adds numbers",
+      "file": "/x/a.test.js",
+      "location": "10:5",
+      "message": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: 1 !== 2"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "node_tap",
+   "input": {
+    "command": "npm test",
+    "stdout": "TAP version 13\nnot ok 1 - fails here\n  ---\n  duration_ms: 1\n  location: '/x/b.test.js:3:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    boom happened\n    second line\n  code: 'ERR'\n  ...\nok 2 - passes\n# pass 1\n# fail 1\n# cancelled 1\n"
+   },
+   "expected": {
+    "runner": "node:test",
+    "passed": 1,
+    "failed": 2,
+    "summary": "2 failed, 1 passed",
+    "failures": [
+     {
+      "test": "fails here",
+      "file": "/x/b.test.js",
+      "location": "3:1",
+      "message": "boom happened second line"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "node_tap_relayed",
+   "input": {
+    "command": "npm run test",
+    "stdout": "not ok 1 - parent\n  ---\n  failureType: 'subtestsFailed'\n  error: '1 subtest failed'\n  ...\n# pass 0\n# fail 1\n"
+   },
+   "expected": {
+    "runner": "node:test",
+    "passed": 0,
+    "failed": 1,
+    "summary": "1 failed, 0 passed",
+    "failures": [
+     {
+      "test": "parent",
+      "message": "'1 subtest failed'"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "jest",
+   "input": {
+    "command": "jest",
+    "stderr": "FAIL src/a.test.js\n  ● adds\n\n    expect(received).toBe(expected)\n\n      at Object.<anonymous> (src/a.test.js:5:20)\n\nTests:       1 failed, 2 passed, 3 total\n"
+   },
+   "expected": {
+    "runner": "jest",
+    "passed": 2,
+    "failed": 1,
+    "summary": "1 failed, 2 passed",
+    "failures": [
+     {
+      "test": "adds",
+      "file": "src/a.test.js",
+      "location": "5",
+      "message": "expect(received).toBe(expected)"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "vitest",
+   "input": {
+    "command": "vitest run",
+    "stdout": " FAIL  src/a.test.ts > adds\n AssertionError: expected 1 to be 2\n\n Tests  1 failed | 4 passed (5)\n"
+   },
+   "expected": {
+    "runner": "vitest",
+    "passed": 4,
+    "failed": 1,
+    "summary": "1 failed, 4 passed",
+    "failures": [
+     {
+      "test": "src/a.test.ts > adds",
+      "message": "AssertionError: expected 1 to be 2"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "pytest",
+   "input": {
+    "command": "pytest -q",
+    "stdout": "FAILED tests/test_a.py::test_x - assert 1 == 2\nERROR tests/test_b.py\n=== 1 failed, 3 passed, 1 error in 0.5s ===\n"
+   },
+   "expected": {
+    "runner": "pytest",
+    "passed": 3,
+    "failed": 2,
+    "summary": "2 failed, 3 passed",
+    "failures": [
+     {
+      "test": "test_x",
+      "file": "tests/test_a.py",
+      "message": "assert 1 == 2"
+     },
+     {
+      "test": "tests/test_b.py",
+      "file": "tests/test_b.py",
+      "message": ""
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "go",
+   "input": {
+    "command": "go test ./...",
+    "stdout": "--- FAIL: TestX (0.00s)\n    a_test.go:12: expected 1\nFAIL\nFAIL\tgithub.com/x/y\t0.004s\nok  \tgithub.com/x/z\t0.1s\n"
+   },
+   "expected": {
+    "runner": "go test",
+    "passed": 1,
+    "failed": 1,
+    "summary": "1 failed, 1 passed",
+    "failures": [
+     {
+      "test": "TestX",
+      "file": "a_test.go",
+      "location": "12",
+      "message": "expected 1"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "go_green",
+   "input": {
+    "command": "go test ./...",
+    "stdout": "ok  \tgithub.com/x/y\t(cached)\nok  \tgithub.com/x/z\t0.1s\n?   \tgithub.com/x/w\t[no test files]\n"
+   },
+   "expected": {
+    "runner": "go test",
+    "passed": 2,
+    "failed": 0,
+    "summary": "0 failed, 2 passed",
+    "failures": [],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "cargo",
+   "input": {
+    "command": "cargo test",
+    "stdout": "test a::b ... FAILED\ntest result: FAILED. 3 passed; 1 failed; 0 ignored\ntest result: ok. 0 passed; 0 failed; 0 ignored\n"
+   },
+   "expected": {
+    "runner": "cargo test",
+    "passed": 3,
+    "failed": 1,
+    "summary": "1 failed, 3 passed",
+    "failures": [
+     {
+      "test": "a::b"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "mocha",
+   "input": {
+    "command": "mocha",
+    "stdout": "  2 passing (10ms)\n  1 failing\n\n  1) suite works:\n     AssertionError: expected 1 to equal 2\n"
+   },
+   "expected": {
+    "runner": "mocha",
+    "passed": 2,
+    "failed": 1,
+    "summary": "1 failed, 2 passed",
+    "failures": [
+     {
+      "test": "suite works:",
+      "message": "AssertionError: expected 1 to equal 2"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "rspec",
+   "input": {
+    "command": "rspec",
+    "stdout": "3 examples, 1 failure\n\nFailed examples:\n\nrspec ./spec/a_spec.rb:12 # A does a thing\n"
+   },
+   "expected": {
+    "runner": "rspec",
+    "passed": 2,
+    "failed": 1,
+    "summary": "1 failed, 2 passed",
+    "failures": [
+     {
+      "test": "A does a thing",
+      "file": "./spec/a_spec.rb",
+      "location": "12"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "dart",
+   "input": {
+    "command": "flutter test",
+    "stdout": "00:01 +3 -1: test one [E]\n00:02 +3 -1: Some tests failed.\n"
+   },
+   "expected": {
+    "runner": "dart test",
+    "passed": 3,
+    "failed": 1,
+    "summary": "1 failed, 3 passed",
+    "failures": [
+     {
+      "test": "test one"
+     }
+    ],
+    "failures_omitted": 0
+   }
+  },
+  {
+   "name": "nothing",
+   "input": {
+    "command": "npm test",
+    "stdout": "Tests passed\n"
+   },
+   "expected": null
+  },
+  {
+   "name": "not_a_test",
+   "input": {
+    "command": "ls",
+    "stdout": "ℹ pass 3\n"
+   },
+   "expected": null
+  },
+  {
+   "name": "zero",
+   "input": {
+    "command": "node --test",
+    "stdout": "ℹ pass 0\nℹ fail 0\n"
+   },
+   "expected": null
+  },
+  {
+   "name": "many",
+   "input": {
+    "command": "pytest",
+    "stdout": "FAILED tests/t.py::t0 - bad\nFAILED tests/t.py::t1 - bad\nFAILED tests/t.py::t2 - bad\nFAILED tests/t.py::t3 - bad\nFAILED tests/t.py::t4 - bad\nFAILED tests/t.py::t5 - bad\nFAILED tests/t.py::t6 - bad\nFAILED tests/t.py::t7 - bad\nFAILED tests/t.py::t8 - bad\nFAILED tests/t.py::t9 - bad\nFAILED tests/t.py::t10 - bad\nFAILED tests/t.py::t11 - bad\nFAILED tests/t.py::t12 - bad\nFAILED tests/t.py::t13 - bad\nFAILED tests/t.py::t14 - bad\nFAILED tests/t.py::t15 - bad\nFAILED tests/t.py::t16 - bad\nFAILED tests/t.py::t17 - bad\nFAILED tests/t.py::t18 - bad\nFAILED tests/t.py::t19 - bad\nFAILED tests/t.py::t20 - bad\nFAILED tests/t.py::t21 - bad\nFAILED tests/t.py::t22 - bad\nFAILED tests/t.py::t23 - bad\nFAILED tests/t.py::t24 - bad\n=== 25 failed in 1s ===\n"
+   },
+   "expected": {
+    "runner": "pytest",
+    "passed": 0,
+    "failed": 25,
+    "summary": "25 failed, 0 passed",
+    "failures": [
+     {
+      "test": "t0",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t1",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t2",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t3",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t4",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t5",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t6",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t7",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t8",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t9",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t10",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t11",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t12",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t13",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t14",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t15",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t16",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t17",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t18",
+      "file": "tests/t.py",
+      "message": "bad"
+     },
+     {
+      "test": "t19",
+      "file": "tests/t.py",
+      "message": "bad"
+     }
+    ],
+    "failures_omitted": 5
+   }
+  },
+  {
+   "name": "ansi",
+   "input": {
+    "command": "go test",
+    "stdout": "\u001b[31m--- FAIL: TestA (0.00s)\u001b[0m\r\nFAIL\tx/y\t0.1s\n"
+   },
+   "expected": {
+    "runner": "go test",
+    "passed": 0,
+    "failed": 1,
+    "summary": "1 failed, 0 passed",
+    "failures": [
+     {
+      "test": "TestA",
+      "message": ""
+     }
+    ],
+    "failures_omitted": 0
+   }
+  }
+ ],
+ "outcomes": [
+  {
+   "input": null,
+   "expected": ""
+  },
+  {
+   "input": "text",
+   "expected": ""
+  },
+  {
+   "input": {},
+   "expected": ""
+  },
+  {
+   "input": {
+    "error": "Failure xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "expected": "Failure xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx..."
+  },
+  {
+   "input": {
+    "timedOut": true,
+    "durationMs": 5
+   },
+   "expected": "Command timed out after 5 ms"
+  },
+  {
+   "input": {
+    "timedOut": true
+   },
+   "expected": "Command timed out after unknown ms"
+  },
+  {
+   "input": {
+    "killed": true
+   },
+   "expected": "Command was killed before it finished"
+  },
+  {
+   "input": {
+    "signal": "SIGTERM"
+   },
+   "expected": "Command was killed before it finished"
+  },
+  {
+   "input": {
+    "exitCode": 2,
+    "stderr": " bad  thing\n"
+   },
+   "expected": "bad thing"
+  },
+  {
+   "input": {
+    "exitCode": 3
+   },
+   "expected": "Command exited with status 3."
+  },
+  {
+   "input": {
+    "exitCode": 0,
+    "stderr": "warn"
+   },
+   "expected": ""
+  },
+  {
+   "input": {
+    "stdout": "ok"
+   },
+   "expected": ""
+  }
+ ],
+ "clamps": [
+  {
+   "text": "abc",
+   "max": 5,
+   "clamp": "abc"
+  },
+  {
+   "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "max": 10,
+   "clamp": "xxxxxxxxxx\n...[truncated, 30 chars total]"
+  },
+  {
+   "text": "😀😀😀😀😀😀😀😀😀😀",
+   "max": 7,
+   "clamp": "😀😀😀\ud83d\n...[truncated, 20 chars total]"
+  },
+  {
+   "text": null,
+   "max": 3,
+   "clamp": ""
+  },
+  {
+   "text": null,
+   "max": 3,
+   "clamp": ""
+  },
+  {
+   "text": 0,
+   "max": 3,
+   "clamp": ""
+  },
+  {
+   "text": 12345,
+   "max": 3,
+   "clamp": "123\n...[truncated, 5 chars total]"
+  }
+ ],
+ "lineExcerpts": [
+  {
+   "text": "a\nb\nc\nd",
+   "ml": 2,
+   "mc": 100,
+   "excerpt": "a\nb"
+  },
+  {
+   "text": "  ",
+   "ml": 3,
+   "mc": 10,
+   "excerpt": ""
+  },
+  {
+   "text": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 13 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 14 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 15 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 16 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 17 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 18 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 19 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 20 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 21 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 22 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 23 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 24 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 25 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 26 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 27 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 28 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 29 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 30 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "ml": 12,
+   "mc": 700,
+   "excerpt": "line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 5 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 6 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 7 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 8 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 9 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 10 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 11 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nline 12 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+   "text": null,
+   "ml": 3,
+   "mc": 5,
+   "excerpt": ""
+  },
+  {
+   "text": "x\ny",
+   "ml": 12,
+   "mc": 1,
+   "excerpt": "x\n...[truncated, 3 chars total]"
+  }
+ ],
+ "retained": [
+  {
+   "payload": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+   "payload": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nx"
+  },
+  {
+   "payload": {
+    "a": 1,
+    "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "text": "{\n  \"a\": 1,\n  \"b\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+  },
+  {
+   "payload": "short",
+   "text": "short"
+  },
+  {
+   "payload": "",
+   "text": ""
+  }
+ ],
+ "logs": [
+  {
+   "value": null,
+   "max": 5,
+   "text": ""
+  },
+  {
+   "value": "a  b\n c",
+   "max": 10,
+   "text": "a b c"
+  },
+  {
+   "value": {
+    "a": 1
+   },
+   "max": 5,
+   "text": "{\"a\":..."
+  },
+  {
+   "value": {
+    "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "max": 20,
+   "text": "{\"a\":\"xxxxxxxxxxxxxx..."
+  },
+  {
+   "value": "",
+   "max": 3,
+   "text": ""
+  },
+  {
+   "value": 7,
+   "max": 3,
+   "text": "7"
+  }
+ ]
+}

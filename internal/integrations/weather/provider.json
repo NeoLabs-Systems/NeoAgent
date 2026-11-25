@@ -1,0 +1,115 @@
+{
+  "key": "weather",
+  "label": "Weather",
+  "description": "Official weather integration powered by Open-Meteo public APIs (no API key required).",
+  "icon": "weather",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "forecast",
+      "label": "Forecast",
+      "description": "Public weather data from Open-Meteo (no API key required)."
+    }
+  ],
+  "connectPrompt": "Connect Weather to use keyless forecast and current-condition tools, then trigger tasks on weather events.",
+  "tools": [
+    {
+      "appId": "forecast",
+      "name": "weather_search_locations",
+      "access": "read",
+      "description": "Search Open-Meteo locations by city or place name. When multiple Weather accounts are connected, set connection_id or account_email to choose which one to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Location text like \"Berlin\" or \"San Francisco\"."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum locations to return, default 5."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Weather account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Weather account identifier."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "appId": "forecast",
+      "name": "weather_get_current",
+      "access": "read",
+      "description": "Get current weather conditions for a location or coordinates. When multiple Weather accounts are connected, set connection_id or account_email to choose which one to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "Optional location name like \"Tokyo\"."
+          },
+          "latitude": {
+            "type": "number",
+            "description": "Latitude, required with longitude if location is omitted."
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude, required with latitude if location is omitted."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Weather account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Weather account identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "forecast",
+      "name": "weather_get_forecast",
+      "access": "read",
+      "description": "Get hourly weather forecast for a location or coordinates. When multiple Weather accounts are connected, set connection_id or account_email to choose which one to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "Optional location name like \"London\"."
+          },
+          "latitude": {
+            "type": "number",
+            "description": "Latitude, required with longitude if location is omitted."
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude, required with latitude if location is omitted."
+          },
+          "forecast_hours": {
+            "type": "number",
+            "description": "Forecast horizon in hours (1-72), default 24."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Weather account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Weather account identifier."
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}

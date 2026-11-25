@@ -1,0 +1,704 @@
+{
+ "volatile": [
+  "created_at",
+  "updated_at",
+  "last_accessed_at",
+  "createdAt",
+  "updatedAt",
+  "lastAccessedAt",
+  "learnedAt",
+  "learned_at",
+  "embedded_at",
+  "firstSeenAt",
+  "lastSeenAt",
+  "generatedAt",
+  "eventTime",
+  "validFrom"
+ ],
+ "rounded": [
+  "score"
+ ],
+ "embedCalls": [
+  "document",
+  "document",
+  "document",
+  "document",
+  "document",
+  "document",
+  "document",
+  "document",
+  "document",
+  "document",
+  "query",
+  "query",
+  "query",
+  "query",
+  "query",
+  "query",
+  "query",
+  "query",
+  "query",
+  "query",
+  "query",
+  "document",
+  "query"
+ ],
+ "steps": [
+  {
+   "name": "save 0",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"Alice drinks dark roast coffee every morning.\",\"category\":\"preferences\",\"importance\":8}",
+   "capture": {
+    "m0": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save 1",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"Alice enjoys espresso after lunch.\",\"category\":\"preferences\",\"importance\":6}",
+   "capture": {
+    "m1": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save 2",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"Alice runs ten kilometers on Sundays.\",\"category\":\"episodic\",\"importance\":5}",
+   "capture": {
+    "m2": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save 3",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"category\":\"procedural\",\"importance\":7}",
+   "capture": {
+    "m3": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save 4",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"Anna is my sister and lives in Hamburg.\",\"category\":\"contacts\",\"importance\":7}",
+   "capture": {
+    "m4": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save 5",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"My cat Miso likes tuna.\",\"category\":\"episodic\",\"importance\":4}",
+   "capture": {
+    "m5": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save 6",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"I work at NeoLabs on the agent runtime.\",\"category\":\"identity\",\"importance\":9}",
+   "capture": {
+    "m6": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save 7",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"Weekly sync with the infra team on Tuesday.\",\"category\":\"events\",\"importance\":5}",
+   "capture": {
+    "m7": "id"
+   },
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save near duplicate",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"Alice drinks dark roast coffee every single morning.\",\"category\":\"preferences\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "save restated",
+   "method": "POST",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "body": "{\"content\":\"Alice drinks dark roast coffee every morning.\",\"category\":\"preferences\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"id\":\"<uuid>\"}"
+   }
+  },
+  {
+   "name": "pin clocks after saves",
+   "sql": "\n  UPDATE memories SET created_at = datetime('now', '-1 hour'), updated_at = datetime('now', '-1 hour');\n  UPDATE memory_facts SET created_at = datetime('now', '-1 hour'), updated_at = datetime('now', '-1 hour'), learned_at = datetime('now', '-1 hour');\n  UPDATE memory_entities SET first_seen_at = datetime('now', '-1 hour'), last_seen_at = datetime('now', '-1 hour');",
+   "params": []
+  },
+  {
+   "name": "recall coffee",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"coffee\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice drinks dark roast coffee every single morning.\",\"summary\":\"Alice drinks dark roast coffee every single morning. (Alice)\",\"importance\":8,\"confidence\":0.73,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6ee5bf0bdf76ec3b07c89ab9353a3484be5b174a9f77ae191fa44730c97ea3b\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":1.0243826860929135,\"scoreBreakdown\":{\"semantic\":0.07420803315346129,\"cosine\":0.30565602486509597,\"lexical\":1,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":7,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice drinks dark roast coffee every morning.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"retrieved\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"procedural\",\"content\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"summary\":\"The deploy pipeline uses GitHub Actions and Docker. (The, GitHub Actions, Docker)\",\"importance\":7,\"confidence\":0.7,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"859036fbbc3d5bc1a2f0194e8b8250f550b7704a3754cba271c60f5d3d7c7619\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"docker\",\"name\":\"Docker\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"github actions\",\"name\":\"GitHub Actions\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"the\",\"name\":\"The\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.6372499825825552,\"scoreBreakdown\":{\"semantic\":0.7016078189793222,\"cosine\":0.7762058642344917,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":2,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"The\",\"predicate\":\"procedural\",\"object\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall what does alice drink in the morning",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"what does alice drink in the morning\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice drinks dark roast coffee every single morning.\",\"summary\":\"Alice drinks dark roast coffee every single morning. (Alice)\",\"importance\":8,\"confidence\":0.73,\"access_count\":1,\"memoryStrength\":1.092,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6ee5bf0bdf76ec3b07c89ab9353a3484be5b174a9f77ae191fa44730c97ea3b\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":0.5741237737827594,\"scoreBreakdown\":{\"semantic\":0.15276500950227045,\"cosine\":0.5896242813976875,\"lexical\":0.5058856673766549,\"entity\":0.375,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":7,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice drinks dark roast coffee every morning.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"retrieved\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice enjoys espresso after lunch.\",\"summary\":\"Alice enjoys espresso after lunch. (Alice)\",\"importance\":6,\"confidence\":0.7,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"2bf0cb621174c0b79649ca06c5fbceafe497386fddb39c1e0feeafd5b181fad6\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":0.36767132425103305,\"scoreBreakdown\":{\"semantic\":0.03918063256587762,\"cosine\":0.5346073488700489,\"lexical\":0,\"entity\":0.375,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":0,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice enjoys espresso after lunch.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"Alice runs ten kilometers on Sundays.\",\"summary\":\"Alice runs ten kilometers on Sundays. (Alice, Sundays)\",\"importance\":5,\"confidence\":0.7,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6c8d1b11d3182064d5d472c1e0db155f6e3052d0f5914b319edf3b2fba8fb91\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3},{\"id\":\"<uuid>\",\"key\":\"sundays\",\"name\":\"Sundays\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.32750153527085973,\"scoreBreakdown\":{\"semantic\":0,\"cosine\":0.4501491366063437,\"lexical\":0,\"entity\":0.375,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":1,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"episodic\",\"object\":\"Alice runs ten kilometers on Sundays.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall espresso",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"espresso\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice enjoys espresso after lunch.\",\"summary\":\"Alice enjoys espresso after lunch. (Alice)\",\"importance\":6,\"confidence\":0.7,\"access_count\":1,\"memoryStrength\":1.084,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"2bf0cb621174c0b79649ca06c5fbceafe497386fddb39c1e0feeafd5b181fad6\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":1.0497204202687593,\"scoreBreakdown\":{\"semantic\":0.5509107720555533,\"cosine\":0.7185000471973898,\"lexical\":1,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":0,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice enjoys espresso after lunch.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall sister in hamburg",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"sister in hamburg\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"contacts\",\"content\":\"Anna is my sister and lives in Hamburg.\",\"summary\":\"Anna is my sister and lives in Hamburg. (Anna, Hamburg)\",\"importance\":7,\"confidence\":0.7,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"11868f08be569cf89989b945aad9607fd2af3f196fe1638d51a84d3d17e27581\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"anna\",\"name\":\"Anna\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"hamburg\",\"name\":\"Hamburg\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.9827844702592536,\"scoreBreakdown\":{\"semantic\":0.5469259918080351,\"cosine\":0.7353066331851001,\"lexical\":1,\"entity\":0.525,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":3,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Anna\",\"predicate\":\"contacts\",\"object\":\"Anna is my sister and lives in Hamburg.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"My cat Miso likes tuna.\",\"summary\":\"My cat Miso likes tuna. (Miso)\",\"importance\":4,\"confidence\":0.7,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"79667fbd02644253461778545e5096837dc6d3ffd10ca2f3d0e00538b20bd02a\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"miso\",\"name\":\"Miso\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.42846342411055793,\"scoreBreakdown\":{\"semantic\":0.5006170149170497,\"cosine\":0.7082521591137585,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":4,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Miso\",\"predicate\":\"episodic\",\"object\":\"My cat Miso likes tuna.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice drinks dark roast coffee every single morning.\",\"summary\":\"Alice drinks dark roast coffee every single morning. (Alice)\",\"importance\":8,\"confidence\":0.73,\"access_count\":2,\"memoryStrength\":1.1840000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6ee5bf0bdf76ec3b07c89ab9353a3484be5b174a9f77ae191fa44730c97ea3b\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":0.4083849906691581,\"scoreBreakdown\":{\"semantic\":0.3958727587180488,\"cosine\":0.6470588235294117,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":7,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice drinks dark roast coffee every morning.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"retrieved\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall docker deploy",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"docker deploy\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"procedural\",\"content\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"summary\":\"The deploy pipeline uses GitHub Actions and Docker. (The, GitHub Actions, Docker)\",\"importance\":7,\"confidence\":0.7,\"access_count\":1,\"memoryStrength\":1.088,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"859036fbbc3d5bc1a2f0194e8b8250f550b7704a3754cba271c60f5d3d7c7619\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"docker\",\"name\":\"Docker\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"github actions\",\"name\":\"GitHub Actions\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"the\",\"name\":\"The\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.9972906345816429,\"scoreBreakdown\":{\"semantic\":0,\"cosine\":0.47185071542077545,\"lexical\":1,\"entity\":0.525,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":2,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"The\",\"predicate\":\"procedural\",\"object\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice enjoys espresso after lunch.\",\"summary\":\"Alice enjoys espresso after lunch. (Alice)\",\"importance\":6,\"confidence\":0.7,\"access_count\":2,\"memoryStrength\":1.1680000000000001,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"2bf0cb621174c0b79649ca06c5fbceafe497386fddb39c1e0feeafd5b181fad6\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":0.6744407058892978,\"scoreBreakdown\":{\"semantic\":0.6910776689009784,\"cosine\":0.8464147390303179,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":0,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice enjoys espresso after lunch.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice drinks dark roast coffee every single morning.\",\"summary\":\"Alice drinks dark roast coffee every single morning. (Alice)\",\"importance\":8,\"confidence\":0.73,\"access_count\":3,\"memoryStrength\":1.2760000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6ee5bf0bdf76ec3b07c89ab9353a3484be5b174a9f77ae191fa44730c97ea3b\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":0.5064177078189868,\"scoreBreakdown\":{\"semantic\":0.490744247600172,\"cosine\":0.7468160448149386,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":7,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice drinks dark roast coffee every morning.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"retrieved\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"events\",\"content\":\"Weekly sync with the infra team on Tuesday.\",\"summary\":\"Weekly sync with the infra team on Tuesday. (Weekly, Tuesday)\",\"importance\":5,\"confidence\":0.7,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"3b6305e4185a7f27cba85243c71d6e0676e4b6668f94fea45f0f58f91c31d72d\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"tuesday\",\"name\":\"Tuesday\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"weekly\",\"name\":\"Weekly\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.2884018012802363,\"scoreBreakdown\":{\"semantic\":0.3302295224323364,\"cosine\":0.6670137985134995,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":6,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Weekly\",\"predicate\":\"events\",\"object\":\"Weekly sync with the infra team on Tuesday.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall tuna cat",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"tuna cat\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"My cat Miso likes tuna.\",\"summary\":\"My cat Miso likes tuna. (Miso)\",\"importance\":4,\"confidence\":0.7,\"access_count\":1,\"memoryStrength\":1.076,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"79667fbd02644253461778545e5096837dc6d3ffd10ca2f3d0e00538b20bd02a\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"miso\",\"name\":\"Miso\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.9399312625261173,\"scoreBreakdown\":{\"semantic\":0.5367545492674893,\"cosine\":0.7609019294092941,\"lexical\":1,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":4,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Miso\",\"predicate\":\"episodic\",\"object\":\"My cat Miso likes tuna.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall where do I work",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"where do I work\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"identity\",\"content\":\"I work at NeoLabs on the agent runtime.\",\"summary\":\"I work at NeoLabs on the agent runtime. (NeoLabs)\",\"importance\":9,\"confidence\":0.7,\"access_count\":0,\"memoryStrength\":1,\"lastAccessedAt\":null,\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"23e481756129733aad353987f4f31303456e39611519cd557e29ae847f432a8a\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"neolabs\",\"name\":\"NeoLabs\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.7540942288597144,\"scoreBreakdown\":{\"semantic\":0.6803783802608578,\"cosine\":0.7563496727146536,\"lexical\":0.38268031849431083,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":5,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"NeoLabs\",\"predicate\":\"identity\",\"object\":\"I work at NeoLabs on the agent runtime.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall meetings on tuesday",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"meetings on tuesday\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"events\",\"content\":\"Weekly sync with the infra team on Tuesday.\",\"summary\":\"Weekly sync with the infra team on Tuesday. (Weekly, Tuesday)\",\"importance\":5,\"confidence\":0.7,\"access_count\":1,\"memoryStrength\":1.08,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"3b6305e4185a7f27cba85243c71d6e0676e4b6668f94fea45f0f58f91c31d72d\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"tuesday\",\"name\":\"Tuesday\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"weekly\",\"name\":\"Weekly\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.7098658719603473,\"scoreBreakdown\":{\"semantic\":0.5630568606037524,\"cosine\":0.6722926454528143,\"lexical\":0.7135175942200334,\"entity\":0.525,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":6,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Weekly\",\"predicate\":\"events\",\"object\":\"Weekly sync with the infra team on Tuesday.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"Alice runs ten kilometers on Sundays.\",\"summary\":\"Alice runs ten kilometers on Sundays. (Alice, Sundays)\",\"importance\":5,\"confidence\":0.7,\"access_count\":1,\"memoryStrength\":1.08,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6c8d1b11d3182064d5d472c1e0db155f6e3052d0f5914b319edf3b2fba8fb91\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3},{\"id\":\"<uuid>\",\"key\":\"sundays\",\"name\":\"Sundays\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.33871190478418844,\"scoreBreakdown\":{\"semantic\":0.3780198673200926,\"cosine\":0.5335149004900694,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":1,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"episodic\",\"object\":\"Alice runs ten kilometers on Sundays.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall kilometers",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"kilometers\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"Alice runs ten kilometers on Sundays.\",\"summary\":\"Alice runs ten kilometers on Sundays. (Alice, Sundays)\",\"importance\":5,\"confidence\":0.7,\"access_count\":2,\"memoryStrength\":1.1600000000000001,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6c8d1b11d3182064d5d472c1e0db155f6e3052d0f5914b319edf3b2fba8fb91\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3},{\"id\":\"<uuid>\",\"key\":\"sundays\",\"name\":\"Sundays\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.9222836755430285,\"scoreBreakdown\":{\"semantic\":0.156420591128302,\"cosine\":0.3673154433462265,\"lexical\":1,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":1,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"episodic\",\"object\":\"Alice runs ten kilometers on Sundays.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"procedural\",\"content\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"summary\":\"The deploy pipeline uses GitHub Actions and Docker. (The, GitHub Actions, Docker)\",\"importance\":7,\"confidence\":0.7,\"access_count\":2,\"memoryStrength\":1.1760000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"859036fbbc3d5bc1a2f0194e8b8250f550b7704a3754cba271c60f5d3d7c7619\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"docker\",\"name\":\"Docker\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"github actions\",\"name\":\"GitHub Actions\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"the\",\"name\":\"The\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.5869401995458368,\"scoreBreakdown\":{\"semantic\":0.6219969611091178,\"cosine\":0.7164977208318384,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":2,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"The\",\"predicate\":\"procedural\",\"object\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall zebra",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"zebra\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"events\",\"content\":\"Weekly sync with the infra team on Tuesday.\",\"summary\":\"Weekly sync with the infra team on Tuesday. (Weekly, Tuesday)\",\"importance\":5,\"confidence\":0.7,\"access_count\":2,\"memoryStrength\":1.1600000000000001,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"3b6305e4185a7f27cba85243c71d6e0676e4b6668f94fea45f0f58f91c31d72d\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"tuesday\",\"name\":\"Tuesday\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"weekly\",\"name\":\"Weekly\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.3811307977362593,\"scoreBreakdown\":{\"semantic\":0.418135815968846,\"cosine\":0.5636018619766345,\"lexical\":0,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":6,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Weekly\",\"predicate\":\"events\",\"object\":\"Weekly sync with the infra team on Tuesday.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "recall limited",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"Alice\",\"limit\":2}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice enjoys espresso after lunch.\",\"summary\":\"Alice enjoys espresso after lunch. (Alice)\",\"importance\":6,\"confidence\":0.7,\"access_count\":3,\"memoryStrength\":1.2520000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"2bf0cb621174c0b79649ca06c5fbceafe497386fddb39c1e0feeafd5b181fad6\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":0.578475253369896,\"scoreBreakdown\":{\"semantic\":0.5334286283651052,\"cosine\":0.6500714712738289,\"lexical\":0,\"entity\":0.375,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":0,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice enjoys espresso after lunch.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true},{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice drinks dark roast coffee every single morning.\",\"summary\":\"Alice drinks dark roast coffee every single morning. (Alice)\",\"importance\":8,\"confidence\":0.73,\"access_count\":4,\"memoryStrength\":1.3680000000000003,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6ee5bf0bdf76ec3b07c89ab9353a3484be5b174a9f77ae191fa44730c97ea3b\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[],\"score\":0.3984805851706457,\"scoreBreakdown\":{\"semantic\":0.051566846126417154,\"cosine\":0.28867513459481287,\"lexical\":0,\"entity\":0.375,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":7,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Alice\",\"predicate\":\"preferences\",\"object\":\"Alice drinks dark roast coffee every morning.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"retrieved\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "update re-embeds",
+   "method": "PUT",
+   "path": "/api/memory/memories/{{m5}}",
+   "user": 1,
+   "body": "{\"content\":\"My cat Miso likes salmon now.\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"My cat Miso likes salmon now.\",\"summary\":\"My cat Miso likes salmon now. (Miso)\",\"importance\":4,\"confidence\":0.7,\"access_count\":2,\"memoryStrength\":1.1520000000000001,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"3c4a7ea7e12633189e0ae316445765bdde8ad9c677507e09197e3d5bef90d474\"}},\"entities\":[],\"sources\":[]}"
+   }
+  },
+  {
+   "name": "recall salmon",
+   "method": "POST",
+   "path": "/api/memory/memories/recall",
+   "user": 1,
+   "body": "{\"query\":\"salmon\"}",
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"My cat Miso likes salmon now.\",\"summary\":\"My cat Miso likes salmon now. (Miso)\",\"importance\":4,\"confidence\":0.7,\"access_count\":2,\"memoryStrength\":1.1520000000000001,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"3c4a7ea7e12633189e0ae316445765bdde8ad9c677507e09197e3d5bef90d474\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"miso\",\"name\":\"Miso\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[],\"score\":0.9348413147927884,\"scoreBreakdown\":{\"semantic\":0.39927957408291925,\"cosine\":0.5828933915240015,\"lexical\":1,\"entity\":0,\"relation\":0,\"route\":0,\"routeIntent\":\"broad\",\"vectorCandidateRank\":7,\"candidateCount\":8},\"factContext\":[{\"id\":\"<uuid>\",\"subject\":\"Miso\",\"predicate\":\"episodic\",\"object\":\"My cat Miso likes salmon now.\",\"relation\":\"new\",\"validFrom\":null,\"validTo\":null,\"learnedAt\":\"<time>\",\"previous\":null,\"related\":[]}],\"provenance\":\"verified\",\"current\":true}]"
+   }
+  },
+  {
+   "name": "memories",
+   "method": "GET",
+   "path": "/api/memory/memories",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"<uuid>\",\"category\":\"identity\",\"content\":\"I work at NeoLabs on the agent runtime.\",\"summary\":\"I work at NeoLabs on the agent runtime. (NeoLabs)\",\"importance\":9,\"confidence\":0.7,\"access_count\":1,\"memoryStrength\":1.096,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"23e481756129733aad353987f4f31303456e39611519cd557e29ae847f432a8a\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"neolabs\",\"name\":\"NeoLabs\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[]},{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice drinks dark roast coffee every single morning.\",\"summary\":\"Alice drinks dark roast coffee every single morning. (Alice)\",\"importance\":8,\"confidence\":0.73,\"access_count\":5,\"memoryStrength\":1.4600000000000004,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6ee5bf0bdf76ec3b07c89ab9353a3484be5b174a9f77ae191fa44730c97ea3b\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[]},{\"id\":\"<uuid>\",\"category\":\"procedural\",\"content\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"summary\":\"The deploy pipeline uses GitHub Actions and Docker. (The, GitHub Actions, Docker)\",\"importance\":7,\"confidence\":0.7,\"access_count\":3,\"memoryStrength\":1.2640000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"859036fbbc3d5bc1a2f0194e8b8250f550b7704a3754cba271c60f5d3d7c7619\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"docker\",\"name\":\"Docker\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"github actions\",\"name\":\"GitHub Actions\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"the\",\"name\":\"The\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[]},{\"id\":\"<uuid>\",\"category\":\"contacts\",\"content\":\"Anna is my sister and lives in Hamburg.\",\"summary\":\"Anna is my sister and lives in Hamburg. (Anna, Hamburg)\",\"importance\":7,\"confidence\":0.7,\"access_count\":1,\"memoryStrength\":1.088,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"11868f08be569cf89989b945aad9607fd2af3f196fe1638d51a84d3d17e27581\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"anna\",\"name\":\"Anna\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"hamburg\",\"name\":\"Hamburg\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[]},{\"id\":\"<uuid>\",\"category\":\"preferences\",\"content\":\"Alice enjoys espresso after lunch.\",\"summary\":\"Alice enjoys espresso after lunch. (Alice)\",\"importance\":6,\"confidence\":0.7,\"access_count\":4,\"memoryStrength\":1.3360000000000003,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"2bf0cb621174c0b79649ca06c5fbceafe497386fddb39c1e0feeafd5b181fad6\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3}],\"sources\":[]},{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"Alice runs ten kilometers on Sundays.\",\"summary\":\"Alice runs ten kilometers on Sundays. (Alice, Sundays)\",\"importance\":5,\"confidence\":0.7,\"access_count\":3,\"memoryStrength\":1.2400000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"a6c8d1b11d3182064d5d472c1e0db155f6e3052d0f5914b319edf3b2fba8fb91\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"mentionCount\":3},{\"id\":\"<uuid>\",\"key\":\"sundays\",\"name\":\"Sundays\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[]},{\"id\":\"<uuid>\",\"category\":\"events\",\"content\":\"Weekly sync with the infra team on Tuesday.\",\"summary\":\"Weekly sync with the infra team on Tuesday. (Weekly, Tuesday)\",\"importance\":5,\"confidence\":0.7,\"access_count\":3,\"memoryStrength\":1.2400000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"3b6305e4185a7f27cba85243c71d6e0676e4b6668f94fea45f0f58f91c31d72d\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"tuesday\",\"name\":\"Tuesday\",\"kind\":\"concept\",\"mentionCount\":1},{\"id\":\"<uuid>\",\"key\":\"weekly\",\"name\":\"Weekly\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[]},{\"id\":\"<uuid>\",\"category\":\"episodic\",\"content\":\"My cat Miso likes salmon now.\",\"summary\":\"My cat Miso likes salmon now. (Miso)\",\"importance\":4,\"confidence\":0.7,\"access_count\":3,\"memoryStrength\":1.2280000000000002,\"lastAccessedAt\":\"<time>\",\"pinned\":false,\"archived\":0,\"created_at\":\"<time>\",\"updated_at\":\"<time>\",\"sourceRef\":{\"sourceType\":null,\"sourceId\":null,\"sourceLabel\":null},\"scope\":{\"scopeType\":\"agent\",\"scopeId\":\"<agent:1:main>\"},\"staleAfterDays\":null,\"metadata\":{\"trustLevel\":\"user_stated\",\"verification\":{\"source\":\"owner\",\"digest\":\"3c4a7ea7e12633189e0ae316445765bdde8ad9c677507e09197e3d5bef90d474\"}},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"miso\",\"name\":\"Miso\",\"kind\":\"concept\",\"mentionCount\":1}],\"sources\":[]}]"
+   }
+  },
+  {
+   "name": "overview stats",
+   "method": "GET",
+   "path": "/api/memory",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"agentId\":\"<agent:1:main>\",\"assistantBehaviorNotes\":\"\",\"assistantSelfState\":{\"identity\":{},\"focus\":{},\"updatedAt\":null},\"dailyLogs\":[],\"apiKeys\":[],\"coreMemory\":{},\"stats\":{\"total\":8,\"active\":8,\"archived\":0,\"facts\":8,\"entities\":11,\"knowledgeViews\":0,\"ingestionDocuments\":0,\"sourceChunks\":0,\"embeddingIndex\":{\"embedded\":8,\"indexed\":8,\"coverage\":1},\"averageImportance\":6.375,\"averageConfidence\":0.70375},\"entities\":[{\"id\":\"<uuid>\",\"key\":\"alice\",\"name\":\"Alice\",\"kind\":\"concept\",\"aliases\":[\"Alice\"],\"summary\":\"\",\"mentionCount\":3,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"miso\",\"name\":\"Miso\",\"kind\":\"concept\",\"aliases\":[\"Miso\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"sundays\",\"name\":\"Sundays\",\"kind\":\"concept\",\"aliases\":[\"Sundays\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"github actions\",\"name\":\"GitHub Actions\",\"kind\":\"concept\",\"aliases\":[\"GitHub Actions\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"docker\",\"name\":\"Docker\",\"kind\":\"concept\",\"aliases\":[\"Docker\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"anna\",\"name\":\"Anna\",\"kind\":\"concept\",\"aliases\":[\"Anna\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"hamburg\",\"name\":\"Hamburg\",\"kind\":\"concept\",\"aliases\":[\"Hamburg\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"neolabs\",\"name\":\"NeoLabs\",\"kind\":\"concept\",\"aliases\":[\"NeoLabs\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"weekly\",\"name\":\"Weekly\",\"kind\":\"concept\",\"aliases\":[\"Weekly\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}},{\"id\":\"<uuid>\",\"key\":\"tuesday\",\"name\":\"Tuesday\",\"kind\":\"concept\",\"aliases\":[\"Tuesday\"],\"summary\":\"\",\"mentionCount\":1,\"firstSeenAt\":\"<time>\",\"lastSeenAt\":\"<time>\",\"metadata\":{}}],\"knowledgeViews\":[],\"ingestionOverview\":[],\"recentKnowledgeChanges\":[]}"
+   }
+  }
+ ],
+ "snapshot": [
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"Alice drinks dark roast coffee every single morning.\",\"category\":\"preferences\",\"importance\":8,\"access_count\":5,\"memory_strength\":1.4600000000000004,\"confidence\":0.73,\"embedding\":\"[0,0.25,0.25,0.5,1.5,2.25,1,1,1,0,0,1,1,0.25,0,0]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"Alice enjoys espresso after lunch.\",\"category\":\"preferences\",\"importance\":6,\"access_count\":4,\"memory_strength\":1.3360000000000003,\"confidence\":0.7,\"embedding\":\"[0,1.5,0,0,0,2.5,0,2,0,0,0,0,0.25,0,0,0]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"Alice runs ten kilometers on Sundays.\",\"category\":\"episodic\",\"importance\":5,\"access_count\":3,\"memory_strength\":1.2400000000000002,\"confidence\":0.7,\"embedding\":\"[0,0.25,1.25,1.25,0.25,0,1,1,0,0,0,0.25,1,0,0,1.25]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"The deploy pipeline uses GitHub Actions and Docker.\",\"category\":\"procedural\",\"importance\":7,\"access_count\":3,\"memory_strength\":1.2640000000000002,\"confidence\":0.7,\"embedding\":\"[1.25,0.5,0,1,0.75,1.25,3,1.25,1,0,0,0,0,0,0,0]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"Anna is my sister and lives in Hamburg.\",\"category\":\"contacts\",\"importance\":7,\"access_count\":1,\"memory_strength\":1.088,\"confidence\":0.7,\"embedding\":\"[0,0.5,0,1.25,2,1,1,0,0.25,0.5,1,0,1.25,0.25,1,0]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"My cat Miso likes salmon now.\",\"category\":\"episodic\",\"importance\":4,\"access_count\":3,\"memory_strength\":1.2280000000000002,\"confidence\":0.7,\"embedding\":\"[0,0,0,0.5,0,3,0,0,0,1,0,0,2.25,0.5,0.25,0]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"I work at NeoLabs on the agent runtime.\",\"category\":\"identity\",\"importance\":9,\"access_count\":1,\"memory_strength\":1.096,\"confidence\":0.7,\"embedding\":\"[1,0.5,0.25,1,0.25,0,0,0.25,0,3.25,1,0,0,0,1.25,1.25]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memories",
+   "row": "{\"id\":\"<uuid>\",\"content\":\"Weekly sync with the infra team on Tuesday.\",\"category\":\"events\",\"importance\":5,\"access_count\":3,\"memory_strength\":1.2400000000000002,\"confidence\":0.7,\"embedding\":\"[1,0,0,0.25,0.75,2,1,1.5,0,0.25,0,1,0,0,0,2.25]\",\"embedding_provider\":\"test\",\"embedding_model\":\"hash-16\",\"embedding_dimensions\":16}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":0,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":1,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":2,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":3,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":4,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":5,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":6,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":7,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":8,\"band_value\":16383}"
+  },
+  {
+   "table": "memory_embedding_bands",
+   "row": "{\"memory_id\":\"<uuid>\",\"dimension\":16,\"index_version\":3,\"band_index\":9,\"band_value\":16383}"
+  }
+ ]
+}

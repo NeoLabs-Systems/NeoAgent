@@ -1,0 +1,446 @@
+{
+ "steps": [
+  {
+   "name": "search",
+   "answers": [
+    {
+     "body": {
+      "results": [
+       {
+        "name": "Berlin",
+        "latitude": 52.52,
+        "longitude": 13.41,
+        "country": "Germany",
+        "admin1": "Land Berlin",
+        "timezone": "Europe/Berlin",
+        "population": 3426354,
+        "extra": 1
+       },
+       {
+        "name": "Berlin",
+        "latitude": 44.47,
+        "longitude": -71.18,
+        "country": "United States",
+        "admin1": null,
+        "population": null
+       }
+      ]
+     }
+    }
+   ],
+   "result": {
+    "query": "Berlin",
+    "count": 2,
+    "results": [
+     {
+      "name": "Berlin",
+      "latitude": 52.52,
+      "longitude": 13.41,
+      "country": "Germany",
+      "admin1": "Land Berlin",
+      "timezone": "Europe/Berlin",
+      "population": 3426354
+     },
+     {
+      "name": "Berlin",
+      "latitude": 44.47,
+      "longitude": -71.18,
+      "country": "United States",
+      "admin1": null,
+      "timezone": null,
+      "population": 0
+     }
+    ]
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://geocoding-api.open-meteo.com/v1/search?name=Berlin&count=2&language=en&format=json",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "weather_search_locations",
+   "args": {
+    "query": " Berlin ",
+    "limit": 2
+   },
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "search needs query",
+   "answers": [],
+   "error": "query is required.",
+   "requests": [],
+   "tool": "weather_search_locations",
+   "args": {},
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "search no match",
+   "answers": [
+    {
+     "body": {}
+    }
+   ],
+   "error": "No location match found for \"Nowhere\".",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://geocoding-api.open-meteo.com/v1/search?name=Nowhere&count=5&language=en&format=json",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "weather_search_locations",
+   "args": {
+    "query": "Nowhere"
+   },
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "current by coordinates",
+   "answers": [
+    {
+     "body": {
+      "latitude": 52.52,
+      "longitude": 13.419998,
+      "timezone": "Europe/Berlin",
+      "elevation": 38,
+      "current": {
+       "time": "2026-01-01T13:00",
+       "temperature_2m": 3.2,
+       "weather_code": 3,
+       "is_day": 1
+      },
+      "hourly": {
+       "time": [
+        "2026-01-01T13:00",
+        "2026-01-01T14:00"
+       ],
+       "temperature_2m": [
+        3.2,
+        null
+       ],
+       "precipitation": [
+        0,
+        0.4
+       ],
+       "weather_code": [
+        3,
+        2.5
+       ],
+       "is_day": [
+        1,
+        0
+       ],
+       "wind_speed_10m": [
+        10
+       ]
+      }
+     }
+    }
+   ],
+   "result": {
+    "location": {
+     "label": "52.5200, 13.4050",
+     "latitude": 52.52,
+     "longitude": 13.419998,
+     "timezone": "Europe/Berlin",
+     "elevation": 38
+    },
+    "current": {
+     "time": "2026-01-01T13:00",
+     "temperature_2m": 3.2,
+     "weather_code": 3,
+     "is_day": 1,
+     "weather_label": "Overcast"
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.405&current=temperature_2m%2Capparent_temperature%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cwind_direction_10m%2Cis_day&hourly=temperature_2m%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cis_day&forecast_hours=1&timezone=auto",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "weather_get_current",
+   "args": {
+    "latitude": 52.52,
+    "longitude": 13.405
+   },
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "forecast by name",
+   "answers": [
+    {
+     "body": {
+      "results": [
+       {
+        "name": "Berlin",
+        "latitude": 52.52,
+        "longitude": 13.41,
+        "country": "Germany",
+        "admin1": "Land Berlin",
+        "timezone": "Europe/Berlin",
+        "population": 3426354,
+        "extra": 1
+       },
+       {
+        "name": "Berlin",
+        "latitude": 44.47,
+        "longitude": -71.18,
+        "country": "United States",
+        "admin1": null,
+        "population": null
+       }
+      ]
+     }
+    },
+    {
+     "body": {
+      "latitude": 52.52,
+      "longitude": 13.419998,
+      "timezone": "Europe/Berlin",
+      "elevation": 38,
+      "current": {
+       "time": "2026-01-01T13:00",
+       "temperature_2m": 3.2,
+       "weather_code": 3,
+       "is_day": 1
+      },
+      "hourly": {
+       "time": [
+        "2026-01-01T13:00",
+        "2026-01-01T14:00"
+       ],
+       "temperature_2m": [
+        3.2,
+        null
+       ],
+       "precipitation": [
+        0,
+        0.4
+       ],
+       "weather_code": [
+        3,
+        2.5
+       ],
+       "is_day": [
+        1,
+        0
+       ],
+       "wind_speed_10m": [
+        10
+       ]
+      }
+     }
+    }
+   ],
+   "result": {
+    "location": {
+     "label": "Berlin, Land Berlin, Germany",
+     "latitude": 52.52,
+     "longitude": 13.419998,
+     "timezone": "Europe/Berlin",
+     "elevation": 38
+    },
+    "current": {
+     "time": "2026-01-01T13:00",
+     "temperature_2m": 3.2,
+     "weather_code": 3,
+     "is_day": 1,
+     "weather_label": "Overcast"
+    },
+    "hourly": [
+     {
+      "time": "2026-01-01T13:00",
+      "temperature": 3.2,
+      "precipitation": 0,
+      "rain": 0,
+      "showers": 0,
+      "snowfall": 0,
+      "windSpeed": 10,
+      "windGust": 0,
+      "weatherCode": 3,
+      "weatherLabel": "Overcast",
+      "isDay": true
+     },
+     {
+      "time": "2026-01-01T14:00",
+      "temperature": 0,
+      "precipitation": 0.4,
+      "rain": 0,
+      "showers": 0,
+      "snowfall": 0,
+      "windSpeed": 0,
+      "windGust": 0,
+      "weatherCode": 2.5,
+      "weatherLabel": "Unknown",
+      "isDay": false
+     }
+    ],
+    "horizonHours": 72
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://geocoding-api.open-meteo.com/v1/search?name=Berlin&count=1&language=en&format=json",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current=temperature_2m%2Capparent_temperature%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cwind_direction_10m%2Cis_day&hourly=temperature_2m%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cis_day&forecast_hours=72&timezone=Europe%2FBerlin",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "weather_get_forecast",
+   "args": {
+    "location": "Berlin",
+    "forecast_hours": 200
+   },
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "forecast fractional hours",
+   "answers": [
+    {
+     "body": {
+      "hourly": {}
+     }
+    }
+   ],
+   "result": {
+    "location": {
+     "label": "1.0000, 2.0000",
+     "latitude": 1,
+     "longitude": 2,
+     "timezone": null,
+     "elevation": null
+    },
+    "current": {
+     "weather_label": "Unknown"
+    },
+    "hourly": [],
+    "horizonHours": 2.5
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast?latitude=1&longitude=2&current=temperature_2m%2Capparent_temperature%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cwind_direction_10m%2Cis_day&hourly=temperature_2m%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cis_day&forecast_hours=2.5&timezone=auto",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "weather_get_forecast",
+   "args": {
+    "latitude": "1",
+    "longitude": 2,
+    "forecast_hours": 2.5
+   },
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "forecast from metadata",
+   "answers": [
+    {
+     "body": {
+      "current": {}
+     }
+    }
+   ],
+   "result": {
+    "location": {
+     "label": "Home",
+     "latitude": 1.5,
+     "longitude": 2,
+     "timezone": null,
+     "elevation": null
+    },
+    "current": {
+     "weather_label": "Unknown"
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast?latitude=1.5&longitude=2&current=temperature_2m%2Capparent_temperature%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cwind_direction_10m%2Cis_day&hourly=temperature_2m%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cis_day&forecast_hours=1&timezone=auto",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "weather_get_current",
+   "args": {},
+   "credentials": {},
+   "metadata": {
+    "latitude": 1.5,
+    "longitude": 2,
+    "locationLabel": "Home"
+   }
+  },
+  {
+   "name": "needs a location",
+   "answers": [],
+   "error": "Provide either location or latitude/longitude for weather tools.",
+   "requests": [],
+   "tool": "weather_get_current",
+   "args": {},
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "upstream error",
+   "answers": [
+    {
+     "status": 400,
+     "body": {
+      "error": true,
+      "reason": "bad"
+     }
+    }
+   ],
+   "error": "Open-Meteo forecast request failed: true",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&current=temperature_2m%2Capparent_temperature%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cwind_direction_10m%2Cis_day&hourly=temperature_2m%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Cwind_speed_10m%2Cwind_gusts_10m%2Cis_day&forecast_hours=1&timezone=auto",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "weather_get_current",
+   "args": {
+    "latitude": 0,
+    "longitude": 0
+   },
+   "credentials": {},
+   "metadata": {}
+  }
+ ]
+}

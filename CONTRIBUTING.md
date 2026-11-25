@@ -1,6 +1,6 @@
 # Contributing to NeoAgent
 
-NeoAgent is a Node.js/Express backend with Flutter clients. Contributions are
+NeoAgent is a Go backend with Flutter clients. Contributions are
 welcome across the server, clients, integrations, skills, tests, and
 documentation.
 
@@ -20,49 +20,49 @@ documentation.
 
 Requirements:
 
-- Node.js 20 or newer
-- npm
+- Go (the version in `go.mod`)
 - Flutter stable when changing a Flutter client
-
-Install backend dependencies:
 
 ```bash
 git clone https://github.com/NeoLabs-Systems/NeoAgent.git
 cd NeoAgent
-npm ci
+go build ./...
 ```
 
-NeoAgent stores development runtime data under `~/.neoagent` by default. Set
-`NEOAGENT_HOME` to an isolated directory when you do not want development data
-to share the normal runtime.
-
-Run the backend:
+The shared foundation module `github.com/NeoLabs-Systems/neolabs-go` is fetched
+by the Go tool. To work on both at once, clone it next to this repository and
+create an untracked `go.work`:
 
 ```bash
-npm run dev:backend
+go work init . ../neolabs-go
 ```
 
-Run the backend and Flutter web client together:
+NeoAgent stores runtime data under `~/.neoagent` by default. Set
+`NEOAGENT_HOME` to an isolated directory for development so it never shares the
+normal runtime:
 
 ```bash
-npm run dev:stack
+NEOAGENT_HOME="$(mktemp -d)" go run ./cmd/neoagent serve
+```
+
+Run the Flutter web client against it:
+
+```bash
+cd flutter_app
+flutter run -d chrome --dart-define=NEOAGENT_BACKEND_URL=http://localhost:3333
 ```
 
 Do not commit generated runtime data or `.env` files.
 
 ## Tests
 
-Run the smallest relevant test command while developing, then the broader suite
+Run the tests of the package you changed while developing, then everything
 before submitting:
 
 ```bash
-npm run test:unit
-npm run test:integration
-npm run test:security
-npm run test:contract
-npm run test:e2e
-npm run test:ws
-npm run test:backend
+gofmt -l cmd internal
+go vet ./...
+go test -race ./...
 ```
 
 For Flutter changes:
@@ -70,8 +70,7 @@ For Flutter changes:
 ```bash
 cd flutter_app
 flutter analyze --no-pub
-cd ..
-npm run flutter:test
+flutter test ../test/flutter/unit ../test/flutter/widget
 ```
 
 Flutter web release builds are handled by the maintainer's release pipeline.
@@ -113,7 +112,7 @@ been scoped.
 Use the bug report form and include:
 
 - The NeoAgent version or commit.
-- Host operating system and Node.js version.
+- Host operating system and architecture.
 - Install type and runtime profile.
 - Exact reproduction steps.
 - The relevant error and sanitized logs.

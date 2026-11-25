@@ -1,0 +1,62 @@
+{
+  "m1": {
+    "type": "pkmsg",
+    "ciphertext": "MwgBEiEFjtu+ws4FYca3QAGYhaAMJjM21wpxkgWxPsLQoKuHsEoaIQXx1nyEbmJhXxpDE9q4pvzUdor6QNtZI+W3sAYgUmDTdyJSMwohBe9ZkiY3+/Q3nevyl4JVyTktntIYMTIe+UbozK45gB1JEAAYACIg155VqnDMednpppiAmaBzjXmOQxQt+fQ2yhXKlSAQ8VyGlsBdOQ7neCjMATAB",
+    "plaintext": "m1 alice->bob prekey"
+  },
+  "m2": {
+    "type": "msg",
+    "ciphertext": "MwohBWrhsgC/LKXcoVVb7O4WKo78D+QhnZblnw0KAaEpx0sIEAAYACIQs4F687AnMxy5Vm2dh8N8EmeaPjytxJt/",
+    "plaintext": "m2 bob->alice"
+  },
+  "m3": {
+    "type": "msg",
+    "ciphertext": "MwohBUV0f7jUTN11ow5xf4eptuUr2UowGZnCsjST/DVKwCR2EAAYACIQ4z/azm/W4+lzZqwuPFXOGu3fcz4Lqj+t",
+    "plaintext": "m3 alice->bob"
+  },
+  "m4": {
+    "type": "msg",
+    "ciphertext": "MwohBZ61V9c0cdkxV83Ud6SnnQNicnwHPi77cDb9n437aKh/EAAYACIg/XZo7LFXW2rxxB3m+JkM+6eDu27Zzit+dDaL+DXNIRTLtd/qXWOx0g==",
+    "plaintext": "m4 bob->alice skipped"
+  },
+  "m5": {
+    "type": "msg",
+    "ciphertext": "MwohBZ61V9c0cdkxV83Ud6SnnQNicnwHPi77cDb9n437aKh/EAEYACIQEDcL6I9y5fEY0X5owenAQ0YPpt4HsgS7",
+    "plaintext": "m5 bob->alice"
+  },
+  "g2": {
+    "ciphertext": "MwiR2JnYBxACGhDyIZs2xtcMXRJirM7Ns+TwNIH5V6tUS01JXmNC82UituLcz2YITOmRhKsm0HSezhDfNNtO9uD34jLNtCfe70bIGVwAPNHo21Tdva1x477ggw==",
+    "plaintext": "g2"
+  },
+  "g3": {
+    "ciphertext": "MwiR2JnYBxAEGhAcIrmaO8XkyNs9meKU22dWXwy+z2I2Ds5m7BHCVrmm8YLXpqHR6Ya6CLv49bs1tSCIYQI3frApIIiP3+zmd2VRiYzCQRZUDAJ4j8izJFa0hg==",
+    "plaintext": "g3"
+  },
+  "appState": {
+    "keyId": "AAAAAKz1/y8=",
+    "indexMac": "ExMIsV9RY1AQKLzD3q+LchZCLI7ndq/AdEN1Dylzpzk=",
+    "valueMac": "EbUMW2d/NN9KJrXHpPcxNqKgjshmhSBIHxmOn7ADh58="
+  },
+  "m6": {
+    "type": "msg",
+    "ciphertext": "MwohBZ61V9c0cdkxV83Ud6SnnQNicnwHPi77cDb9n437aKh/EAIYACIgb6gXmgsIWWSK5FBvUVikJHqGb47vgTq4ep8hYiYv3oeK8lwcTtYsGQ==",
+    "plaintext": "m6 bob->alice later"
+  },
+  "m7": {
+    "type": "msg",
+    "ciphertext": "MwohBYXu4hCk+OpPjvVMpjGLAKQyokbJlbjgbSde2gXxkNsuEAAYACIgyorBbXUhw0l5Gw5MJ3w4a9w/psqDgCyUpkrNkQe86IXhNZzbHbvr7w==",
+    "plaintext": "m7 alice->bob later"
+  },
+  "alice": {
+    "early": "alice-early",
+    "snap": "alice-snap",
+    "jid": "111111:7@s.whatsapp.net",
+    "peer": "222222:3@s.whatsapp.net"
+  },
+  "bob": {
+    "snap": "bob-snap",
+    "jid": "222222:3@s.whatsapp.net",
+    "peer": "111111:7@s.whatsapp.net"
+  },
+  "group": "123456-789@g.us"
+}

@@ -1,0 +1,328 @@
+{
+ "mimeWords": [
+  {
+   "input": "plain subject",
+   "decoded": "plain subject"
+  },
+  {
+   "input": "=?UTF-8?B?SGVsbG8gV8O2cmxk?=",
+   "decoded": "Hello Wörld"
+  },
+  {
+   "input": "=?utf-8?Q?Gr=C3=BC=C3=9Fe_aus_Berlin?=",
+   "decoded": "Grüße aus Berlin"
+  },
+  {
+   "input": "=?ISO-8859-1?Q?Caf=E9_=E0_Paris?=",
+   "decoded": "Café à Paris"
+  },
+  {
+   "input": "=?windows-1252?B?lHF1b3RlZJQ=?=",
+   "decoded": "”quoted”"
+  },
+  {
+   "input": "=?UTF-8?B?w4PCvHJpY2g=?=",
+   "decoded": "ürich"
+  },
+  {
+   "input": "Re: =?UTF-8?B?4pyTIERvbmU=?= and =?UTF-8?Q?more?=",
+   "decoded": "Re: ✓ Done and more"
+  },
+  {
+   "input": "=?unknown-charset?B?SGk=?=",
+   "decoded": "Hi"
+  },
+  {
+   "input": "=?UTF-8?X?bad?=",
+   "decoded": "=?UTF-8?X?bad?="
+  },
+  {
+   "input": "Ã¼ber",
+   "decoded": "über"
+  },
+  {
+   "input": "cafÃ© au lait",
+   "decoded": "café au lait"
+  },
+  {
+   "input": "=?UTF-8?Q?=E2=82=AC?=",
+   "decoded": "€"
+  },
+  {
+   "input": "=?shift_jis?B?k/qWe4zq?=",
+   "decoded": "日本語"
+  }
+ ],
+ "bodies": [
+  {
+   "payload": {
+    "mimeType": "text/plain",
+    "headers": [],
+    "body": {
+     "data": "SGVsbG8gcGxhaW4"
+    }
+   },
+   "text": "Hello plain"
+  },
+  {
+   "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+     {
+      "name": "Content-Type",
+      "value": "text/plain; charset=\"utf-8\""
+     }
+    ],
+    "body": {
+     "data": "R3LDvMOfZQ"
+    }
+   },
+   "text": "Grüße"
+  },
+  {
+   "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+     {
+      "name": "Content-Type",
+      "value": "text/plain; charset=iso-8859-1"
+     },
+     {
+      "name": "Content-Transfer-Encoding",
+      "value": "quoted-printable"
+     }
+    ],
+    "body": {
+     "data": "Q2FmPUU5ID0NCmF1IGxhaXQgPUUyPTgyPUFD"
+    }
+   },
+   "text": "Café au lait â‚¬"
+  },
+  {
+   "payload": {
+    "mimeType": "text/html",
+    "headers": [],
+    "body": {
+     "data": "PHN0eWxlPnB7fTwvc3R5bGU-PHA-SGkmbmJzcDs8Yj50aGVyZTwvYj48L3A-PHNjcmlwdD54KCk8L3NjcmlwdD4KCTxkaXY-YWdhaW48L2Rpdj4"
+    }
+   },
+   "text": "Hi&nbsp; there again"
+  },
+  {
+   "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [],
+    "parts": [
+     {
+      "mimeType": "text/html",
+      "headers": [],
+      "body": {
+       "data": "PHA-aHRtbCB3aW5zIG9ubHkgaWYgZmlyc3Q8L3A-"
+      }
+     },
+     {
+      "mimeType": "text/plain",
+      "headers": [],
+      "body": {
+       "data": "cGxhaW4gc2Vjb25k"
+      }
+     }
+    ]
+   },
+   "text": "html wins only if first"
+  },
+  {
+   "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [],
+    "parts": [
+     {
+      "mimeType": "application/pdf",
+      "headers": [],
+      "body": {}
+     },
+     {
+      "mimeType": "multipart/alternative",
+      "headers": [],
+      "parts": [
+       {
+        "mimeType": "text/plain",
+        "headers": [],
+        "body": {
+         "data": ""
+        }
+       }
+      ]
+     },
+     {
+      "mimeType": "text/plain",
+      "headers": [],
+      "body": {
+       "data": "bmVzdGVk"
+      }
+     }
+    ]
+   },
+   "text": "nested"
+  },
+  {
+   "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+     {
+      "name": "content-type",
+      "value": "text/plain; charset=windows-1251"
+     }
+    ],
+    "body": {
+     "data": "0J_RgNC40LLQtdGC"
+    }
+   },
+   "text": "РџСЂРёРІРµС‚"
+  },
+  {
+   "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+     {
+      "name": "Content-Type",
+      "value": "text/plain; charset=utf-8"
+     }
+    ],
+    "body": {
+     "data": "w7xiZXI"
+    }
+   },
+   "text": "über"
+  },
+  {
+   "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+     {
+      "name": "Content-Type",
+      "value": "text/plain; charset=\"utf-8"
+     }
+    ],
+    "body": {
+     "data": "cXVvdGUgbGVmdCBvcGVu"
+    }
+   },
+   "text": "quote left open"
+  },
+  {
+   "payload": {
+    "mimeType": "TEXT/PLAIN",
+    "headers": [],
+    "body": {
+     "data": "d3JvbmcgY2FzZQ"
+    }
+   },
+   "text": ""
+  },
+  {
+   "payload": {
+    "mimeType": "text/plain",
+    "headers": [],
+    "body": {}
+   },
+   "text": ""
+  }
+ ],
+ "headers": [
+  {
+   "headers": [
+    {
+     "name": "Subject",
+     "value": "=?UTF-8?B?SGVsbG8=?="
+    },
+    {
+     "name": "From",
+     "value": "A <a@x>"
+    }
+   ],
+   "subject": "Hello",
+   "missing": null
+  },
+  {
+   "headers": [
+    {
+     "name": "SUBJECT",
+     "value": "upper"
+    }
+   ],
+   "subject": "upper",
+   "missing": null
+  },
+  {
+   "headers": [],
+   "subject": null,
+   "missing": null
+  }
+ ],
+ "subjects": [
+  {
+   "input": "ascii only",
+   "encoded": "ascii only"
+  },
+  {
+   "input": "Grüße aus Berlin",
+   "encoded": "=?UTF-8?B?R3LDvMOfZSBhdXMgQmVybGlu?="
+  },
+  {
+   "input": "✓ done",
+   "encoded": "=?UTF-8?B?4pyTIGRvbmU=?="
+  },
+  {
+   "input": "a very long subject with ümlauts that needs to be split across several encoded words for sure",
+   "encoded": "=?UTF-8?B?YSB2ZXJ5IGxvbmcgc3ViamVjdCB3aXRoIMO8bWxhdXRzIHRoYXQgbmVlZHMg?=\r\n =?UTF-8?B?dG8gYmUgc3BsaXQgYWNyb3NzIHNldmVyYWwgZW5jb2RlZCB3b3JkcyBmb3Ig?=\r\n =?UTF-8?B?c3VyZQ==?="
+  },
+  {
+   "input": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+   "encoded": "=?UTF-8?B?8J+YgPCfmIDwn5iA8J+YgPCfmIDwn5iA8J+YgPCfmIDwn5iA8J+YgPCfmIA=?=\r\n =?UTF-8?B?8J+YgPCfmIDwn5iA8J+YgPCfmIDwn5iA8J+YgPCfmIDwn5iA8J+YgPCfmIA=?=\r\n =?UTF-8?B?8J+YgPCfmIDwn5iA8J+YgPCfmIDwn5iA8J+YgPCfmIA=?="
+  },
+  {
+   "input": "tab\there",
+   "encoded": "=?UTF-8?B?dGFiCWhlcmU=?="
+  },
+  {
+   "input": "",
+   "encoded": ""
+  }
+ ],
+ "lists": [
+  {
+   "input": [
+    " a , b,, c ",
+    null,
+    "x"
+   ],
+   "list": [
+    "a , b,, c",
+    "x"
+   ]
+  },
+  {
+   "input": "a, b ,c",
+   "list": [
+    "a",
+    "b",
+    "c"
+   ]
+  },
+  {
+   "input": [
+    "  "
+   ],
+   "list": []
+  },
+  {
+   "input": 5,
+   "list": []
+  },
+  {
+   "input": null,
+   "list": []
+  }
+ ]
+}

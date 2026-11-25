@@ -1,0 +1,110 @@
+{
+  "system": [
+    {
+      "path": "/usr/local/bin/neoagent-apply-desktop-home",
+      "mode": "0755"
+    },
+    {
+      "path": "/etc/modules-load.d/neoagent-gpu.conf",
+      "mode": "0644"
+    },
+    {
+      "path": "/usr/local/bin/neoagent-display-setup",
+      "mode": "0755"
+    },
+    {
+      "path": "/usr/local/bin/neoagent-framebuffer-desktop",
+      "mode": "0755"
+    },
+    {
+      "path": "/usr/local/bin/neoagent-ensure-desktop",
+      "mode": "0755"
+    },
+    {
+      "path": "/etc/lightdm/lightdm.conf.d/50-neoagent.conf",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/systemd/system/neoagent-framebuffer-desktop.service",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/systemd/system/neoagent-desktop-seat.service",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/xdg/openbox/rc.xml",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/xdg/openbox/menu.xml",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/xdg/openbox/autostart",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/xdg/tint2/tint2rc",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/xdg/pcmanfm/neoagent/pcmanfm.conf",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/xdg/pcmanfm/neoagent/desktop-items-0.conf",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/gtk-3.0/settings.ini",
+      "mode": "0644"
+    },
+    {
+      "path": "/etc/xdg/lxterminal/lxterminal.conf",
+      "mode": "0644"
+    },
+    {
+      "path": "/usr/share/themes/NeoAgent/openbox-3/themerc",
+      "mode": "0644"
+    },
+    {
+      "path": "/usr/local/share/applications/neoagent-chromium.desktop",
+      "mode": "0644"
+    },
+    {
+      "path": "/usr/local/share/applications/neoagent-files.desktop",
+      "mode": "0644"
+    },
+    {
+      "path": "/usr/local/share/applications/neoagent-terminal.desktop",
+      "mode": "0644"
+    },
+    {
+      "path": "/usr/local/share/applications/neoagent-editor.desktop",
+      "mode": "0644"
+    }
+  ],
+  "home": [
+    {
+      "path": "/home/neo/.config/openbox/autostart",
+      "mode": "0644"
+    },
+    {
+      "path": "/home/neo/Desktop/Chromium.desktop",
+      "mode": "0755"
+    },
+    {
+      "path": "/home/neo/Desktop/Files.desktop",
+      "mode": "0755"
+    },
+    {
+      "path": "/home/neo/Desktop/Terminal.desktop",
+      "mode": "0755"
+    },
+    {
+      "path": "/home/neo/Desktop/Text-Editor.desktop",
+      "mode": "0755"
+    }
+  ]
+}

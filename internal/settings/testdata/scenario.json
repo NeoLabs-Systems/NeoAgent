@@ -1,0 +1,4574 @@
+{
+ "providers": [
+  {
+   "id": "openai",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": true,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "openai-compatible",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": true,
+   "defaultEnabled": false,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "anthropic",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "google",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": false,
+   "requiresBaseUrl": false,
+   "defaultEnabled": true,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "grok",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": true,
+   "defaultBaseUrl": "https://api.x.ai/v1"
+  },
+  {
+   "id": "grok-oauth",
+   "authentication": "oauth",
+   "supportsApiKey": true,
+   "supportsBaseUrl": false,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "nvidia",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": "https://integrate.api.nvidia.com/v1"
+  },
+  {
+   "id": "minimax",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": "https://api.minimax.io/anthropic"
+  },
+  {
+   "id": "github-copilot",
+   "authentication": "oauth",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": "https://api.githubcopilot.com"
+  },
+  {
+   "id": "openai-codex",
+   "authentication": "oauth",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": "https://chatgpt.com/backend-api/codex"
+  },
+  {
+   "id": "claude-code",
+   "authentication": "oauth",
+   "supportsApiKey": true,
+   "supportsBaseUrl": false,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "nous",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": "https://inference-api.nousresearch.com/v1"
+  },
+  {
+   "id": "openrouter",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": "https://openrouter.ai/api/v1"
+  },
+  {
+   "id": "typesafe",
+   "authentication": "api_key",
+   "supportsApiKey": true,
+   "supportsBaseUrl": false,
+   "requiresBaseUrl": false,
+   "defaultEnabled": false,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "neorouter",
+   "authentication": "oauth",
+   "supportsApiKey": true,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": true,
+   "defaultEnabled": true,
+   "defaultBaseUrl": ""
+  },
+  {
+   "id": "ollama",
+   "authentication": "local",
+   "supportsApiKey": false,
+   "supportsBaseUrl": true,
+   "requiresBaseUrl": false,
+   "defaultEnabled": true,
+   "defaultBaseUrl": "http://localhost:11434"
+  }
+ ],
+ "sealedByNode": "enc:v1:vOrE/ajtw2sv/aK4UJcZiTnI67tskdsIlj9NXjn87bsY+8FS8FBi7fngpufjjrDqvkRXZ4Y=",
+ "steps": [
+  {
+   "name": "anonymous list",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "body": {
+     "error": "Unauthorized"
+    }
+   }
+  },
+  {
+   "name": "anonymous single write",
+   "method": "PUT",
+   "path": "/api/settings/timezone",
+   "user": null,
+   "body": "{\"value\":\"UTC\"}",
+   "expect": {
+    "status": 401,
+    "body": {
+     "error": "Unauthorized"
+    }
+   }
+  },
+  {
+   "name": "anonymous byok",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai",
+   "user": null,
+   "body": "{\"apiKey\":\"sk\"}",
+   "expect": {
+    "status": 401,
+    "body": {
+     "error": "Unauthorized"
+    }
+   }
+  },
+  {
+   "name": "fresh list",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 20,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {},
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "agentId": "<agent:1:main>",
+     "voice_capabilities": null,
+     "runtime_profile": "cloud-computer",
+     "computer_backend": "cloud",
+     "android_backend": "host",
+     "mcp_backend": "host-remote",
+     "runtime_backend": "qemu"
+    }
+   }
+  },
+  {
+   "name": "trailing slash list",
+   "method": "GET",
+   "path": "/api/settings/",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 20,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {},
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "agentId": "<agent:1:main>",
+     "voice_capabilities": null,
+     "runtime_profile": "cloud-computer",
+     "computer_backend": "cloud",
+     "android_backend": "host",
+     "mcp_backend": "host-remote",
+     "runtime_backend": "qemu"
+    }
+   }
+  },
+  {
+   "name": "unset single",
+   "method": "GET",
+   "path": "/api/settings/timezone",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "default single",
+   "method": "GET",
+   "path": "/api/settings/default_chat_model",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "auto"
+    }
+   }
+  },
+  {
+   "name": "hidden key",
+   "method": "GET",
+   "path": "/api/settings/ai_provider_api_keys",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "retired key",
+   "method": "GET",
+   "path": "/api/settings/voice_tts_model",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "batch write",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":\"europe/berlin\",\"ui_language\":\" DE \",\"web_sharing_enabled\":true,\"assistant_behavior_notes\":\"Be <b>brief</b> & kind: héllo\",\"chat_history_window\":25,\"task_models\":{\"coding\":\"openai::gpt\",\"art\":null},\"theme\":\"dark\",\"ratio\":1.5,\"custom_obj\":{\"z\":1,\"a\":[1,2,{\"x\":null}]},\"flag\":false,\"nothing\":null}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "list after batch",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 25,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "Be <b>brief</b> & kind: héllo",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {
+      "coding": "openai::gpt",
+      "art": null
+     },
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "flag": false,
+     "nothing": null,
+     "ratio": 1.5,
+     "theme": "dark",
+     "timezone": "Europe/Berlin",
+     "ui_language": "de",
+     "web_sharing_enabled": true,
+     "agentId": "<agent:1:main>",
+     "voice_capabilities": null,
+     "runtime_profile": "cloud-computer",
+     "computer_backend": "cloud",
+     "android_backend": "host",
+     "mcp_backend": "host-remote",
+     "runtime_backend": "qemu"
+    }
+   }
+  },
+  {
+   "name": "trailing slash batch",
+   "method": "PUT",
+   "path": "/api/settings/",
+   "user": 1,
+   "body": "{\"theme\":\"light\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "theme after trailing slash write",
+   "method": "GET",
+   "path": "/api/settings/theme",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "light"
+    }
+   }
+  },
+  {
+   "name": "bad zone",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":\"Mars/Base\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown time zone."
+    }
+   }
+  },
+  {
+   "name": "empty zone",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":\"\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown time zone."
+    }
+   }
+  },
+  {
+   "name": "null zone",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":null}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown time zone."
+    }
+   }
+  },
+  {
+   "name": "number zone",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":12}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown time zone."
+    }
+   }
+  },
+  {
+   "name": "offset zone",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":\"-0530\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "padded zone",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":\"  Asia/Kolkata  \"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "bad sharing",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"web_sharing_enabled\":\"yes\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "web_sharing_enabled must be true or false."
+    }
+   }
+  },
+  {
+   "name": "bad language",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"ui_language\":\"xx\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown language."
+    }
+   }
+  },
+  {
+   "name": "number language",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"ui_language\":5}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown language."
+    }
+   }
+  },
+  {
+   "name": "bad system one",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"system_one_model\":\"gpt\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown SystemOne model selection."
+    }
+   }
+  },
+  {
+   "name": "padded system one",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"system_one_model\":\" auto\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown SystemOne model selection."
+    }
+   }
+  },
+  {
+   "name": "good system one",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"system_one_model\":\"openai::gpt-4\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "number system one",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"system_one_model\":5}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown SystemOne model selection."
+    }
+   }
+  },
+  {
+   "name": "off system one",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"system_one_model\":\"off\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "auto-model system one",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"system_one_model\":\"x::auto\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown SystemOne model selection."
+    }
+   }
+  },
+  {
+   "name": "first error wins",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"timezone\":\"nope\",\"ui_language\":\"xx\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown time zone."
+    }
+   }
+  },
+  {
+   "name": "validation rejects whole patch",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"theme\":\"never-saved\",\"ui_language\":\"xx\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown language."
+    }
+   }
+  },
+  {
+   "name": "state after validation",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 25,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "Be <b>brief</b> & kind: héllo",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {
+      "coding": "openai::gpt",
+      "art": null
+     },
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "flag": false,
+     "nothing": null,
+     "ratio": 1.5,
+     "theme": "light",
+     "timezone": "Asia/Calcutta",
+     "ui_language": "de",
+     "web_sharing_enabled": true,
+     "agentId": "<agent:1:main>",
+     "voice_capabilities": null,
+     "runtime_profile": "cloud-computer",
+     "computer_backend": "cloud",
+     "android_backend": "host",
+     "mcp_backend": "host-remote",
+     "runtime_backend": "qemu"
+    }
+   }
+  },
+  {
+   "name": "whitelist list",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"platform_whitelist_whatsapp\":[\"+49 151 2345\",\"group:12345@G.US\",\"chat:abc@g.us\",\"phone:+1 (555) 000\",\"user:  \",\"4915@s.whatsapp.net\",\"4915:12@s.whatsapp.net\",\"4915\",123,null,\"x\",\"Phone_Number:77\",\"123@g.us\",\"group:nope\",\"foo:bar\",0]}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "whitelist read",
+   "method": "GET",
+   "path": "/api/settings/platform_whitelist_whatsapp",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": [
+      "491512345",
+      "group:12345@g.us",
+      "chat:abc@g.us",
+      "phone_number:1555000",
+      "4915",
+      "123",
+      "x",
+      "phone_number:77",
+      "group:123@g.us",
+      "group",
+      "foo"
+     ]
+    }
+   }
+  },
+  {
+   "name": "whitelist string",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"platform_whitelist_whatsapp\":\"[\\\"1\\\",\\\"1\\\",\\\" 2 \\\"]\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "whitelist string read",
+   "method": "GET",
+   "path": "/api/settings/platform_whitelist_whatsapp",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": [
+      "1",
+      "2"
+     ]
+    }
+   }
+  },
+  {
+   "name": "whitelist garbage string",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"platform_whitelist_whatsapp\":\"not json\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "whitelist garbage read",
+   "method": "GET",
+   "path": "/api/settings/platform_whitelist_whatsapp",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": []
+    }
+   }
+  },
+  {
+   "name": "whitelist number",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"platform_whitelist_whatsapp\":5}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "whitelist null",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"platform_whitelist_whatsapp\":null}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "whitelist null read",
+   "method": "GET",
+   "path": "/api/settings/platform_whitelist_whatsapp",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": []
+    }
+   }
+  },
+  {
+   "name": "whitelist via single key",
+   "method": "PUT",
+   "path": "/api/settings/platform_whitelist_whatsapp",
+   "user": 1,
+   "body": "{\"value\":[\"+1 555\"]}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "whitelist single read",
+   "method": "GET",
+   "path": "/api/settings/platform_whitelist_whatsapp",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": [
+      "1555"
+     ]
+    }
+   }
+  },
+  {
+   "name": "access policy single",
+   "method": "PUT",
+   "path": "/api/settings/platform_access_policy_telegram",
+   "user": 1,
+   "body": "{\"value\":\"allowlist\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "access policy read",
+   "method": "GET",
+   "path": "/api/settings/platform_access_policy_telegram",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "allowlist"
+    }
+   }
+  },
+  {
+   "name": "runtime keys",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"runtime_backend\":\"host\",\"mcp_backend\":\"x\",\"other\":1}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "runtime after",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 25,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "Be <b>brief</b> & kind: héllo",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {
+      "coding": "openai::gpt",
+      "art": null
+     },
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "android_backend": "host",
+     "computer_backend": "cloud",
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "flag": false,
+     "mcp_backend": "host-remote",
+     "nothing": null,
+     "other": 1,
+     "ratio": 1.5,
+     "runtime_backend": "qemu",
+     "runtime_profile": "cloud-computer",
+     "theme": "light",
+     "timezone": "Asia/Calcutta",
+     "ui_language": "de",
+     "web_sharing_enabled": true,
+     "platform_access_policy_telegram": "allowlist",
+     "platform_whitelist_whatsapp": [
+      "1555"
+     ],
+     "agentId": "<agent:1:main>",
+     "voice_capabilities": null
+    }
+   }
+  },
+  {
+   "name": "dropped keys",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"ai_provider_configs\":{},\"ai_provider_api_keys\":\"x\",\"usage_data_sharing\":true,\"voice_tts_voice\":\"a\",\"social_reach_cookies_x\":\"secret\",\"visible\":\"ok\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "visible only",
+   "method": "GET",
+   "path": "/api/settings/visible",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "ok"
+    }
+   }
+  },
+  {
+   "name": "dropped retired",
+   "method": "GET",
+   "path": "/api/settings/voice_tts_voice",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "dropped managed",
+   "method": "GET",
+   "path": "/api/settings/usage_data_sharing",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "server managed 1",
+   "method": "PUT",
+   "path": "/api/settings/usage_data_sharing",
+   "user": 1,
+   "body": "{\"value\":true}",
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "This setting is managed by the server, not per account."
+    }
+   }
+  },
+  {
+   "name": "server managed 2",
+   "method": "PUT",
+   "path": "/api/settings/ai_provider_configs",
+   "user": 1,
+   "body": "{\"value\":{}}",
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "This setting is managed by the server, not per account."
+    }
+   }
+  },
+  {
+   "name": "server managed 3",
+   "method": "PUT",
+   "path": "/api/settings/ai_provider_api_keys",
+   "user": 1,
+   "body": "{\"value\":\"k\"}",
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "This setting is managed by the server, not per account."
+    }
+   }
+  },
+  {
+   "name": "retired write",
+   "method": "PUT",
+   "path": "/api/settings/voice_tts_model",
+   "user": 1,
+   "body": "{\"value\":\"x\"}",
+   "expect": {
+    "status": 410,
+    "body": {
+     "success": false,
+     "error": "voice_tts_model has been retired"
+    }
+   }
+  },
+  {
+   "name": "cookie secret",
+   "method": "PUT",
+   "path": "/api/settings/social_reach_cookies_tw",
+   "user": 1,
+   "body": "{\"value\":\"c\"}",
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "social_reach_cookies_tw is managed by Social Reach cookie setup"
+    }
+   }
+  },
+  {
+   "name": "cookie secret case",
+   "method": "PUT",
+   "path": "/api/settings/Social_Reach_Cookies_tw",
+   "user": 1,
+   "body": "{\"value\":\"c\"}",
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "Social_Reach_Cookies_tw is managed by Social Reach cookie setup"
+    }
+   }
+  },
+  {
+   "name": "single zone",
+   "method": "PUT",
+   "path": "/api/settings/timezone",
+   "user": 1,
+   "body": "{\"value\":\"Asia/Kolkata\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "single zone read",
+   "method": "GET",
+   "path": "/api/settings/timezone",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "Asia/Calcutta"
+    }
+   }
+  },
+  {
+   "name": "single zone missing value",
+   "method": "PUT",
+   "path": "/api/settings/timezone",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown time zone."
+    }
+   }
+  },
+  {
+   "name": "single bad language",
+   "method": "PUT",
+   "path": "/api/settings/ui_language",
+   "user": 1,
+   "body": "{\"value\":\"zz\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "Unknown language."
+    }
+   }
+  },
+  {
+   "name": "single agent key",
+   "method": "PUT",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "body": "{\"value\":\"cheap\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "single agent key read",
+   "method": "GET",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "cheap"
+    }
+   }
+  },
+  {
+   "name": "single null",
+   "method": "PUT",
+   "path": "/api/settings/last_chat_id",
+   "user": 1,
+   "body": "{\"value\":null}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "single null read",
+   "method": "GET",
+   "path": "/api/settings/last_chat_id",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "single object",
+   "method": "PUT",
+   "path": "/api/settings/task_models",
+   "user": 1,
+   "body": "{\"value\":{\"b\":1,\"a\":2}}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "single object read",
+   "method": "GET",
+   "path": "/api/settings/task_models",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": {
+      "b": 1,
+      "a": 2
+     }
+    }
+   }
+  },
+  {
+   "name": "single string json-like",
+   "method": "PUT",
+   "path": "/api/settings/note",
+   "user": 1,
+   "body": "{\"value\":\"123\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "single string json-like read",
+   "method": "GET",
+   "path": "/api/settings/note",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": 123
+    }
+   }
+  },
+  {
+   "name": "single user key",
+   "method": "PUT",
+   "path": "/api/settings/theme",
+   "user": 1,
+   "body": "{\"value\":\"blue\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "single user key read",
+   "method": "GET",
+   "path": "/api/settings/theme",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "blue"
+    }
+   }
+  },
+  {
+   "name": "seed odd values",
+   "sql": "INSERT INTO user_settings (user_id, key, value) VALUES\n  (1, 'broken_json', '{oops'), (1, 'plain_text', 'hello'), (1, 'null_value', NULL), (1, 'empty_text', ''),\n  (1, 'social_reach_cookies_a', '{\"a\":1}'), (1, 'social_reach_cookies_b', ''), (1, 'social_reach_cookies_c', 'false'),\n  (1, 'social_reach_cookies_d', '0'), (1, 'social_reach_cookies_e', '[]'), (1, 'social_reach_cookies_f', 'null'),\n  (1, 'voice_tts_voice', 'old'), (1, 'ai_provider_api_keys', 'enc:v1:abc'), (1, 'usage_data_sharing', 'true'),\n  (1, 'last_platform', '\"legacy-platform\"')",
+   "params": []
+  },
+  {
+   "name": "list with odd values",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "cheap",
+     "chat_history_window": 25,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "Be <b>brief</b> & kind: héllo",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {
+      "b": 1,
+      "a": 2
+     },
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "android_backend": "host",
+     "broken_json": "{oops",
+     "computer_backend": "cloud",
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "empty_text": "",
+     "flag": false,
+     "last_platform": "legacy-platform",
+     "mcp_backend": "host-remote",
+     "note": 123,
+     "nothing": null,
+     "null_value": null,
+     "other": 1,
+     "plain_text": "hello",
+     "ratio": 1.5,
+     "runtime_backend": "qemu",
+     "runtime_profile": "cloud-computer",
+     "social_reach_cookies_a": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_b": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_c": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_d": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_e": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_f": {
+      "configured": false,
+      "redacted": true
+     },
+     "theme": "blue",
+     "timezone": "Asia/Calcutta",
+     "ui_language": "de",
+     "visible": "ok",
+     "web_sharing_enabled": true,
+     "last_chat_id": null,
+     "platform_access_policy_telegram": "allowlist",
+     "platform_whitelist_whatsapp": [
+      "1555"
+     ],
+     "agentId": "<agent:1:main>",
+     "voice_capabilities": null
+    }
+   }
+  },
+  {
+   "name": "read broken_json",
+   "method": "GET",
+   "path": "/api/settings/broken_json",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "{oops"
+    }
+   }
+  },
+  {
+   "name": "read plain_text",
+   "method": "GET",
+   "path": "/api/settings/plain_text",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "hello"
+    }
+   }
+  },
+  {
+   "name": "read null_value",
+   "method": "GET",
+   "path": "/api/settings/null_value",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "read empty_text",
+   "method": "GET",
+   "path": "/api/settings/empty_text",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": ""
+    }
+   }
+  },
+  {
+   "name": "read social_reach_cookies_a",
+   "method": "GET",
+   "path": "/api/settings/social_reach_cookies_a",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": {
+      "configured": true,
+      "redacted": true
+     }
+    }
+   }
+  },
+  {
+   "name": "read social_reach_cookies_b",
+   "method": "GET",
+   "path": "/api/settings/social_reach_cookies_b",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": {
+      "configured": false,
+      "redacted": true
+     }
+    }
+   }
+  },
+  {
+   "name": "read social_reach_cookies_c",
+   "method": "GET",
+   "path": "/api/settings/social_reach_cookies_c",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": {
+      "configured": false,
+      "redacted": true
+     }
+    }
+   }
+  },
+  {
+   "name": "read social_reach_cookies_d",
+   "method": "GET",
+   "path": "/api/settings/social_reach_cookies_d",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": {
+      "configured": false,
+      "redacted": true
+     }
+    }
+   }
+  },
+  {
+   "name": "read social_reach_cookies_e",
+   "method": "GET",
+   "path": "/api/settings/social_reach_cookies_e",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": {
+      "configured": true,
+      "redacted": true
+     }
+    }
+   }
+  },
+  {
+   "name": "read social_reach_cookies_f",
+   "method": "GET",
+   "path": "/api/settings/social_reach_cookies_f",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": {
+      "configured": false,
+      "redacted": true
+     }
+    }
+   }
+  },
+  {
+   "name": "read voice_tts_voice",
+   "method": "GET",
+   "path": "/api/settings/voice_tts_voice",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "read usage_data_sharing",
+   "method": "GET",
+   "path": "/api/settings/usage_data_sharing",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "add helper agent",
+   "sql": "INSERT INTO agents (id, user_id, slug, display_name) VALUES ('helper-agent-id', 1, 'helper', 'Helper')",
+   "params": []
+  },
+  {
+   "name": "helper list",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "helper"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 20,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {},
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "android_backend": "host",
+     "broken_json": "{oops",
+     "computer_backend": "cloud",
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "empty_text": "",
+     "flag": false,
+     "mcp_backend": "host-remote",
+     "note": 123,
+     "nothing": null,
+     "null_value": null,
+     "other": 1,
+     "plain_text": "hello",
+     "ratio": 1.5,
+     "runtime_backend": "qemu",
+     "runtime_profile": "cloud-computer",
+     "social_reach_cookies_a": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_b": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_c": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_d": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_e": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_f": {
+      "configured": false,
+      "redacted": true
+     },
+     "theme": "blue",
+     "timezone": "Asia/Calcutta",
+     "ui_language": "de",
+     "visible": "ok",
+     "web_sharing_enabled": true,
+     "agentId": "<agent:1:helper>",
+     "voice_capabilities": null
+    }
+   }
+  },
+  {
+   "name": "helper agent-scoped single",
+   "method": "GET",
+   "path": "/api/settings/last_platform",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "helper"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "main agent sees legacy single",
+   "method": "GET",
+   "path": "/api/settings/last_platform",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "legacy-platform"
+    }
+   }
+  },
+  {
+   "name": "helper by query slug",
+   "method": "GET",
+   "path": "/api/settings?agentId=helper",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 20,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {},
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "android_backend": "host",
+     "broken_json": "{oops",
+     "computer_backend": "cloud",
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "empty_text": "",
+     "flag": false,
+     "mcp_backend": "host-remote",
+     "note": 123,
+     "nothing": null,
+     "null_value": null,
+     "other": 1,
+     "plain_text": "hello",
+     "ratio": 1.5,
+     "runtime_backend": "qemu",
+     "runtime_profile": "cloud-computer",
+     "social_reach_cookies_a": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_b": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_c": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_d": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_e": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_f": {
+      "configured": false,
+      "redacted": true
+     },
+     "theme": "blue",
+     "timezone": "Asia/Calcutta",
+     "ui_language": "de",
+     "visible": "ok",
+     "web_sharing_enabled": true,
+     "agentId": "<agent:1:helper>",
+     "voice_capabilities": null
+    }
+   }
+  },
+  {
+   "name": "helper by query id",
+   "method": "GET",
+   "path": "/api/settings?agent_id=helper-agent-id",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 20,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {},
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "android_backend": "host",
+     "broken_json": "{oops",
+     "computer_backend": "cloud",
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "empty_text": "",
+     "flag": false,
+     "mcp_backend": "host-remote",
+     "note": 123,
+     "nothing": null,
+     "null_value": null,
+     "other": 1,
+     "plain_text": "hello",
+     "ratio": 1.5,
+     "runtime_backend": "qemu",
+     "runtime_profile": "cloud-computer",
+     "social_reach_cookies_a": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_b": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_c": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_d": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_e": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_f": {
+      "configured": false,
+      "redacted": true
+     },
+     "theme": "blue",
+     "timezone": "Asia/Calcutta",
+     "ui_language": "de",
+     "visible": "ok",
+     "web_sharing_enabled": true,
+     "agentId": "<agent:1:helper>",
+     "voice_capabilities": null
+    }
+   }
+  },
+  {
+   "name": "unknown agent falls back",
+   "method": "GET",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "nobody"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "cheap"
+    }
+   }
+  },
+  {
+   "name": "helper write by body",
+   "method": "PUT",
+   "path": "/api/settings",
+   "user": 1,
+   "body": "{\"agentId\":\"helper\",\"default_chat_model\":\"openai::x\",\"theme\":\"helper-theme\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "helper read model",
+   "method": "GET",
+   "path": "/api/settings/default_chat_model",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "helper"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "openai::x"
+    }
+   }
+  },
+  {
+   "name": "main model unchanged",
+   "method": "GET",
+   "path": "/api/settings/default_chat_model",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "auto"
+    }
+   }
+  },
+  {
+   "name": "helper options agent id",
+   "method": "PUT",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "body": "{\"value\":\"x\",\"options\":{\"agentId\":\"helper-agent-id\"}}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "helper cost mode",
+   "method": "GET",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "helper"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "x"
+    }
+   }
+  },
+  {
+   "name": "main cost mode",
+   "method": "GET",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "cheap"
+    }
+   }
+  },
+  {
+   "name": "helper delete agent key",
+   "method": "DELETE",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "helper"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "helper cost mode after delete",
+   "method": "GET",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "helper"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "delete user key",
+   "method": "DELETE",
+   "path": "/api/settings/theme",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "theme after delete",
+   "method": "GET",
+   "path": "/api/settings/theme",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "delete agent key",
+   "method": "DELETE",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "cost mode after delete",
+   "method": "GET",
+   "path": "/api/settings/cost_mode",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "delete retired",
+   "method": "DELETE",
+   "path": "/api/settings/voice_tts_voice",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "retired row gone",
+   "method": "GET",
+   "path": "/api/settings/voice_tts_voice",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "delete managed 1",
+   "method": "DELETE",
+   "path": "/api/settings/usage_data_sharing",
+   "user": 1,
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "This setting is managed by the server, not per account."
+    }
+   }
+  },
+  {
+   "name": "delete managed 2",
+   "method": "DELETE",
+   "path": "/api/settings/ai_provider_configs",
+   "user": 1,
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "This setting is managed by the server, not per account."
+    }
+   }
+  },
+  {
+   "name": "delete managed 3",
+   "method": "DELETE",
+   "path": "/api/settings/ai_provider_api_keys",
+   "user": 1,
+   "expect": {
+    "status": 403,
+    "body": {
+     "success": false,
+     "error": "This setting is managed by the server, not per account."
+    }
+   }
+  },
+  {
+   "name": "delete unknown",
+   "method": "DELETE",
+   "path": "/api/settings/never-existed",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "delete timezone",
+   "method": "DELETE",
+   "path": "/api/settings/timezone",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true
+    }
+   }
+  },
+  {
+   "name": "anonymous delete",
+   "method": "DELETE",
+   "path": "/api/settings/theme",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "body": {
+     "error": "Unauthorized"
+    }
+   }
+  },
+  {
+   "name": "bob list",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 20,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {},
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "agentId": "<agent:2:main>",
+     "voice_capabilities": null,
+     "runtime_profile": "cloud-computer",
+     "computer_backend": "cloud",
+     "android_backend": "host",
+     "mcp_backend": "host-remote",
+     "runtime_backend": "qemu"
+    }
+   }
+  },
+  {
+   "name": "bob timezone",
+   "method": "GET",
+   "path": "/api/settings/timezone",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  },
+  {
+   "name": "bob cannot name alice agent",
+   "method": "GET",
+   "path": "/api/settings/default_chat_model",
+   "user": 2,
+   "headers": {
+    "x-agent-id": "helper-agent-id"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": "auto"
+    }
+   }
+  },
+  {
+   "name": "usage empty",
+   "method": "GET",
+   "path": "/api/settings/token-usage/summary",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "totals": {
+      "totalTokens": 0,
+      "totalRuns": 0,
+      "avgTokensPerRun": 0,
+      "last7DaysTokens": 0,
+      "last7DaysRuns": 0
+     },
+     "last7Days": [
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      }
+     ],
+     "promptMetrics": {
+      "sampleCount": 0,
+      "average": null,
+      "latest": null
+     },
+     "modelUsage": {
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "reasoningTokens": 0,
+      "cachedReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 0,
+      "estimatedCostUsd": null,
+      "pricedCallCount": 0,
+      "callCount": 0,
+      "cacheHitRatio": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "seed runs",
+   "sql": "INSERT INTO agent_runs (id, user_id, agent_id, total_tokens, prompt_metrics, created_at) VALUES\n  ('r1', 1, '$main1', 1000, '{\"lastEstimate\":{\"systemPromptTokens\":100,\"toolSchemaTokens\":50,\"historyTokens\":200,\"recalledMemoryTokens\":10,\"toolReplayTokens\":5},\"extra\":true}', datetime('now', '-0 days')),\n  ('r2', 1, '$main1', 500, '{\"lastEstimate\":{\"systemPromptTokens\":\"7\",\"toolSchemaTokens\":true,\"historyTokens\":null}}', datetime('now', '-1 hours')),\n  ('r3', 1, '$main1', 0, NULL, datetime('now', '-1 days')),\n  ('r4', 1, '$main1', 2500, '{\"lastEstimate\":\"x\"}', datetime('now', '-2 days')),\n  ('r5', 1, '$main1', 1, 'not json', datetime('now', '-2 days', '-1 minutes')),\n  ('r6', 1, '$main1', 4, 'null', datetime('now', '-3 days')),\n  ('r7', 1, '$main1', 3, '0', datetime('now', '-3 days', '-1 minutes')),\n  ('r8', 1, '$main1', 8, '\"str\"', datetime('now', '-3 days', '-2 minutes')),\n  ('r9', 1, '$main1', 9, '[]', datetime('now', '-6 days')),\n  ('r10', 1, '$main1', 7777, '{}', datetime('now', '-8 days')),\n  ('r11', 1, '$helper', 11, '{\"lastEstimate\":{\"systemPromptTokens\":1}}', datetime('now')),\n  ('r12', 2, '$main2', 99, NULL, datetime('now'))",
+   "params": []
+  },
+  {
+   "name": "seed usage",
+   "sql": "INSERT INTO agent_model_usage (run_id, user_id, agent_id, provider, model, input_tokens, output_tokens, reasoning_tokens, cached_read_tokens, cache_write_tokens, total_tokens, estimated_cost_usd) VALUES\n  ('r1', 1, '$main1', 'openai', 'gpt', 1000, 200, 30, 400, 20, 1250, 0.0125),\n  ('r1', 1, '$main1', 'openai', 'gpt', 500, 100, 0, 900, 0, 600, NULL),\n  ('r2', 1, '$main1', 'google', 'gem', 0, 10, 0, 0, 0, 10, 0.5),\n  ('r11', 1, '$helper', 'google', 'gem', 10, 10, 0, 0, 0, 20, NULL)",
+   "params": []
+  },
+  {
+   "name": "usage main",
+   "method": "GET",
+   "path": "/api/settings/token-usage/summary",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "totals": {
+      "totalTokens": 11802,
+      "totalRuns": 10,
+      "avgTokensPerRun": 1311,
+      "last7DaysTokens": 4025,
+      "last7DaysRuns": 9
+     },
+     "last7Days": [
+      {
+       "date": "<day>",
+       "tokens": 9,
+       "runs": 1
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 15,
+       "runs": 3
+      },
+      {
+       "date": "<day>",
+       "tokens": 2501,
+       "runs": 2
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 1
+      },
+      {
+       "date": "<day>",
+       "tokens": 1500,
+       "runs": 2
+      }
+     ],
+     "promptMetrics": {
+      "sampleCount": 6,
+      "average": {
+       "systemPromptTokens": 18,
+       "toolSchemaTokens": 9,
+       "historyTokens": 33,
+       "recalledMemoryTokens": 2,
+       "toolReplayTokens": 1
+      },
+      "latest": {
+       "lastEstimate": {
+        "systemPromptTokens": 100,
+        "toolSchemaTokens": 50,
+        "historyTokens": 200,
+        "recalledMemoryTokens": 10,
+        "toolReplayTokens": 5
+       },
+       "extra": true
+      }
+     },
+     "modelUsage": {
+      "inputTokens": 1500,
+      "outputTokens": 310,
+      "reasoningTokens": 30,
+      "cachedReadTokens": 1300,
+      "cacheWriteTokens": 20,
+      "totalTokens": 1860,
+      "estimatedCostUsd": 0.5125,
+      "pricedCallCount": 2,
+      "callCount": 3,
+      "cacheHitRatio": 0.8666666666666667
+     }
+    }
+   }
+  },
+  {
+   "name": "usage helper",
+   "method": "GET",
+   "path": "/api/settings/token-usage/summary",
+   "user": 1,
+   "headers": {
+    "x-agent-id": "helper"
+   },
+   "expect": {
+    "status": 200,
+    "body": {
+     "totals": {
+      "totalTokens": 11,
+      "totalRuns": 1,
+      "avgTokensPerRun": 11,
+      "last7DaysTokens": 11,
+      "last7DaysRuns": 1
+     },
+     "last7Days": [
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 11,
+       "runs": 1
+      }
+     ],
+     "promptMetrics": {
+      "sampleCount": 1,
+      "average": {
+       "systemPromptTokens": 1,
+       "toolSchemaTokens": 0,
+       "historyTokens": 0,
+       "recalledMemoryTokens": 0,
+       "toolReplayTokens": 0
+      },
+      "latest": {
+       "lastEstimate": {
+        "systemPromptTokens": 1
+       }
+      }
+     },
+     "modelUsage": {
+      "inputTokens": 10,
+      "outputTokens": 10,
+      "reasoningTokens": 0,
+      "cachedReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 20,
+      "estimatedCostUsd": null,
+      "pricedCallCount": 0,
+      "callCount": 1,
+      "cacheHitRatio": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "usage bob",
+   "method": "GET",
+   "path": "/api/settings/token-usage/summary",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "body": {
+     "totals": {
+      "totalTokens": 99,
+      "totalRuns": 1,
+      "avgTokensPerRun": 99,
+      "last7DaysTokens": 99,
+      "last7DaysRuns": 1
+     },
+     "last7Days": [
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 99,
+       "runs": 1
+      }
+     ],
+     "promptMetrics": {
+      "sampleCount": 0,
+      "average": null,
+      "latest": null
+     },
+     "modelUsage": {
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "reasoningTokens": 0,
+      "cachedReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 0,
+      "estimatedCostUsd": null,
+      "pricedCallCount": 0,
+      "callCount": 0,
+      "cacheHitRatio": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "usage anonymous",
+   "method": "GET",
+   "path": "/api/settings/token-usage/summary",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "body": {
+     "error": "Unauthorized"
+    }
+   }
+  },
+  {
+   "name": "cached beyond input",
+   "sql": "INSERT INTO agent_model_usage (run_id, user_id, agent_id, provider, model, input_tokens, cached_read_tokens, total_tokens) VALUES ('r12', 2, '$main2', 'x', 'y', 10, 50, 10)",
+   "params": []
+  },
+  {
+   "name": "usage cache ratio capped",
+   "method": "GET",
+   "path": "/api/settings/token-usage/summary",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "body": {
+     "totals": {
+      "totalTokens": 99,
+      "totalRuns": 1,
+      "avgTokensPerRun": 99,
+      "last7DaysTokens": 99,
+      "last7DaysRuns": 1
+     },
+     "last7Days": [
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 0,
+       "runs": 0
+      },
+      {
+       "date": "<day>",
+       "tokens": 99,
+       "runs": 1
+      }
+     ],
+     "promptMetrics": {
+      "sampleCount": 0,
+      "average": null,
+      "latest": null
+     },
+     "modelUsage": {
+      "inputTokens": 10,
+      "outputTokens": 0,
+      "reasoningTokens": 0,
+      "cachedReadTokens": 50,
+      "cacheWriteTokens": 0,
+      "totalTokens": 10,
+      "estimatedCostUsd": null,
+      "pricedCallCount": 0,
+      "callCount": 1,
+      "cacheHitRatio": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "openai without key",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "An API key is required."
+    }
+   }
+  },
+  {
+   "name": "openai numeric key",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai",
+   "user": 1,
+   "body": "{\"apiKey\":5}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "An API key is required."
+    }
+   }
+  },
+  {
+   "name": "openai key",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai",
+   "user": 1,
+   "body": "{\"apiKey\":\" sk-test-123 \"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true,
+     "configured": true
+    }
+   }
+  },
+  {
+   "name": "ollama needs address",
+   "method": "PUT",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "A base URL is required for this provider."
+    }
+   }
+  },
+  {
+   "name": "ollama ftp",
+   "method": "PUT",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "body": "{\"baseUrl\":\"ftp://x\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "ok": false,
+     "error": "Base URL must be a valid http(s) URL."
+    }
+   }
+  },
+  {
+   "name": "ollama loopback",
+   "method": "PUT",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "body": "{\"baseUrl\":\"http://127.0.0.1:11434\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "ok": false,
+     "error": "127.0.0.1 is a local or private network address, which is not reachable from here."
+    }
+   }
+  },
+  {
+   "name": "ollama ipv6 loopback",
+   "method": "PUT",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "body": "{\"baseUrl\":\"http://[::1]:11434\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "ok": false,
+     "error": "[::1] is a local or private network address, which is not reachable from here."
+    }
+   }
+  },
+  {
+   "name": "ollama metadata",
+   "method": "PUT",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "body": "{\"baseUrl\":\"http://169.254.169.254/latest\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "ok": false,
+     "error": "169.254.169.254 is a local or private network address, which is not reachable from here."
+    }
+   }
+  },
+  {
+   "name": "ollama credentials",
+   "method": "PUT",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "body": "{\"baseUrl\":\"https://user:pw@8.8.8.8\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "ok": false,
+     "error": "Base URL must be a valid http(s) URL."
+    }
+   }
+  },
+  {
+   "name": "ollama ok",
+   "method": "PUT",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "body": "{\"baseUrl\":\"https://8.8.8.8:11434\",\"label\":\"  My Ollama  \"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true,
+     "configured": true
+    }
+   }
+  },
+  {
+   "name": "openai address and long label",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai",
+   "user": 1,
+   "body": "{\"apiKey\":\"sk-2\",\"baseUrl\":\"https://8.8.4.4/v1\",\"label\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true,
+     "configured": true
+    }
+   }
+  },
+  {
+   "name": "google ignores address",
+   "method": "PUT",
+   "path": "/api/settings/byok/google",
+   "user": 1,
+   "body": "{\"apiKey\":\"g-key\",\"baseUrl\":\"https://8.8.8.8\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true,
+     "configured": true
+    }
+   }
+  },
+  {
+   "name": "compatible needs address",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai-compatible",
+   "user": 1,
+   "body": "{\"apiKey\":\"k\"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "success": false,
+     "error": "A base URL is required for this provider."
+    }
+   }
+  },
+  {
+   "name": "compatible ok",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai-compatible",
+   "user": 1,
+   "body": "{\"apiKey\":\"k\",\"baseUrl\":\"https://8.8.8.8/v1\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true,
+     "configured": true
+    }
+   }
+  },
+  {
+   "name": "minimax refused",
+   "method": "PUT",
+   "path": "/api/settings/byok/minimax",
+   "user": 1,
+   "body": "{\"apiKey\":\"k\"}",
+   "expect": {
+    "status": 404,
+    "body": {
+     "success": false,
+     "error": "Unknown or unsupported provider."
+    }
+   }
+  },
+  {
+   "name": "oauth refused",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai-codex",
+   "user": 1,
+   "body": "{\"apiKey\":\"k\"}",
+   "expect": {
+    "status": 404,
+    "body": {
+     "success": false,
+     "error": "Unknown or unsupported provider."
+    }
+   }
+  },
+  {
+   "name": "delete openai",
+   "method": "DELETE",
+   "path": "/api/settings/byok/openai",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true,
+     "configured": false
+    }
+   }
+  },
+  {
+   "name": "delete ollama",
+   "method": "DELETE",
+   "path": "/api/settings/byok/ollama",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "success": true,
+     "configured": false
+    }
+   }
+  },
+  {
+   "name": "delete minimax",
+   "method": "DELETE",
+   "path": "/api/settings/byok/minimax",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "body": {
+     "success": false,
+     "error": "Unknown provider."
+    }
+   }
+  },
+  {
+   "name": "delete unknown provider",
+   "method": "DELETE",
+   "path": "/api/settings/byok/nope",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "body": {
+     "success": false,
+     "error": "Unknown provider."
+    }
+   }
+  },
+  {
+   "name": "limited put",
+   "method": "PUT",
+   "path": "/api/settings/byok/openai",
+   "user": 1,
+   "body": "{\"apiKey\":\"sk-3\"}",
+   "expect": {
+    "status": 429,
+    "body": {
+     "success": false,
+     "error": "Too many requests, try again in a minute."
+    }
+   }
+  },
+  {
+   "name": "limited delete",
+   "method": "DELETE",
+   "path": "/api/settings/byok/openai",
+   "user": 1,
+   "expect": {
+    "status": 429,
+    "body": {
+     "success": false,
+     "error": "Too many requests, try again in a minute."
+    }
+   }
+  },
+  {
+   "name": "configs after byok",
+   "method": "GET",
+   "path": "/api/settings",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "cost_mode": "balanced_auto",
+     "chat_history_window": 25,
+     "tool_replay_budget_chars": 12000,
+     "tool_replay_budget_file_chars": null,
+     "tool_replay_budget_browser_chars": null,
+     "tool_replay_budget_command_chars": null,
+     "max_consecutive_read_only_iterations": null,
+     "max_consecutive_tool_failures": null,
+     "subagent_max_children_per_run": 10,
+     "assistant_behavior_notes": "Be <b>brief</b> & kind: héllo",
+     "auto_skill_learning": true,
+     "system_one_model": "off",
+     "enabled_models": [],
+     "default_chat_model": "auto",
+     "default_subagent_model": "auto",
+     "default_speech_model": "auto",
+     "task_models": {
+      "b": 1,
+      "a": 2
+     },
+     "ai_provider_configs": {
+      "openai": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "openai-compatible": {
+       "enabled": false,
+       "baseUrl": "https://8.8.8.8/v1",
+       "label": ""
+      },
+      "anthropic": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "google": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "grok": {
+       "enabled": true,
+       "baseUrl": "https://api.x.ai/v1",
+       "label": ""
+      },
+      "grok-oauth": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nvidia": {
+       "enabled": false,
+       "baseUrl": "https://integrate.api.nvidia.com/v1",
+       "label": ""
+      },
+      "minimax": {
+       "enabled": false,
+       "baseUrl": "https://api.minimax.io/anthropic",
+       "label": ""
+      },
+      "github-copilot": {
+       "enabled": false,
+       "baseUrl": "https://api.githubcopilot.com",
+       "label": ""
+      },
+      "openai-codex": {
+       "enabled": false,
+       "baseUrl": "https://chatgpt.com/backend-api/codex",
+       "label": ""
+      },
+      "claude-code": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "nous": {
+       "enabled": false,
+       "baseUrl": "https://inference-api.nousresearch.com/v1",
+       "label": ""
+      },
+      "openrouter": {
+       "enabled": false,
+       "baseUrl": "https://openrouter.ai/api/v1",
+       "label": ""
+      },
+      "typesafe": {
+       "enabled": false,
+       "baseUrl": "",
+       "label": ""
+      },
+      "neorouter": {
+       "enabled": true,
+       "baseUrl": "",
+       "label": ""
+      },
+      "ollama": {
+       "enabled": true,
+       "baseUrl": "http://localhost:11434",
+       "label": ""
+      }
+     },
+     "voice_stt_provider": "auto",
+     "voice_stt_model": "",
+     "voice_live_provider": "",
+     "voice_live_model": "",
+     "voice_live_voice": "",
+     "voice_input_mode": "hands_free",
+     "neorouter_roles": null,
+     "android_backend": "host",
+     "broken_json": "{oops",
+     "computer_backend": "cloud",
+     "custom_obj": {
+      "z": 1,
+      "a": [
+       1,
+       2,
+       {
+        "x": null
+       }
+      ]
+     },
+     "empty_text": "",
+     "flag": false,
+     "last_platform": "legacy-platform",
+     "mcp_backend": "host-remote",
+     "note": 123,
+     "nothing": null,
+     "null_value": null,
+     "other": 1,
+     "plain_text": "hello",
+     "ratio": 1.5,
+     "runtime_backend": "qemu",
+     "runtime_profile": "cloud-computer",
+     "social_reach_cookies_a": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_b": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_c": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_d": {
+      "configured": false,
+      "redacted": true
+     },
+     "social_reach_cookies_e": {
+      "configured": true,
+      "redacted": true
+     },
+     "social_reach_cookies_f": {
+      "configured": false,
+      "redacted": true
+     },
+     "ui_language": "de",
+     "visible": "ok",
+     "web_sharing_enabled": true,
+     "last_chat_id": null,
+     "platform_access_policy_telegram": "allowlist",
+     "platform_whitelist_whatsapp": [
+      "1555"
+     ],
+     "agentId": "<agent:1:main>",
+     "voice_capabilities": null
+    }
+   }
+  },
+  {
+   "name": "keys stay hidden",
+   "method": "GET",
+   "path": "/api/settings/ai_provider_api_keys",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "value": null
+    }
+   }
+  }
+ ],
+ "snapshot": [
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "ai_provider_configs",
+   "value": "{\"openai\":{\"enabled\":true,\"baseUrl\":\"\"},\"openai-compatible\":{\"enabled\":false,\"baseUrl\":\"\"},\"anthropic\":{\"enabled\":false,\"baseUrl\":\"\"},\"google\":{\"enabled\":true,\"baseUrl\":\"\"},\"grok\":{\"enabled\":true,\"baseUrl\":\"https://api.x.ai/v1\"},\"grok-oauth\":{\"enabled\":false,\"baseUrl\":\"\"},\"nvidia\":{\"enabled\":false,\"baseUrl\":\"https://integrate.api.nvidia.com/v1\"},\"minimax\":{\"enabled\":false,\"baseUrl\":\"https://api.minimax.io/anthropic\"},\"github-copilot\":{\"enabled\":false,\"baseUrl\":\"https://api.githubcopilot.com\"},\"openai-codex\":{\"enabled\":false,\"baseUrl\":\"https://chatgpt.com/backend-api/codex\"},\"claude-code\":{\"enabled\":false,\"baseUrl\":\"\"},\"nous\":{\"enabled\":false,\"baseUrl\":\"https://inference-api.nousresearch.com/v1\"},\"openrouter\":{\"enabled\":false,\"baseUrl\":\"https://openrouter.ai/api/v1\"},\"typesafe\":{\"enabled\":false,\"baseUrl\":\"\"},\"neorouter\":{\"enabled\":true,\"baseUrl\":\"\"},\"ollama\":{\"enabled\":true,\"baseUrl\":\"http://localhost:11434\"}}"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "assistant_behavior_notes",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "auto_skill_learning",
+   "value": "true"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "chat_history_window",
+   "value": "20"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "default_chat_model",
+   "value": "openai::x"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "default_speech_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "default_subagent_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "enabled_models",
+   "value": "[]"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "max_consecutive_read_only_iterations",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "max_consecutive_tool_failures",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "neorouter_roles",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "subagent_max_children_per_run",
+   "value": "10"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "system_one_model",
+   "value": "\"off\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "task_models",
+   "value": "{}"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "tool_replay_budget_browser_chars",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "tool_replay_budget_chars",
+   "value": "12000"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "tool_replay_budget_command_chars",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "tool_replay_budget_file_chars",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "voice_input_mode",
+   "value": "\"hands_free\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "voice_live_model",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "voice_live_provider",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "voice_live_voice",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "voice_stt_model",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:helper>",
+   "key": "voice_stt_provider",
+   "value": "\"auto\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "ai_provider_api_keys",
+   "value": {
+    "decrypted": {
+     "google": "g-key",
+     "openai-compatible": "k"
+    }
+   }
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "ai_provider_configs",
+   "value": "{\"openai\":{\"enabled\":true,\"baseUrl\":\"\",\"label\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},\"openai-compatible\":{\"enabled\":false,\"baseUrl\":\"https://8.8.8.8/v1\",\"label\":\"\"},\"anthropic\":{\"enabled\":false,\"baseUrl\":\"\",\"label\":\"\"},\"google\":{\"enabled\":true,\"baseUrl\":\"\",\"label\":\"\"},\"grok\":{\"enabled\":true,\"baseUrl\":\"https://api.x.ai/v1\",\"label\":\"\"},\"grok-oauth\":{\"enabled\":false,\"baseUrl\":\"\",\"label\":\"\"},\"nvidia\":{\"enabled\":false,\"baseUrl\":\"https://integrate.api.nvidia.com/v1\",\"label\":\"\"},\"minimax\":{\"enabled\":false,\"baseUrl\":\"https://api.minimax.io/anthropic\",\"label\":\"\"},\"github-copilot\":{\"enabled\":false,\"baseUrl\":\"https://api.githubcopilot.com\",\"label\":\"\"},\"openai-codex\":{\"enabled\":false,\"baseUrl\":\"https://chatgpt.com/backend-api/codex\",\"label\":\"\"},\"claude-code\":{\"enabled\":false,\"baseUrl\":\"\",\"label\":\"\"},\"nous\":{\"enabled\":false,\"baseUrl\":\"https://inference-api.nousresearch.com/v1\",\"label\":\"\"},\"openrouter\":{\"enabled\":false,\"baseUrl\":\"https://openrouter.ai/api/v1\",\"label\":\"\"},\"typesafe\":{\"enabled\":false,\"baseUrl\":\"\",\"label\":\"\"},\"neorouter\":{\"enabled\":true,\"baseUrl\":\"\",\"label\":\"\"},\"ollama\":{\"enabled\":true,\"baseUrl\":\"http://localhost:11434\",\"label\":\"\"}}"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "assistant_behavior_notes",
+   "value": "Be <b>brief</b> & kind: héllo"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "auto_skill_learning",
+   "value": "true"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "chat_history_window",
+   "value": "25"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "cost_mode",
+   "value": "\"balanced_auto\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "default_chat_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "default_speech_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "default_subagent_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "enabled_models",
+   "value": "[]"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "last_chat_id",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "max_consecutive_read_only_iterations",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "max_consecutive_tool_failures",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "neorouter_roles",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "platform_access_policy_telegram",
+   "value": "allowlist"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "platform_whitelist_whatsapp",
+   "value": "[\"1555\"]"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "subagent_max_children_per_run",
+   "value": "10"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "system_one_model",
+   "value": "off"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "task_models",
+   "value": "{\"b\":1,\"a\":2}"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "tool_replay_budget_browser_chars",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "tool_replay_budget_chars",
+   "value": "12000"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "tool_replay_budget_command_chars",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "tool_replay_budget_file_chars",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "voice_input_mode",
+   "value": "\"hands_free\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "voice_live_model",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "voice_live_provider",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "voice_live_voice",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "voice_stt_model",
+   "value": "\"\""
+  },
+  {
+   "user": 1,
+   "agent": "<agent:1:main>",
+   "key": "voice_stt_provider",
+   "value": "\"auto\""
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "ai_provider_api_keys",
+   "value": "enc:v1:abc"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "android_backend",
+   "value": "host"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "broken_json",
+   "value": "{oops"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "computer_backend",
+   "value": "cloud"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "custom_obj",
+   "value": "{\"z\":1,\"a\":[1,2,{\"x\":null}]}"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "empty_text",
+   "value": ""
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "flag",
+   "value": "false"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "last_platform",
+   "value": "\"legacy-platform\""
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "mcp_backend",
+   "value": "host-remote"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "note",
+   "value": "123"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "nothing",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "null_value",
+   "value": null
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "other",
+   "value": "1"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "plain_text",
+   "value": "hello"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "ratio",
+   "value": "1.5"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "runtime_backend",
+   "value": "qemu"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "runtime_profile",
+   "value": "cloud-computer"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "social_reach_cookies_a",
+   "value": "{\"a\":1}"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "social_reach_cookies_b",
+   "value": ""
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "social_reach_cookies_c",
+   "value": "false"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "social_reach_cookies_d",
+   "value": "0"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "social_reach_cookies_e",
+   "value": "[]"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "social_reach_cookies_f",
+   "value": "null"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "ui_language",
+   "value": "de"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "usage_data_sharing",
+   "value": "true"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "visible",
+   "value": "ok"
+  },
+  {
+   "user": 1,
+   "agent": null,
+   "key": "web_sharing_enabled",
+   "value": "true"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "ai_provider_configs",
+   "value": "{\"openai\":{\"enabled\":true,\"baseUrl\":\"\"},\"openai-compatible\":{\"enabled\":false,\"baseUrl\":\"\"},\"anthropic\":{\"enabled\":false,\"baseUrl\":\"\"},\"google\":{\"enabled\":true,\"baseUrl\":\"\"},\"grok\":{\"enabled\":true,\"baseUrl\":\"https://api.x.ai/v1\"},\"grok-oauth\":{\"enabled\":false,\"baseUrl\":\"\"},\"nvidia\":{\"enabled\":false,\"baseUrl\":\"https://integrate.api.nvidia.com/v1\"},\"minimax\":{\"enabled\":false,\"baseUrl\":\"https://api.minimax.io/anthropic\"},\"github-copilot\":{\"enabled\":false,\"baseUrl\":\"https://api.githubcopilot.com\"},\"openai-codex\":{\"enabled\":false,\"baseUrl\":\"https://chatgpt.com/backend-api/codex\"},\"claude-code\":{\"enabled\":false,\"baseUrl\":\"\"},\"nous\":{\"enabled\":false,\"baseUrl\":\"https://inference-api.nousresearch.com/v1\"},\"openrouter\":{\"enabled\":false,\"baseUrl\":\"https://openrouter.ai/api/v1\"},\"typesafe\":{\"enabled\":false,\"baseUrl\":\"\"},\"neorouter\":{\"enabled\":true,\"baseUrl\":\"\"},\"ollama\":{\"enabled\":true,\"baseUrl\":\"http://localhost:11434\"}}"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "assistant_behavior_notes",
+   "value": "\"\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "auto_skill_learning",
+   "value": "true"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "chat_history_window",
+   "value": "20"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "cost_mode",
+   "value": "\"balanced_auto\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "default_chat_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "default_speech_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "default_subagent_model",
+   "value": "\"auto\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "enabled_models",
+   "value": "[]"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "max_consecutive_read_only_iterations",
+   "value": "null"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "max_consecutive_tool_failures",
+   "value": "null"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "neorouter_roles",
+   "value": "null"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "subagent_max_children_per_run",
+   "value": "10"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "system_one_model",
+   "value": "\"off\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "task_models",
+   "value": "{}"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "tool_replay_budget_browser_chars",
+   "value": "null"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "tool_replay_budget_chars",
+   "value": "12000"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "tool_replay_budget_command_chars",
+   "value": "null"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "tool_replay_budget_file_chars",
+   "value": "null"
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "voice_input_mode",
+   "value": "\"hands_free\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "voice_live_model",
+   "value": "\"\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "voice_live_provider",
+   "value": "\"\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "voice_live_voice",
+   "value": "\"\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "voice_stt_model",
+   "value": "\"\""
+  },
+  {
+   "user": 2,
+   "agent": "<agent:2:main>",
+   "key": "voice_stt_provider",
+   "value": "\"auto\""
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+{"jobs":[{"name":"Standup","prompt":"standup","schedule":{"kind":"cron","expr":"0 9 * * 1-5"},"deliver":"discord"}]}

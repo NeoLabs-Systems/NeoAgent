@@ -1,0 +1,65 @@
+name: Build binaries
+description: >
+  Builds the neoagent binary for one platform and the Linux guest agent for the
+  same architecture. With standalone set, the binary is also the release's
+  standalone CLI asset (dist/neoagent-cli-<platform>-<arch>-<version>), so
+  signing that file signs the binary the runtime archive ships.
+
+inputs:
+  platform:
+    description: macos, linux or windows
+    required: true
+  architecture:
+    description: x64 or arm64
+    required: true
+  version:
+    required: true
+  standalone:
+    description: Also publish the binary as the standalone CLI asset
+    required: false
+    default: 'false'
+
+outputs:
+  binary:
+    description: Path of the neoagent binary to ship
+    value: ${{ steps.build.outputs.binary }}
+  guest:
+    description: Path of the Linux guest agent
+    value: ${{ steps.build.outputs.guest }}
+
+runs:
+  using: composite
+  steps:
+    - id: build
+      shell: bash
+      env:
+        PLATFORM: ${{ inputs.platform }}
+        ARCHITECTURE: ${{ inputs.architecture }}
+        VERSION: ${{ inputs.version }}
+        STANDALONE: ${{ inputs.standalone }}
+        CGO_ENABLED: '0'
+      run: |
+        set -euo pipefail
+        case "$PLATFORM" in
+          macos) goos=darwin ;;
+          *) goos="$PLATFORM" ;;
+        esac
+        case "$ARCHITECTURE" in
+          x64) goarch=amd64 ;;
+          *) goarch="$ARCHITECTURE" ;;
+        esac
+        ext=""
+        if [ "$goos" = windows ]; then ext=".exe"; fi
+        out="$RUNNER_TEMP/neoagent-bin"
+        mkdir -p "$out" dist
+        ldflags="-s -w -X github.com/NeoLabs-Systems/neoagent/internal/buildinfo.Version=$VERSION"
+        GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags "$ldflags" -o "$out/neoagent$ext" ./cmd/neoagent
+        guest="$out/neoagent-guest-linux-$goarch"
+        GOOS=linux GOARCH="$goarch" go build -trimpath -ldflags "$ldflags" -o "$guest" ./cmd/neoagent-guest
+        binary="$out/neoagent$ext"
+        if [ "$STANDALONE" = true ]; then
+          binary="dist/neoagent-cli-$PLATFORM-$ARCHITECTURE-$VERSION$ext"
+          cp "$out/neoagent$ext" "$binary"
+        fi
+        echo "binary=$binary" >> "$GITHUB_OUTPUT"
+        echo "guest=$guest" >> "$GITHUB_OUTPUT"

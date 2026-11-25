@@ -1,0 +1,1056 @@
+{
+  "key": "github",
+  "label": "GitHub",
+  "description": "Official GitHub integration for repositories, issues, pull requests, code, branches, and CI/CD workflows.",
+  "icon": "github",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "repos",
+      "label": "Repositories",
+      "description": "Full repository management - issues, PRs, code, branches, and CI/CD workflows."
+    },
+    {
+      "id": "mentions",
+      "label": "Mentions",
+      "description": "Lets approved people @mention this account on issues and pull requests to ask the agent for help. Set who and where under Messaging."
+    }
+  ],
+  "connectPrompt": null,
+  "tools": [
+    {
+      "name": "github_search_repos",
+      "access": "read",
+      "description": "Search GitHub repositories by keyword.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query (e.g. \"language:javascript stars:>100\")."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 10, max 100)."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "github_get_repo",
+      "access": "read",
+      "description": "Get details about a specific GitHub repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_list_issues",
+      "access": "read",
+      "description": "List issues in a GitHub repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "all"
+            ],
+            "description": "Issue state filter (default open)."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names to filter by."
+          },
+          "assignee": {
+            "type": "string",
+            "description": "Filter by assignee username (use @me for self)."
+          },
+          "creator": {
+            "type": "string",
+            "description": "Filter by the username of the issue author."
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "comments"
+            ],
+            "description": "Sort field (default created)."
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "description": "Sort direction (default desc)."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 30)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_get_issue",
+      "access": "read",
+      "description": "Get details about a specific GitHub issue.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "issue_number": {
+            "type": "number",
+            "description": "Issue number."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "issue_number"
+        ]
+      }
+    },
+    {
+      "name": "github_create_issue",
+      "access": "write",
+      "description": "Create a new GitHub issue.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "title": {
+            "type": "string",
+            "description": "Issue title."
+          },
+          "body": {
+            "type": "string",
+            "description": "Issue body/description."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names."
+          },
+          "assignees": {
+            "type": "string",
+            "description": "Comma-separated usernames to assign."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    },
+    {
+      "name": "github_update_issue",
+      "access": "write",
+      "description": "Update an existing GitHub issue.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "issue_number": {
+            "type": "number",
+            "description": "Issue number."
+          },
+          "title": {
+            "type": "string",
+            "description": "New issue title."
+          },
+          "body": {
+            "type": "string",
+            "description": "New issue body."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "description": "New issue state."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names (replaces existing)."
+          },
+          "assignees": {
+            "type": "string",
+            "description": "Comma-separated usernames (replaces existing)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "issue_number"
+        ]
+      }
+    },
+    {
+      "name": "github_add_issue_labels",
+      "access": "write",
+      "description": "Add labels to a GitHub issue.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "issue_number": {
+            "type": "number",
+            "description": "Issue number."
+          },
+          "labels": {
+            "type": "string",
+            "description": "Comma-separated label names to add."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "issue_number",
+          "labels"
+        ]
+      }
+    },
+    {
+      "name": "github_add_issue_assignees",
+      "access": "write",
+      "description": "Add assignees to a GitHub issue.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "issue_number": {
+            "type": "number",
+            "description": "Issue number."
+          },
+          "assignees": {
+            "type": "string",
+            "description": "Comma-separated usernames to add."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "issue_number",
+          "assignees"
+        ]
+      }
+    },
+    {
+      "name": "github_list_prs",
+      "access": "read",
+      "description": "List pull requests in a GitHub repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "all"
+            ],
+            "description": "PR state filter (default open)."
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "comments"
+            ],
+            "description": "Sort field (default created)."
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "description": "Sort direction (default desc)."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 30)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_get_pr",
+      "access": "read",
+      "description": "Get details about a specific pull request.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "pr_number": {
+            "type": "number",
+            "description": "Pull request number."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "pr_number"
+        ]
+      }
+    },
+    {
+      "name": "github_create_pr",
+      "access": "write",
+      "description": "Create a new pull request.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "title": {
+            "type": "string",
+            "description": "PR title."
+          },
+          "body": {
+            "type": "string",
+            "description": "PR body/description."
+          },
+          "head": {
+            "type": "string",
+            "description": "Branch name containing the changes."
+          },
+          "base": {
+            "type": "string",
+            "description": "Base branch to merge into (default main)."
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Create as draft PR."
+          },
+          "maintainer_can_modify": {
+            "type": "boolean",
+            "description": "Allow maintainers to push to your branch."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "title",
+          "head"
+        ]
+      }
+    },
+    {
+      "name": "github_update_pr",
+      "access": "write",
+      "description": "Update an existing pull request.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "pr_number": {
+            "type": "number",
+            "description": "Pull request number."
+          },
+          "title": {
+            "type": "string",
+            "description": "New PR title."
+          },
+          "body": {
+            "type": "string",
+            "description": "New PR body."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "description": "New PR state."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "pr_number"
+        ]
+      }
+    },
+    {
+      "name": "github_merge_pr",
+      "access": "write",
+      "description": "Merge a pull request.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "pr_number": {
+            "type": "number",
+            "description": "Pull request number."
+          },
+          "merge_method": {
+            "type": "string",
+            "enum": [
+              "squash",
+              "merge",
+              "rebase"
+            ],
+            "description": "Merge method (default squash)."
+          },
+          "commit_title": {
+            "type": "string",
+            "description": "Custom commit title."
+          },
+          "commit_message": {
+            "type": "string",
+            "description": "Custom commit message."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "pr_number"
+        ]
+      }
+    },
+    {
+      "name": "github_list_commits",
+      "access": "read",
+      "description": "List commits in a repository or for a PR.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "sha": {
+            "type": "string",
+            "description": "SHA or branch to list commits from (default HEAD)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Filter commits affecting a specific path."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 30)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_list_branches",
+      "access": "read",
+      "description": "List branches in a GitHub repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 30)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_get_branch",
+      "access": "read",
+      "description": "Get details about a specific branch.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "branch": {
+            "type": "string",
+            "description": "Branch name."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "branch"
+        ]
+      }
+    },
+    {
+      "name": "github_list_collaborators",
+      "access": "read",
+      "description": "List repository collaborators.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "affiliation": {
+            "type": "string",
+            "enum": [
+              "all",
+              "outside",
+              "direct"
+            ],
+            "description": "Filter by affiliation (default all)."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 30)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_get_content",
+      "access": "read",
+      "description": "Read a file (decoded as UTF-8 text) or list a directory in a repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "path": {
+            "type": "string",
+            "description": "File or directory path in the repository. Empty for the repository root."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Branch, tag, or commit SHA to read from (default: the default branch)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_create_or_update_file",
+      "access": "write",
+      "description": "Create or update a single file in a repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "path": {
+            "type": "string",
+            "description": "File path in the repository."
+          },
+          "message": {
+            "type": "string",
+            "description": "Commit message."
+          },
+          "content": {
+            "type": "string",
+            "description": "File content as normal UTF-8 text by default. The tool handles the GitHub Contents API encoding."
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf-8",
+              "base64"
+            ],
+            "description": "Input encoding for content. Default utf-8. Use base64 only for already-encoded binary content."
+          },
+          "sha": {
+            "type": "string",
+            "description": "SHA of file being replaced (required for updates)."
+          },
+          "branch": {
+            "type": "string",
+            "description": "Branch to commit to (default main)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "path",
+          "message",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "github_delete_file",
+      "access": "write",
+      "description": "Delete a file from a repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "path": {
+            "type": "string",
+            "description": "File path to delete."
+          },
+          "message": {
+            "type": "string",
+            "description": "Commit message."
+          },
+          "sha": {
+            "type": "string",
+            "description": "SHA of file to delete."
+          },
+          "branch": {
+            "type": "string",
+            "description": "Branch to delete from (default main)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "path",
+          "message",
+          "sha"
+        ]
+      }
+    },
+    {
+      "name": "github_list_workflow_runs",
+      "access": "read",
+      "description": "List GitHub Actions workflow runs.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "workflow_id": {
+            "type": "string",
+            "description": "Workflow ID or filename (omit for all workflows)."
+          },
+          "branch": {
+            "type": "string",
+            "description": "Filter by branch."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed",
+              "success",
+              "failure",
+              "cancelled",
+              "neutral",
+              "skipped",
+              "timed_out",
+              "action_required",
+              "all"
+            ],
+            "description": "Filter by status."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 30)."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_get_workflow_run",
+      "access": "read",
+      "description": "Get details about a specific workflow run.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "run_id": {
+            "type": "number",
+            "description": "Run ID."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "run_id"
+        ]
+      }
+    },
+    {
+      "name": "github_trigger_workflow",
+      "access": "write",
+      "description": "Trigger a GitHub Actions workflow.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "workflow_id": {
+            "type": "string",
+            "description": "Workflow ID or filename."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Git ref to trigger (branch, tag, or SHA)."
+          },
+          "inputs": {
+            "type": "string",
+            "description": "JSON string of workflow inputs."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "workflow_id"
+        ]
+      }
+    },
+    {
+      "name": "github_list_workflows",
+      "access": "read",
+      "description": "List GitHub Actions workflows in a repository.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in format \"owner/repo\"."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "github_get_auth_user",
+      "access": "read",
+      "description": "Get the authenticated GitHub user information.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "github_list_user_repos",
+      "access": "read",
+      "description": "List repositories for the authenticated user or a specific user.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Username to list repos for (omit for authenticated user)."
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "all",
+              "public",
+              "private"
+            ],
+            "description": "Filter by visibility."
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "pushed",
+              "full_name"
+            ],
+            "description": "Sort field (default full_name)."
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "description": "Sort direction (default asc)."
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results (default 30)."
+          }
+        }
+      }
+    },
+    {
+      "name": "github_api_request",
+      "access": "dynamic_http_method",
+      "description": "Make an authenticated GitHub API request for advanced operations not covered by dedicated tools. Path must be the FULL API path starting with /repos/{owner}/{repo}/... — e.g. /repos/NeoLabs-Systems/NeoAgent/git/trees/main?recursive=1. Alternatively, supply owner_repo and a relative path like /git/trees/main and the prefix is prepended automatically.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ],
+            "description": "HTTP method."
+          },
+          "path": {
+            "type": "string",
+            "description": "Full API path (e.g. /repos/owner/repo/git/trees/main) or a relative path like /git/trees/main when owner_repo is also provided."
+          },
+          "owner_repo": {
+            "type": "string",
+            "description": "Repository in \"owner/repo\" format. When provided together with a relative path, the /repos/{owner}/{repo} prefix is automatically prepended."
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Alias for path."
+          },
+          "url": {
+            "type": "string",
+            "description": "Full GitHub API URL (https://api.github.com/...)."
+          },
+          "query": {
+            "type": "object",
+            "description": "Optional query parameters."
+          },
+          "body": {
+            "type": "object",
+            "description": "Optional JSON request body."
+          },
+          "payload": {
+            "type": "object",
+            "description": "Alias for body."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner alias. Use together with repo when owner_repo is not supplied."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name alias. Use together with owner when owner_repo is not supplied."
+          }
+        },
+        "required": [
+          "method"
+        ]
+      }
+    }
+  ]
+}

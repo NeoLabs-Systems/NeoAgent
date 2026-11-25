@@ -1,0 +1,1297 @@
+{
+  "home": "",
+  "openclaw": {
+    "source": "openclaw",
+    "label": "OpenClaw",
+    "path": "~/openclaw/.openclaw",
+    "home": "<ROOT>/openclaw/.openclaw",
+    "agents": [
+      {
+        "key": "main",
+        "name": "Jarvis",
+        "isDefault": true,
+        "instructions": "Your name is Jarvis.\n\nBe warm and brief.",
+        "memories": [
+          {
+            "text": "Anna is my sister: she lives in Hamburg",
+            "category": "contacts"
+          },
+          {
+            "text": "Likes oat milk. Dislikes cilantro; hates early meetings. Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long. Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long. Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long.",
+            "category": "preferences"
+          },
+          {
+            "text": "Home automation: lights, blinds and heating are controlled through Home Assistant and the main hub in the hall closet nearby",
+            "category": "episodic"
+          }
+        ],
+        "userProfile": "Name: Alex\nTime zone: Europe/Berlin\nNotes: likes tea",
+        "dailyLogs": [
+          {
+            "date": "2026-01-01",
+            "content": "Went hiking."
+          }
+        ],
+        "workspace": "<ROOT>/openclaw/ws",
+        "model": null
+      },
+      {
+        "key": "helper",
+        "name": "Helper Bot",
+        "isDefault": false,
+        "instructions": "You are the helper.",
+        "memories": [],
+        "userProfile": null,
+        "dailyLogs": [],
+        "workspace": "<ROOT>/openclaw/helper-ws",
+        "model": "openrouter::acme/x1"
+      }
+    ],
+    "skills": [
+      {
+        "name": "plain",
+        "description": "Plain skill",
+        "body": "# Plain skill\nNo header here.",
+        "dir": "<ROOT>/openclaw/.openclaw/skills/plain",
+        "origin": "OpenClaw",
+        "files": []
+      },
+      {
+        "name": "greeter",
+        "description": "Greets people warmly.",
+        "body": "# Greet\nSay hi.",
+        "dir": "<ROOT>/openclaw/ws/skills/greet",
+        "origin": "Jarvis",
+        "files": [
+          "scripts/hi.sh"
+        ]
+      }
+    ],
+    "keys": {
+      "GOOGLE_AI_KEY": "g-key",
+      "NOUS_API_KEY": "n-tok",
+      "ANTHROPIC_API_KEY": "sk-ant-1",
+      "OPENAI_API_KEY": "sk-oa",
+      "BRAVE_SEARCH_API_KEY": "brave-123",
+      "DEEPGRAM_API_KEY": "dg-1",
+      "ELEVENLABS_API_KEY": "xi-1",
+      "OLLAMA_URL": "http://localhost:11434",
+      "OPENAI_COMPATIBLE_BASE_URL": "https://api.acme.test/v1",
+      "OPENAI_COMPATIBLE_API_KEY": "acme-secret"
+    },
+    "ignoredKeys": [
+      "GROQ_API_KEY",
+      "GITHUB_TOKEN"
+    ],
+    "sourceModel": "anthropic/claude-sonnet-4",
+    "model": "anthropic::claude-sonnet-4",
+    "mcp": [
+      {
+        "name": "remote",
+        "url": "https://mcp.example.test/sse",
+        "token": "tok-mcp",
+        "headers": {
+          "X-Team": "blue"
+        },
+        "transport": "sse",
+        "enabled": true
+      },
+      {
+        "name": "off",
+        "url": "https://mcp2.example.test/mcp",
+        "token": null,
+        "headers": {},
+        "transport": "streamable-http",
+        "enabled": false
+      }
+    ],
+    "tasks": [
+      {
+        "name": "Morning",
+        "agentKey": "main",
+        "prompt": "Say good morning",
+        "trigger": {
+          "mode": "recurring",
+          "cronExpression": "0 8 * * *",
+          "note": null
+        },
+        "enabled": true,
+        "tz": "Europe/Berlin",
+        "notify": {
+          "platform": "telegram",
+          "to": "12345"
+        },
+        "model": "openai::gpt-5",
+        "note": null
+      },
+      {
+        "name": "Often",
+        "agentKey": "main",
+        "prompt": "check things",
+        "trigger": {
+          "mode": "recurring",
+          "cronExpression": "*/6 * * * *",
+          "note": "interval rounded to the nearest cron step"
+        },
+        "enabled": false,
+        "tz": null,
+        "notify": null,
+        "model": null,
+        "note": "interval rounded to the nearest cron step"
+      },
+      {
+        "name": "Weekly",
+        "agentKey": "main",
+        "prompt": "weekly",
+        "trigger": {
+          "mode": "recurring",
+          "cronExpression": "0 9 * * 1",
+          "note": null
+        },
+        "enabled": true,
+        "tz": null,
+        "notify": null,
+        "model": null,
+        "note": null
+      },
+      {
+        "name": "Future",
+        "agentKey": "helper",
+        "prompt": "later",
+        "trigger": {
+          "mode": "one_time",
+          "runAt": "2099-01-01T10:00:00.000Z"
+        },
+        "enabled": true,
+        "tz": null,
+        "notify": null,
+        "model": null,
+        "note": null
+      }
+    ],
+    "channels": [
+      {
+        "platform": "telegram",
+        "config": {
+          "botToken": "123:abc"
+        },
+        "allow": [
+          "@alice",
+          "12345",
+          "999",
+          "555",
+          "777"
+        ]
+      },
+      {
+        "platform": "discord",
+        "config": {
+          "token": "dtok"
+        },
+        "allow": [
+          "d1"
+        ]
+      },
+      {
+        "platform": "whatsapp",
+        "config": null,
+        "allow": [
+          "+4915112345678",
+          "+49170000"
+        ]
+      }
+    ],
+    "timezone": "Europe/Berlin",
+    "skipped": [
+      {
+        "kind": "Instructions",
+        "name": "main/AGENTS.md",
+        "reason": "OpenClaw's operating manual for its own tools; copy any rules you added by hand"
+      },
+      {
+        "kind": "Sign-in",
+        "name": "xai",
+        "reason": "OAuth sign-ins cannot be copied; sign in again under Admin → Providers in the app"
+      },
+      {
+        "kind": "AI provider",
+        "name": "second",
+        "reason": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it"
+      },
+      {
+        "kind": "MCP server",
+        "name": "local",
+        "reason": "runs a local program (npx); NeoAgent connects to MCP servers by URL",
+        "detail": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "fs"
+          ],
+          "env": {
+            "API_TOKEN": "abc",
+            "PLAIN": "p"
+          }
+        }
+      },
+      {
+        "kind": "Automation",
+        "name": "Past",
+        "reason": "a one-time job whose time has passed"
+      },
+      {
+        "kind": "Automation",
+        "name": "Shell",
+        "reason": "runs a shell command on this computer; NeoAgent's agent works on its own computer",
+        "detail": {
+          "schedule": {
+            "kind": "cron",
+            "expr": "* * * * *"
+          },
+          "kind": "command",
+          "command": "ls",
+          "token": "secret-x"
+        }
+      },
+      {
+        "kind": "Automation",
+        "name": "Broken",
+        "reason": "its schedule could not be read"
+      },
+      {
+        "kind": "Channel",
+        "name": "extra accounts",
+        "reason": "NeoAgent connects one account per platform; the first one was used"
+      },
+      {
+        "kind": "Channel",
+        "name": "WhatsApp",
+        "reason": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)"
+      },
+      {
+        "kind": "Channel",
+        "name": "Slack",
+        "reason": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations"
+      },
+      {
+        "kind": "Channel",
+        "name": "matrix",
+        "reason": "not supported by NeoAgent"
+      }
+    ]
+  },
+  "hermes": {
+    "source": "hermes",
+    "label": "Hermes Agent",
+    "path": "~/hermes/.hermes",
+    "home": "<ROOT>/hermes/.hermes",
+    "agents": [
+      {
+        "key": "default",
+        "name": "Hermes",
+        "isDefault": true,
+        "instructions": null,
+        "memories": [
+          {
+            "text": "Prefers dark mode",
+            "category": "preferences"
+          },
+          {
+            "text": "Lives in Berlin; works as a nurse at a clinic.",
+            "category": "episodic"
+          },
+          {
+            "text": "Long entry: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word",
+            "category": "episodic"
+          }
+        ],
+        "userProfile": "Name: Sam\nLikes jazz",
+        "dailyLogs": [],
+        "workspace": "<ROOT>/hermes/.hermes",
+        "model": null
+      },
+      {
+        "key": "work",
+        "name": "work",
+        "isDefault": false,
+        "instructions": "You are the work agent.",
+        "memories": [
+          {
+            "text": "Works on project X",
+            "category": "projects"
+          }
+        ],
+        "userProfile": null,
+        "dailyLogs": [],
+        "workspace": "<ROOT>/hermes/.hermes/profiles/work",
+        "model": null
+      }
+    ],
+    "skills": [
+      {
+        "name": "My Skill",
+        "description": "Does mine",
+        "body": "Body of mine",
+        "dir": "<ROOT>/hermes/.hermes/skills/tools/mine",
+        "origin": "Hermes",
+        "files": []
+      }
+    ],
+    "keys": {
+      "OPENROUTER_API_KEY": "or-1",
+      "GOOGLE_AI_KEY": "gem-1",
+      "OPENAI_API_KEY": "work-oa",
+      "OPENAI_COMPATIBLE_BASE_URL": "http://localhost:8080/v1",
+      "OPENAI_COMPATIBLE_API_KEY": "local-key",
+      "OLLAMA_URL": "http://box:11434"
+    },
+    "ignoredKeys": [
+      "HF_TOKEN"
+    ],
+    "sourceModel": "gpt-4o (custom)",
+    "model": "openai-compatible::gpt-4o",
+    "mcp": [
+      {
+        "name": "web",
+        "url": "https://web.example.test/mcp",
+        "token": "web-tok",
+        "headers": {},
+        "transport": "streamable-http",
+        "enabled": true
+      }
+    ],
+    "tasks": [
+      {
+        "name": "Digest",
+        "agentKey": "default",
+        "prompt": "Use the news, web skills.\n\nSummarise news",
+        "trigger": {
+          "mode": "recurring",
+          "cronExpression": "30 7 * * *",
+          "note": null
+        },
+        "enabled": true,
+        "tz": null,
+        "notify": {
+          "platform": "telegram",
+          "to": "12345"
+        },
+        "model": "openai::gpt-5",
+        "note": null
+      },
+      {
+        "name": "Ping",
+        "agentKey": "default",
+        "prompt": "ping",
+        "trigger": {
+          "mode": "recurring",
+          "cronExpression": "*/6 * * * *",
+          "note": "every 7m rounded to \"*/6 * * * *\""
+        },
+        "enabled": false,
+        "tz": null,
+        "notify": null,
+        "model": null,
+        "note": "every 7m rounded to \"*/6 * * * *\""
+      },
+      {
+        "name": "Once",
+        "agentKey": "default",
+        "prompt": "later",
+        "trigger": {
+          "mode": "one_time",
+          "runAt": "2099-05-05T05:05:05.000Z"
+        },
+        "enabled": true,
+        "tz": null,
+        "notify": null,
+        "model": null,
+        "note": null
+      },
+      {
+        "name": "Standup",
+        "agentKey": "work",
+        "prompt": "standup",
+        "trigger": {
+          "mode": "recurring",
+          "cronExpression": "0 9 * * 1-5",
+          "note": null
+        },
+        "enabled": true,
+        "tz": null,
+        "notify": {
+          "platform": "discord",
+          "to": null
+        },
+        "model": null,
+        "note": null
+      }
+    ],
+    "channels": [
+      {
+        "platform": "telegram",
+        "config": {
+          "botToken": "1:x"
+        },
+        "allow": [
+          "11",
+          "22",
+          "33"
+        ]
+      },
+      {
+        "platform": "whatsapp",
+        "config": null,
+        "allow": []
+      }
+    ],
+    "timezone": "Europe/Berlin",
+    "skipped": [
+      {
+        "kind": "AI provider",
+        "name": "another",
+        "reason": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it"
+      },
+      {
+        "kind": "MCP server",
+        "name": "stdio",
+        "reason": "runs a local program (uvx); NeoAgent connects to MCP servers by URL",
+        "detail": {
+          "command": "uvx",
+          "args": [
+            "thing"
+          ]
+        }
+      },
+      {
+        "kind": "Automation",
+        "name": "Old",
+        "reason": "a one-time job whose time has passed"
+      },
+      {
+        "kind": "Automation",
+        "name": "Backup",
+        "reason": "runs a script on this computer; NeoAgent's agent works on its own computer",
+        "detail": {
+          "schedule": "daily",
+          "script": "backup.sh",
+          "content": "#!/bin/sh\ntar czf x.tgz .\n"
+        }
+      },
+      {
+        "kind": "Automation",
+        "name": "NoPrompt",
+        "reason": "it has no prompt"
+      },
+      {
+        "kind": "Automation",
+        "name": "Odd",
+        "reason": "its schedule could not be read"
+      },
+      {
+        "kind": "Channel",
+        "name": "WhatsApp",
+        "reason": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)"
+      },
+      {
+        "kind": "Channel",
+        "name": "Slack",
+        "reason": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations"
+      },
+      {
+        "kind": "Channel",
+        "name": "Signal",
+        "reason": "not supported by NeoAgent"
+      }
+    ]
+  },
+  "contents": {
+    "openclaw": [
+      {
+        "part": "agents",
+        "count": 2,
+        "names": [
+          "Jarvis",
+          "Helper Bot"
+        ]
+      },
+      {
+        "part": "memories",
+        "count": 4,
+        "names": [],
+        "days": 1
+      },
+      {
+        "part": "skills",
+        "count": 2,
+        "names": [
+          "plain",
+          "greeter"
+        ]
+      },
+      {
+        "part": "keys",
+        "count": 10,
+        "names": [
+          "Google",
+          "Nous Portal",
+          "Anthropic",
+          "OpenAI",
+          "Brave Search",
+          "Deepgram",
+          "ElevenLabs",
+          "Ollama",
+          "Custom endpoint",
+          "Custom OpenAI-compatible"
+        ]
+      },
+      {
+        "part": "model",
+        "count": 1,
+        "names": [
+          "anthropic/claude-sonnet-4"
+        ]
+      },
+      {
+        "part": "tasks",
+        "count": 4,
+        "names": [
+          "Morning",
+          "Often",
+          "Weekly",
+          "Future"
+        ]
+      },
+      {
+        "part": "mcp",
+        "count": 2,
+        "names": [
+          "remote",
+          "off"
+        ]
+      },
+      {
+        "part": "channels",
+        "count": 3,
+        "names": [
+          "Telegram",
+          "Discord",
+          "WhatsApp"
+        ]
+      }
+    ],
+    "hermes": [
+      {
+        "part": "agents",
+        "count": 2,
+        "names": [
+          "Hermes",
+          "work"
+        ]
+      },
+      {
+        "part": "memories",
+        "count": 5,
+        "names": [],
+        "days": 0
+      },
+      {
+        "part": "skills",
+        "count": 1,
+        "names": [
+          "My Skill"
+        ]
+      },
+      {
+        "part": "keys",
+        "count": 6,
+        "names": [
+          "OpenRouter",
+          "Google",
+          "OpenAI",
+          "Custom endpoint",
+          "Custom OpenAI-compatible",
+          "Ollama"
+        ]
+      },
+      {
+        "part": "model",
+        "count": 1,
+        "names": [
+          "gpt-4o (custom)"
+        ]
+      },
+      {
+        "part": "tasks",
+        "count": 4,
+        "names": [
+          "Digest",
+          "Ping",
+          "Once",
+          "Standup"
+        ]
+      },
+      {
+        "part": "mcp",
+        "count": 1,
+        "names": [
+          "web"
+        ]
+      },
+      {
+        "part": "channels",
+        "count": 2,
+        "names": [
+          "Telegram",
+          "WhatsApp"
+        ]
+      }
+    ]
+  },
+  "selected": {
+    "openclaw": {
+      "source": "openclaw",
+      "label": "OpenClaw",
+      "path": "~/openclaw/.openclaw",
+      "home": "<ROOT>/openclaw/.openclaw",
+      "agents": [
+        {
+          "key": "main",
+          "name": "Jarvis",
+          "isDefault": true,
+          "instructions": "Your name is Jarvis.\n\nBe warm and brief.",
+          "memories": [
+            {
+              "text": "Anna is my sister: she lives in Hamburg",
+              "category": "contacts"
+            },
+            {
+              "text": "Likes oat milk. Dislikes cilantro; hates early meetings. Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long. Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long. Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long.",
+              "category": "preferences"
+            },
+            {
+              "text": "Home automation: lights, blinds and heating are controlled through Home Assistant and the main hub in the hall closet nearby",
+              "category": "episodic"
+            }
+          ],
+          "userProfile": "Name: Alex\nTime zone: Europe/Berlin\nNotes: likes tea",
+          "dailyLogs": [
+            {
+              "date": "2026-01-01",
+              "content": "Went hiking."
+            }
+          ],
+          "workspace": "<ROOT>/openclaw/ws",
+          "model": null
+        },
+        {
+          "key": "helper",
+          "name": "Helper Bot",
+          "isDefault": false,
+          "instructions": "You are the helper.",
+          "memories": [],
+          "userProfile": null,
+          "dailyLogs": [],
+          "workspace": "<ROOT>/openclaw/helper-ws",
+          "model": null
+        }
+      ],
+      "skills": [
+        {
+          "name": "plain",
+          "description": "Plain skill",
+          "body": "# Plain skill\nNo header here.",
+          "dir": "<ROOT>/openclaw/.openclaw/skills/plain",
+          "origin": "OpenClaw",
+          "files": []
+        },
+        {
+          "name": "greeter",
+          "description": "Greets people warmly.",
+          "body": "# Greet\nSay hi.",
+          "dir": "<ROOT>/openclaw/ws/skills/greet",
+          "origin": "Jarvis",
+          "files": [
+            "scripts/hi.sh"
+          ]
+        }
+      ],
+      "keys": {},
+      "ignoredKeys": [],
+      "sourceModel": "anthropic/claude-sonnet-4",
+      "model": null,
+      "mcp": [],
+      "tasks": [],
+      "channels": [],
+      "timezone": "Europe/Berlin",
+      "skipped": [
+        {
+          "kind": "Instructions",
+          "name": "main/AGENTS.md",
+          "reason": "OpenClaw's operating manual for its own tools; copy any rules you added by hand"
+        }
+      ]
+    },
+    "hermes": {
+      "source": "hermes",
+      "label": "Hermes Agent",
+      "path": "~/hermes/.hermes",
+      "home": "<ROOT>/hermes/.hermes",
+      "agents": [
+        {
+          "key": "default",
+          "name": "Hermes",
+          "isDefault": true,
+          "instructions": null,
+          "memories": [],
+          "userProfile": null,
+          "dailyLogs": [],
+          "workspace": "<ROOT>/hermes/.hermes",
+          "model": null
+        },
+        {
+          "key": "work",
+          "name": "work",
+          "isDefault": false,
+          "instructions": "You are the work agent.",
+          "memories": [],
+          "userProfile": null,
+          "dailyLogs": [],
+          "workspace": "<ROOT>/hermes/.hermes/profiles/work",
+          "model": null
+        }
+      ],
+      "skills": [],
+      "keys": {
+        "OPENROUTER_API_KEY": "or-1",
+        "GOOGLE_AI_KEY": "gem-1",
+        "OPENAI_API_KEY": "work-oa",
+        "OPENAI_COMPATIBLE_BASE_URL": "http://localhost:8080/v1",
+        "OPENAI_COMPATIBLE_API_KEY": "local-key",
+        "OLLAMA_URL": "http://box:11434"
+      },
+      "ignoredKeys": [
+        "HF_TOKEN"
+      ],
+      "sourceModel": "gpt-4o (custom)",
+      "model": null,
+      "mcp": [],
+      "tasks": [
+        {
+          "name": "Digest",
+          "agentKey": "default",
+          "prompt": "Use the news, web skills.\n\nSummarise news",
+          "trigger": {
+            "mode": "recurring",
+            "cronExpression": "30 7 * * *",
+            "note": null
+          },
+          "enabled": true,
+          "tz": null,
+          "notify": {
+            "platform": "telegram",
+            "to": "12345"
+          },
+          "model": "openai::gpt-5",
+          "note": null
+        },
+        {
+          "name": "Ping",
+          "agentKey": "default",
+          "prompt": "ping",
+          "trigger": {
+            "mode": "recurring",
+            "cronExpression": "*/6 * * * *",
+            "note": "every 7m rounded to \"*/6 * * * *\""
+          },
+          "enabled": false,
+          "tz": null,
+          "notify": null,
+          "model": null,
+          "note": "every 7m rounded to \"*/6 * * * *\""
+        },
+        {
+          "name": "Once",
+          "agentKey": "default",
+          "prompt": "later",
+          "trigger": {
+            "mode": "one_time",
+            "runAt": "2099-05-05T05:05:05.000Z"
+          },
+          "enabled": true,
+          "tz": null,
+          "notify": null,
+          "model": null,
+          "note": null
+        },
+        {
+          "name": "Standup",
+          "agentKey": "work",
+          "prompt": "standup",
+          "trigger": {
+            "mode": "recurring",
+            "cronExpression": "0 9 * * 1-5",
+            "note": null
+          },
+          "enabled": true,
+          "tz": null,
+          "notify": {
+            "platform": "discord",
+            "to": null
+          },
+          "model": null,
+          "note": null
+        }
+      ],
+      "channels": [],
+      "timezone": "Europe/Berlin",
+      "skipped": [
+        {
+          "kind": "AI provider",
+          "name": "another",
+          "reason": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it"
+        },
+        {
+          "kind": "Automation",
+          "name": "Old",
+          "reason": "a one-time job whose time has passed"
+        },
+        {
+          "kind": "Automation",
+          "name": "Backup",
+          "reason": "runs a script on this computer; NeoAgent's agent works on its own computer",
+          "detail": {
+            "schedule": "daily",
+            "script": "backup.sh",
+            "content": "#!/bin/sh\ntar czf x.tgz .\n"
+          }
+        },
+        {
+          "kind": "Automation",
+          "name": "NoPrompt",
+          "reason": "it has no prompt"
+        },
+        {
+          "kind": "Automation",
+          "name": "Odd",
+          "reason": "its schedule could not be read"
+        }
+      ]
+    }
+  },
+  "homes": {
+    "openclaw": [
+      "<ROOT>/openclaw/.openclaw"
+    ],
+    "hermes": [
+      "<ROOT>/hermes/.hermes"
+    ]
+  },
+  "parts": [
+    "keys",
+    "memories",
+    "skills",
+    "model",
+    "tasks",
+    "mcp",
+    "channels"
+  ],
+  "providers": [
+    {
+      "id": "openai",
+      "label": "OpenAI",
+      "envKey": "OPENAI_API_KEY"
+    },
+    {
+      "id": "openai-compatible",
+      "label": "Custom OpenAI-compatible",
+      "envKey": "OPENAI_COMPATIBLE_API_KEY"
+    },
+    {
+      "id": "anthropic",
+      "label": "Anthropic",
+      "envKey": "ANTHROPIC_API_KEY"
+    },
+    {
+      "id": "google",
+      "label": "Google",
+      "envKey": "GOOGLE_AI_KEY"
+    },
+    {
+      "id": "grok",
+      "label": "xAI",
+      "envKey": "XAI_API_KEY"
+    },
+    {
+      "id": "grok-oauth",
+      "label": "Grok (xAI OAuth)",
+      "envKey": "GROK_OAUTH_ACCESS_TOKEN"
+    },
+    {
+      "id": "nvidia",
+      "label": "NVIDIA NIM",
+      "envKey": "NVIDIA_API_KEY"
+    },
+    {
+      "id": "minimax",
+      "label": "MiniMax Code",
+      "envKey": "MINIMAX_API_KEY"
+    },
+    {
+      "id": "github-copilot",
+      "label": "GitHub Copilot",
+      "envKey": "GITHUB_COPILOT_ACCESS_TOKEN"
+    },
+    {
+      "id": "openai-codex",
+      "label": "OpenAI Codex",
+      "envKey": "OPENAI_CODEX_ACCESS_TOKEN"
+    },
+    {
+      "id": "claude-code",
+      "label": "Claude Code",
+      "envKey": "CLAUDE_CODE_OAUTH_TOKEN"
+    },
+    {
+      "id": "nous",
+      "label": "Nous Portal",
+      "envKey": "NOUS_API_KEY"
+    },
+    {
+      "id": "openrouter",
+      "label": "OpenRouter",
+      "envKey": "OPENROUTER_API_KEY"
+    },
+    {
+      "id": "typesafe",
+      "label": "TypeSafe",
+      "envKey": "TYPESAFE_API_KEY"
+    },
+    {
+      "id": "neorouter",
+      "label": "NeoRouter",
+      "envKey": "NEOROUTER_API_KEY"
+    },
+    {
+      "id": "ollama",
+      "label": "Ollama",
+      "envKey": ""
+    }
+  ],
+  "units": {
+    "facts": [
+      {
+        "input": "short",
+        "out": [
+          "short"
+        ]
+      },
+      {
+        "input": "",
+        "out": []
+      },
+      {
+        "input": "  **bold** text  ",
+        "out": [
+          "bold text"
+        ]
+      },
+      {
+        "input": "Home automation: lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. ",
+        "out": [
+          "Home automation: lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk.",
+          "Home automation: lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk. lights go on at dusk."
+        ]
+      },
+      {
+        "input": "No lead here xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "out": [
+          "No lead here xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+        ]
+      },
+      {
+        "input": "A: b. word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word ",
+        "out": [
+          "A: b.",
+          "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word",
+          "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word",
+          "word word word word word word word word word word"
+        ]
+      },
+      {
+        "input": "Ünïcode — dashes; semicolons; ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääää",
+        "out": [
+          "Ünïcode — dashes; semicolons;",
+          "ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääää"
+        ]
+      },
+      {
+        "input": "one. two! three? four; five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven ",
+        "out": [
+          "one. two! three? four;",
+          "five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven five six seven",
+          "five six seven five six seven"
+        ]
+      }
+    ],
+    "json5": [
+      {
+        "input": "{a:1,'b':'x\\'y',c:[1,2,],// c\n d:0x1F,e:+.5,f:5.,g:-Infinity,/* x */h:null,}",
+        "out": {
+          "value": {
+            "a": 1,
+            "b": "x'y",
+            "c": [
+              1,
+              2
+            ],
+            "d": 31,
+            "e": 0.5,
+            "f": 5,
+            "g": null,
+            "h": null
+          }
+        }
+      },
+      {
+        "input": "{\"a\":{\"b\":[true,false]}}",
+        "out": {
+          "value": {
+            "a": {
+              "b": [
+                true,
+                false
+              ]
+            }
+          }
+        }
+      },
+      {
+        "input": "[1,2",
+        "out": {
+          "error": true
+        }
+      },
+      {
+        "input": "{a:'multi\\\nline'}",
+        "out": {
+          "value": {
+            "a": "multiline"
+          }
+        }
+      },
+      {
+        "input": "{2:1,1:2,b:3,a:4}",
+        "out": {
+          "error": true
+        }
+      },
+      {
+        "input": "{a:1}{",
+        "out": {
+          "error": true
+        }
+      },
+      {
+        "input": "{ $k_1: \"v\", ünï: 1, \"q\": .5e2 }",
+        "out": {
+          "value": {
+            "$k_1": "v",
+            "ünï": 1,
+            "q": 50
+          }
+        }
+      }
+    ],
+    "entries": [
+      {
+        "input": "# H\n- one\n- **Name:**\n\npara one\nstill para\n\n## People\n1) numbered\n(optional)\n---\nlast",
+        "out": [
+          {
+            "text": "one",
+            "heading": "H"
+          },
+          {
+            "text": "para one still para",
+            "heading": "H"
+          },
+          {
+            "text": "numbered",
+            "heading": "People"
+          },
+          {
+            "text": "last",
+            "heading": "People"
+          }
+        ]
+      },
+      {
+        "input": "a\n§\nb\n§\n\nc",
+        "out": [
+          {
+            "text": "a",
+            "heading": ""
+          },
+          {
+            "text": "b",
+            "heading": ""
+          },
+          {
+            "text": "c",
+            "heading": ""
+          }
+        ]
+      },
+      {
+        "input": "",
+        "out": []
+      },
+      {
+        "input": "x: \n- (hint)\n- _(hint)_",
+        "out": []
+      }
+    ],
+    "intervals": [
+      {
+        "ms": 30000,
+        "out": {
+          "cron": "* * * * *",
+          "exact": true
+        }
+      },
+      {
+        "ms": 60000,
+        "out": {
+          "cron": "* * * * *",
+          "exact": true
+        }
+      },
+      {
+        "ms": 90000,
+        "out": {
+          "cron": "*/2 * * * *",
+          "exact": true
+        }
+      },
+      {
+        "ms": 420000,
+        "out": {
+          "cron": "*/6 * * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 1500000,
+        "out": {
+          "cron": "*/20 * * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 3540000,
+        "out": {
+          "cron": "*/30 * * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 3660000,
+        "out": {
+          "cron": "0 * * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 10800000,
+        "out": {
+          "cron": "0 */3 * * *",
+          "exact": true
+        }
+      },
+      {
+        "ms": 18000000,
+        "out": {
+          "cron": "0 */4 * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 61200000,
+        "out": {
+          "cron": "0 */12 * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 82800000,
+        "out": {
+          "cron": "0 */12 * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 86400000,
+        "out": {
+          "cron": "0 9 * * *",
+          "exact": true
+        }
+      },
+      {
+        "ms": 259200000,
+        "out": {
+          "cron": "0 9 * * *",
+          "exact": false
+        }
+      },
+      {
+        "ms": 604800000,
+        "out": {
+          "cron": "0 9 * * 1",
+          "exact": true
+        }
+      },
+      {
+        "ms": 864000000,
+        "out": {
+          "cron": "0 9 * * *",
+          "exact": false
+        }
+      }
+    ],
+    "crons": [
+      {
+        "expr": "* * * * *",
+        "out": {
+          "cron": "* * * * *",
+          "exact": true
+        }
+      },
+      {
+        "expr": "0 0 8 * * *",
+        "out": {
+          "cron": "0 8 * * *",
+          "exact": true
+        }
+      },
+      {
+        "expr": "5 * * * * *",
+        "out": {
+          "cron": "* * * * *",
+          "exact": false
+        }
+      },
+      {
+        "expr": "* * *",
+        "out": null
+      },
+      {
+        "expr": " 1 2 3 4 5 ",
+        "out": {
+          "cron": "1 2 3 4 5",
+          "exact": true
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,1473 @@
+{
+ "steps": [
+  {
+   "name": "list calendars",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/cal/neo/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/cal/neo/personal/</d:href><d:propstat><d:prop><d:displayname>Personal &amp; Work</d:displayname><d:resourcetype><d:collection/><cal:calendar/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/cal/neo/empty%20name/</d:href><d:propstat><d:prop><d:resourcetype><cal:calendar/></d:resourcetype></d:prop></d:propstat></d:response><d:response><d:href>/cal/neo/gone/</d:href><d:propstat><d:prop><d:resourcetype><cal:calendar/></d:resourcetype></d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "personal",
+     "name": "Personal & Work"
+    },
+    {
+     "path": "empty name",
+     "name": "empty name"
+    }
+   ],
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://dav.example.com/cal/neo/",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">\n  <d:prop><d:displayname/><d:resourcetype/></d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "caldav_list_calendars",
+   "args": {},
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list events",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/cal/neo/personal/e1.ics</d:href><d:propstat><d:prop><d:getetag>\"1\"</d:getetag><cal:calendar-data><![CDATA[BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:e1\r\nSUMMARY:Stand\\, up\r\nDESCRIPTION:line\\none\r\nDTSTART;TZID=Europe/Berlin:20260102T090000\r\nDTEND:20260102T100000Z\r\nLOCATION:Room\r\n 42\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:e1\r\nRECURRENCE-ID:20260109T090000\r\nSUMMARY:Moved\r\nDTSTART;VALUE=DATE:20260110\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n]]></cal:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "personal/e1.ics",
+     "etag": "\"1\"",
+     "uid": "e1",
+     "recurrenceId": null,
+     "summary": "Stand, up",
+     "description": "line\none",
+     "location": "Room42",
+     "start": "2026-01-02T09:00:00",
+     "end": "2026-01-02T10:00:00Z"
+    },
+    {
+     "path": "personal/e1.ics",
+     "etag": "\"1\"",
+     "uid": "e1",
+     "recurrenceId": "2026-01-09T09:00:00",
+     "summary": "Moved",
+     "description": "",
+     "location": "",
+     "start": "2026-01-10",
+     "end": null
+    }
+   ],
+   "requests": [
+    {
+     "method": "REPORT",
+     "url": "https://dav.example.com/cal/neo/personal",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">\n  <d:prop><d:getetag/><c:calendar-data><c:expand start=\"20260101T120000Z\" end=\"20260131T120000Z\"/></c:calendar-data></d:prop>\n  <c:filter>\n    <c:comp-filter name=\"VCALENDAR\">\n      <c:comp-filter name=\"VEVENT\">\n        <c:time-range start=\"20260101T120000Z\" end=\"20260131T120000Z\"/>\n      </c:comp-filter>\n    </c:comp-filter>\n  </c:filter>\n</c:calendar-query>"
+    }
+   ],
+   "tool": "caldav_list_events",
+   "args": {
+    "calendar": "personal"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list events range",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "REPORT",
+     "url": "https://dav.example.com/cal/neo/personal",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">\n  <d:prop><d:getetag/><c:calendar-data><c:expand start=\"20260201T000000Z\" end=\"20260202T080000Z\"/></c:calendar-data></d:prop>\n  <c:filter>\n    <c:comp-filter name=\"VCALENDAR\">\n      <c:comp-filter name=\"VEVENT\">\n        <c:time-range start=\"20260201T000000Z\" end=\"20260202T080000Z\"/>\n      </c:comp-filter>\n    </c:comp-filter>\n  </c:filter>\n</c:calendar-query>"
+    }
+   ],
+   "tool": "caldav_list_events",
+   "args": {
+    "calendar": "personal",
+    "start": "2026-02-01",
+    "end": "2026-02-02T10:00:00+02:00"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list events bad date",
+   "answers": [],
+   "error": "Datetime must be an ISO-8601 value.",
+   "requests": [],
+   "tool": "caldav_list_events",
+   "args": {
+    "calendar": "personal",
+    "start": "tomorrow"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "get event",
+   "answers": [
+    {
+     "body": "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:e1\r\nSUMMARY:Stand\\, up\r\nDESCRIPTION:line\\none\r\nDTSTART;TZID=Europe/Berlin:20260102T090000\r\nDTEND:20260102T100000Z\r\nLOCATION:Room\r\n 42\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:e1\r\nRECURRENCE-ID:20260109T090000\r\nSUMMARY:Moved\r\nDTSTART;VALUE=DATE:20260110\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+     "headers": {
+      "content-type": "text/calendar"
+     }
+    }
+   ],
+   "result": {
+    "path": "personal/e1.ics",
+    "uid": "e1",
+    "recurrenceId": null,
+    "summary": "Stand, up",
+    "description": "line\none",
+    "location": "Room42",
+    "start": "2026-01-02T09:00:00",
+    "end": "2026-01-02T10:00:00Z"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://dav.example.com/cal/neo/personal/e1.ics",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "accept": "text/calendar, */*"
+     },
+     "body": null
+    }
+   ],
+   "tool": "caldav_get_event",
+   "args": {
+    "calendar": "personal",
+    "event_path": "e1.ics"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create event",
+   "answers": [
+    {
+     "status": 201,
+     "body": ""
+    }
+   ],
+   "result": {
+    "path": "personal/00000000-0000-4000-8000-000000000004@neoagent.ics",
+    "uid": "00000000-0000-4000-8000-000000000004@neoagent",
+    "summary": "Lunch, team"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://dav.example.com/cal/neo/personal/00000000-0000-4000-8000-000000000004%40neoagent.ics",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "text/calendar; charset=utf-8",
+      "accept": "application/xml, text/xml, */*"
+     },
+     "body": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//NeoAgent//EN\r\nCALSCALE:GREGORIAN\r\nBEGIN:VEVENT\r\nUID:00000000-0000-4000-8000-000000000004@neoagent\r\nDTSTAMP:20260101T120000Z\r\nDTSTART:20260301T120000Z\r\nDTEND;VALUE=DATE:20260301\r\nSUMMARY:Lunch\\, team\r\nDESCRIPTION:a\\nb\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    }
+   ],
+   "tool": "caldav_create_event",
+   "args": {
+    "calendar": "personal",
+    "summary": "Lunch, team",
+    "start": "2026-03-01T12:00:00Z",
+    "end": "2026-03-01",
+    "description": "a\nb",
+    "location": ""
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "update event",
+   "answers": [
+    {
+     "status": 204
+    }
+   ],
+   "result": {
+    "path": "other/e1.ics",
+    "uid": "e1",
+    "summary": "S"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://dav.example.com/cal/neo/other/e1.ics",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "text/calendar; charset=utf-8",
+      "accept": "application/xml, text/xml, */*"
+     },
+     "body": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//NeoAgent//EN\r\nCALSCALE:GREGORIAN\r\nBEGIN:VEVENT\r\nUID:e1\r\nDTSTAMP:20260101T120000Z\r\nDTSTART;VALUE=DATE:20260301\r\nDTEND;VALUE=DATE:20260302\r\nSUMMARY:S\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    }
+   ],
+   "tool": "caldav_update_event",
+   "args": {
+    "calendar": "personal",
+    "event_path": "other/e1.ics",
+    "summary": "S",
+    "start": "2026-03-01",
+    "end": "2026-03-02"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "delete event fails",
+   "answers": [
+    {
+     "status": 403,
+     "body": "forbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbidden",
+     "headers": {
+      "content-type": "text/plain"
+     }
+    }
+   ],
+   "error": "DAV request failed (403): forbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenfor",
+   "requests": [
+    {
+     "method": "DELETE",
+     "url": "https://dav.example.com/cal/neo/personal/e1.ics",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "accept": "application/xml, text/xml, */*"
+     },
+     "body": null
+    }
+   ],
+   "tool": "caldav_delete_event",
+   "args": {
+    "calendar": "personal",
+    "event_path": "e1.ics"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "traversal refused",
+   "answers": [],
+   "error": "Path must not contain parent traversal segments.",
+   "requests": [],
+   "tool": "caldav_get_event",
+   "args": {
+    "calendar": "../x",
+    "event_path": "e1.ics"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list addressbooks",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/card/neo/contacts/</d:href><d:propstat><d:prop><d:displayname>Contacts</d:displayname><d:resourcetype><d:collection/><card:addressbook/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "contacts",
+     "name": "Contacts"
+    }
+   ],
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://dav.example.com/card/neo/",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\">\n  <d:prop><d:displayname/><d:resourcetype/></d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "carddav_list_addressbooks",
+   "args": {},
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list contacts filtered",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/card/neo/contacts/p1.vcf</d:href><d:propstat><d:prop><d:getetag>\"2\"</d:getetag><card:address-data>BEGIN:VCARD\r\nVERSION:3.0\r\nUID:p1\r\nFN:Ada Lovelace\r\nEMAIL;TYPE=work:ada@example.com\r\nTEL:+44 1\r\nORG:Engines\\; Ltd\r\nEND:VCARD\r\n</card:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/card/neo/contacts/p2.vcf</d:href><d:propstat><d:prop><card:address-data>BEGIN:VCARD\r\nFN:Bob\r\nEND:VCARD</card:address-data></d:prop></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "contacts/p1.vcf",
+     "etag": "\"2\"",
+     "uid": "p1",
+     "fullName": "Ada Lovelace",
+     "email": "ada@example.com",
+     "phone": "+44 1",
+     "organization": "Engines; Ltd"
+    }
+   ],
+   "requests": [
+    {
+     "method": "REPORT",
+     "url": "https://dav.example.com/card/neo/contacts",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<c:addressbook-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\">\n  <d:prop><d:getetag/><c:address-data/></d:prop>\n</c:addressbook-query>"
+    }
+   ],
+   "tool": "carddav_list_contacts",
+   "args": {
+    "addressbook": "contacts",
+    "query": "ENGINES"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create contact",
+   "answers": [
+    {
+     "status": 201
+    }
+   ],
+   "result": {
+    "path": "contacts/00000000-0000-4000-8000-000000000005.vcf",
+    "uid": "00000000-0000-4000-8000-000000000005",
+    "fullName": "Grace Hopper"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://dav.example.com/card/neo/contacts/00000000-0000-4000-8000-000000000005.vcf",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "text/vcard; charset=utf-8",
+      "accept": "application/xml, text/xml, */*"
+     },
+     "body": "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:00000000-0000-4000-8000-000000000005\r\nFN:Grace Hopper\r\nEMAIL:g@example.com\r\nTEL:42\r\nEND:VCARD\r\n"
+    }
+   ],
+   "tool": "carddav_create_contact",
+   "args": {
+    "addressbook": "contacts",
+    "full_name": "Grace Hopper",
+    "email": "g@example.com",
+    "phone": 42
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "update contact",
+   "answers": [
+    {
+     "status": 204
+    }
+   ],
+   "result": {
+    "path": "contacts/p1.vcf",
+    "uid": "keep",
+    "fullName": "Ada"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://dav.example.com/card/neo/contacts/p1.vcf",
+     "headers": {
+      "authorization": "Basic bmVvQGV4YW1wbGUuY29tOnB3",
+      "content-type": "text/vcard; charset=utf-8",
+      "accept": "application/xml, text/xml, */*"
+     },
+     "body": "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:keep\r\nFN:Ada\r\nEND:VCARD\r\n"
+    }
+   ],
+   "tool": "carddav_update_contact",
+   "args": {
+    "addressbook": "contacts",
+    "contact_path": "p1.vcf",
+    "full_name": "Ada",
+    "uid": "keep"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create contact needs name",
+   "answers": [],
+   "error": "full_name is required.",
+   "requests": [],
+   "tool": "carddav_create_contact",
+   "args": {
+    "addressbook": "contacts"
+   },
+   "credentials": {
+    "email": "neo@example.com",
+    "username": "neo@example.com",
+    "password": "pw",
+    "imap": {
+     "host": "imap.example.com",
+     "port": 993,
+     "secure": true
+    },
+    "smtp": {
+     "host": "smtp.example.com",
+     "port": 465,
+     "secure": true
+    },
+    "savesSentMail": false,
+    "caldav": {
+     "origin": "https://dav.example.com",
+     "home": "/cal/neo/"
+    },
+    "carddav": {
+     "origin": "https://dav.example.com",
+     "home": "/card/neo/"
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "feed default window",
+   "answers": [
+    {
+     "body": "BEGIN:VCALENDAR\r\nX-WR-CALNAME:Team\r\nBEGIN:VEVENT\r\nUID:w1\r\nSUMMARY:Weekly\r\nDESCRIPTION:Notes here\r\nLOCATION:Hall\r\nDTSTART:20251229T090000Z\r\nDTEND:20251229T093000Z\r\nRRULE:FREQ=WEEKLY;COUNT=10\r\nEXDATE:20260112T090000Z\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:w1\r\nRECURRENCE-ID:20260105T090000Z\r\nSUMMARY:Weekly (moved)\r\nDTSTART:20260105T110000Z\r\nDTEND:20260105T113000Z\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:a1\r\nSUMMARY:Holiday\r\nDTSTART;VALUE=DATE:20260106\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:o1\r\nSUMMARY:Old\r\nDTSTART:20250101T090000Z\r\nDTEND:20250101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+     "headers": {
+      "content-type": "text/calendar"
+     }
+    }
+   ],
+   "result": {
+    "calendar": "Team",
+    "events": [
+     {
+      "calendar": "Team",
+      "title": "Weekly (moved)",
+      "start": "2026-01-05T11:00:00.000Z",
+      "end": "2026-01-05T11:30:00.000Z",
+      "allDay": false,
+      "location": null,
+      "notes": null
+     },
+     {
+      "calendar": "Team",
+      "title": "Holiday",
+      "start": "2026-01-06",
+      "end": "2026-01-07",
+      "allDay": true,
+      "location": null,
+      "notes": null
+     }
+    ]
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cal.example.com/team.ics",
+     "headers": {
+      "accept": "text/calendar, */*"
+     },
+     "body": null
+    }
+   ],
+   "tool": "ical_list_events",
+   "args": {},
+   "credentials": {
+    "url": "https://cal.example.com/team.ics",
+    "name": "Team"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "feed range and query",
+   "answers": [
+    {
+     "body": "BEGIN:VCALENDAR\r\nX-WR-CALNAME:Team\r\nBEGIN:VEVENT\r\nUID:w1\r\nSUMMARY:Weekly\r\nDESCRIPTION:Notes here\r\nLOCATION:Hall\r\nDTSTART:20251229T090000Z\r\nDTEND:20251229T093000Z\r\nRRULE:FREQ=WEEKLY;COUNT=10\r\nEXDATE:20260112T090000Z\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:w1\r\nRECURRENCE-ID:20260105T090000Z\r\nSUMMARY:Weekly (moved)\r\nDTSTART:20260105T110000Z\r\nDTEND:20260105T113000Z\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:a1\r\nSUMMARY:Holiday\r\nDTSTART;VALUE=DATE:20260106\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:o1\r\nSUMMARY:Old\r\nDTSTART:20250101T090000Z\r\nDTEND:20250101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+     "headers": {
+      "content-type": "text/calendar"
+     }
+    }
+   ],
+   "result": {
+    "calendar": "Team",
+    "events": [
+     {
+      "calendar": "Team",
+      "title": "Weekly (moved)",
+      "start": "2026-01-05T11:00:00.000Z",
+      "end": "2026-01-05T11:30:00.000Z",
+      "allDay": false,
+      "location": null,
+      "notes": null
+     },
+     {
+      "calendar": "Team",
+      "title": "Weekly",
+      "start": "2026-01-19T09:00:00.000Z",
+      "end": "2026-01-19T09:30:00.000Z",
+      "allDay": false,
+      "location": "Hall",
+      "notes": "Notes here"
+     },
+     {
+      "calendar": "Team",
+      "title": "Weekly",
+      "start": "2026-01-26T09:00:00.000Z",
+      "end": "2026-01-26T09:30:00.000Z",
+      "allDay": false,
+      "location": "Hall",
+      "notes": "Notes here"
+     },
+     {
+      "calendar": "Team",
+      "title": "Weekly",
+      "start": "2026-02-02T09:00:00.000Z",
+      "end": "2026-02-02T09:30:00.000Z",
+      "allDay": false,
+      "location": "Hall",
+      "notes": "Notes here"
+     },
+     {
+      "calendar": "Team",
+      "title": "Weekly",
+      "start": "2026-02-09T09:00:00.000Z",
+      "end": "2026-02-09T09:30:00.000Z",
+      "allDay": false,
+      "location": "Hall",
+      "notes": "Notes here"
+     },
+     {
+      "calendar": "Team",
+      "title": "Weekly",
+      "start": "2026-02-16T09:00:00.000Z",
+      "end": "2026-02-16T09:30:00.000Z",
+      "allDay": false,
+      "location": "Hall",
+      "notes": "Notes here"
+     },
+     {
+      "calendar": "Team",
+      "title": "Weekly",
+      "start": "2026-02-23T09:00:00.000Z",
+      "end": "2026-02-23T09:30:00.000Z",
+      "allDay": false,
+      "location": "Hall",
+      "notes": "Notes here"
+     }
+    ]
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cal.example.com/team.ics",
+     "headers": {
+      "accept": "text/calendar, */*"
+     },
+     "body": null
+    }
+   ],
+   "tool": "ical_list_events",
+   "args": {
+    "start": "2026-01-01",
+    "end": "2026-03-01",
+    "query": "weekly"
+   },
+   "credentials": {
+    "url": "https://cal.example.com/team.ics",
+    "name": "Team"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "feed bad start",
+   "answers": [],
+   "error": "start must be an ISO date or datetime.",
+   "requests": [],
+   "tool": "ical_list_events",
+   "args": {
+    "start": "soon"
+   },
+   "credentials": {
+    "url": "https://cal.example.com/team.ics",
+    "name": "Team"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "feed gone",
+   "answers": [
+    {
+     "status": 404,
+     "body": "no",
+     "headers": {
+      "content-type": "text/plain"
+     }
+    }
+   ],
+   "error": "The calendar link answered 404. Check that the address is still shared.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cal.example.com/team.ics",
+     "headers": {
+      "accept": "text/calendar, */*"
+     },
+     "body": null
+    }
+   ],
+   "tool": "ical_list_events",
+   "args": {},
+   "credentials": {
+    "url": "https://cal.example.com/team.ics",
+    "name": "Team"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "feed not ical",
+   "answers": [
+    {
+     "body": "<html>",
+     "headers": {
+      "content-type": "text/html"
+     }
+    }
+   ],
+   "error": "That address did not return an iCal calendar.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cal.example.com/team.ics",
+     "headers": {
+      "accept": "text/calendar, */*"
+     },
+     "body": null
+    }
+   ],
+   "tool": "ical_list_events",
+   "args": {},
+   "credentials": {
+    "url": "https://cal.example.com/team.ics",
+    "name": "Team"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "setup lists presets",
+   "answers": [],
+   "result": {
+    "presets": [
+     {
+      "id": "gmail",
+      "label": "Gmail",
+      "icon": "google",
+      "help": "Turn on 2-Step Verification for your Google account, then create an app password named NeoAgent. For Google Calendar, add a Calendar link with its secret iCal address.",
+      "passwordUrl": "https://myaccount.google.com/apppasswords",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "icloud",
+      "label": "iCloud",
+      "icon": "apple",
+      "help": "Under Sign-In and Security, choose App-Specific Passwords and create one named NeoAgent. Use your Apple Account email address.",
+      "passwordUrl": "https://account.apple.com/account/manage",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     },
+     {
+      "id": "fastmail",
+      "label": "Fastmail",
+      "icon": "mail",
+      "help": "Create an app password with access to mail, calendars and contacts.",
+      "passwordUrl": "https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     },
+     {
+      "id": "yahoo",
+      "label": "Yahoo Mail",
+      "icon": "mail",
+      "help": "Under Account Security, choose Generate app password and name it NeoAgent.",
+      "passwordUrl": "https://login.yahoo.com/account/security",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "outlook",
+      "label": "Outlook / Microsoft 365",
+      "icon": "microsoft",
+      "help": "Microsoft no longer accepts app passwords for mail. Connect it through the Microsoft 365 integration instead, or add your Outlook calendar as a Calendar link.",
+      "passwordUrl": null,
+      "custom": false,
+      "feed": false,
+      "unsupported": true,
+      "alternativeProvider": "microsoft_365",
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "ical",
+      "label": "Calendar link (iCal)",
+      "icon": "calendar",
+      "help": "Paste a calendar's iCal address to let the agent read it. Google Calendar: Settings › your calendar › Integrate calendar › Secret address in iCal format. Outlook: Settings › Calendar › Shared calendars › Publish a calendar, then the ICS link. iCloud: share the calendar as a Public Calendar. The agent can read it but not change it.",
+      "passwordUrl": null,
+      "custom": false,
+      "feed": true,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "custom",
+      "label": "Other provider",
+      "icon": "mail",
+      "help": "Enter the IMAP and SMTP servers from your provider. Calendar and contacts are optional and need CalDAV or CardDAV URLs.",
+      "passwordUrl": null,
+      "custom": true,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     }
+    ],
+    "accounts": []
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": []
+  },
+  {
+   "name": "save needs preset",
+   "answers": [],
+   "error": "Choose your mail provider.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "preset": "nope"
+   },
+   "rows": []
+  },
+  {
+   "name": "save outlook refused",
+   "answers": [],
+   "error": "Microsoft no longer accepts app passwords for mail. Connect it through the Microsoft 365 integration instead, or add your Outlook calendar as a Calendar link.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "preset": "outlook"
+   },
+   "rows": []
+  },
+  {
+   "name": "save bad email",
+   "answers": [],
+   "error": "Enter a valid email address.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "preset": "gmail",
+    "email": "x"
+   },
+   "rows": []
+  },
+  {
+   "name": "save needs password",
+   "answers": [],
+   "error": "App password is required.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "preset": "gmail",
+    "email": "a@b.co"
+   },
+   "rows": []
+  },
+  {
+   "name": "save custom bad imap",
+   "answers": [],
+   "error": "IMAP server must be a host name.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "preset": "custom",
+    "email": "a@b.co",
+    "password": "x",
+    "imap": {
+     "host": "bad host",
+     "port": 993
+    }
+   },
+   "rows": []
+  },
+  {
+   "name": "save custom bad port",
+   "answers": [],
+   "error": "IMAP port must be one of 143, 993.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "preset": "custom",
+    "email": "a@b.co",
+    "password": "x",
+    "imap": {
+     "host": "imap.b.co",
+     "port": 994
+    }
+   },
+   "rows": []
+  },
+  {
+   "name": "save feed bad url",
+   "answers": [],
+   "error": "The iCal address must start with https:// or webcal://.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "preset": "ical",
+    "url": "ftp://x"
+   },
+   "rows": []
+  },
+  {
+   "name": "save feed",
+   "answers": [
+    {
+     "body": "BEGIN:VCALENDAR\r\nX-WR-CALNAME:Team\r\nBEGIN:VEVENT\r\nUID:w1\r\nSUMMARY:Weekly\r\nDESCRIPTION:Notes here\r\nLOCATION:Hall\r\nDTSTART:20251229T090000Z\r\nDTEND:20251229T093000Z\r\nRRULE:FREQ=WEEKLY;COUNT=10\r\nEXDATE:20260112T090000Z\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:w1\r\nRECURRENCE-ID:20260105T090000Z\r\nSUMMARY:Weekly (moved)\r\nDTSTART:20260105T110000Z\r\nDTEND:20260105T113000Z\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:a1\r\nSUMMARY:Holiday\r\nDTSTART;VALUE=DATE:20260106\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:o1\r\nSUMMARY:Old\r\nDTSTART:20250101T090000Z\r\nDTEND:20250101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+     "headers": {
+      "content-type": "text/calendar"
+     }
+    }
+   ],
+   "result": {
+    "presets": [
+     {
+      "id": "gmail",
+      "label": "Gmail",
+      "icon": "google",
+      "help": "Turn on 2-Step Verification for your Google account, then create an app password named NeoAgent. For Google Calendar, add a Calendar link with its secret iCal address.",
+      "passwordUrl": "https://myaccount.google.com/apppasswords",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "icloud",
+      "label": "iCloud",
+      "icon": "apple",
+      "help": "Under Sign-In and Security, choose App-Specific Passwords and create one named NeoAgent. Use your Apple Account email address.",
+      "passwordUrl": "https://account.apple.com/account/manage",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     },
+     {
+      "id": "fastmail",
+      "label": "Fastmail",
+      "icon": "mail",
+      "help": "Create an app password with access to mail, calendars and contacts.",
+      "passwordUrl": "https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     },
+     {
+      "id": "yahoo",
+      "label": "Yahoo Mail",
+      "icon": "mail",
+      "help": "Under Account Security, choose Generate app password and name it NeoAgent.",
+      "passwordUrl": "https://login.yahoo.com/account/security",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "outlook",
+      "label": "Outlook / Microsoft 365",
+      "icon": "microsoft",
+      "help": "Microsoft no longer accepts app passwords for mail. Connect it through the Microsoft 365 integration instead, or add your Outlook calendar as a Calendar link.",
+      "passwordUrl": null,
+      "custom": false,
+      "feed": false,
+      "unsupported": true,
+      "alternativeProvider": "microsoft_365",
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "ical",
+      "label": "Calendar link (iCal)",
+      "icon": "calendar",
+      "help": "Paste a calendar's iCal address to let the agent read it. Google Calendar: Settings › your calendar › Integrate calendar › Secret address in iCal format. Outlook: Settings › Calendar › Shared calendars › Publish a calendar, then the ICS link. iCloud: share the calendar as a Public Calendar. The agent can read it but not change it.",
+      "passwordUrl": null,
+      "custom": false,
+      "feed": true,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "custom",
+      "label": "Other provider",
+      "icon": "mail",
+      "help": "Enter the IMAP and SMTP servers from your provider. Calendar and contacts are optional and need CalDAV or CardDAV URLs.",
+      "passwordUrl": null,
+      "custom": true,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     }
+    ],
+    "accounts": [
+     {
+      "email": "Team",
+      "preset": "ical",
+      "apps": [
+       "Calendar link"
+      ]
+     }
+    ]
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cal.example.com/team.ics",
+     "headers": {
+      "accept": "text/calendar, */*"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "preset": "ical",
+    "url": "webcal://cal.example.com/team.ics"
+   },
+   "rows": [
+    {
+     "app_key": "calendar_feed",
+     "status": "connected",
+     "account_email": "Team",
+     "scopes_json": [
+      "ical:read"
+     ],
+     "metadata_json": {
+      "preset": "ical",
+      "access_mode": "read_write"
+     },
+     "credentials_json": {
+      "url": "https://cal.example.com/team.ics",
+      "name": "Team"
+     }
+    }
+   ]
+  },
+  {
+   "name": "setup lists feed",
+   "answers": [],
+   "result": {
+    "presets": [
+     {
+      "id": "gmail",
+      "label": "Gmail",
+      "icon": "google",
+      "help": "Turn on 2-Step Verification for your Google account, then create an app password named NeoAgent. For Google Calendar, add a Calendar link with its secret iCal address.",
+      "passwordUrl": "https://myaccount.google.com/apppasswords",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "icloud",
+      "label": "iCloud",
+      "icon": "apple",
+      "help": "Under Sign-In and Security, choose App-Specific Passwords and create one named NeoAgent. Use your Apple Account email address.",
+      "passwordUrl": "https://account.apple.com/account/manage",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     },
+     {
+      "id": "fastmail",
+      "label": "Fastmail",
+      "icon": "mail",
+      "help": "Create an app password with access to mail, calendars and contacts.",
+      "passwordUrl": "https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     },
+     {
+      "id": "yahoo",
+      "label": "Yahoo Mail",
+      "icon": "mail",
+      "help": "Under Account Security, choose Generate app password and name it NeoAgent.",
+      "passwordUrl": "https://login.yahoo.com/account/security",
+      "custom": false,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "outlook",
+      "label": "Outlook / Microsoft 365",
+      "icon": "microsoft",
+      "help": "Microsoft no longer accepts app passwords for mail. Connect it through the Microsoft 365 integration instead, or add your Outlook calendar as a Calendar link.",
+      "passwordUrl": null,
+      "custom": false,
+      "feed": false,
+      "unsupported": true,
+      "alternativeProvider": "microsoft_365",
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "ical",
+      "label": "Calendar link (iCal)",
+      "icon": "calendar",
+      "help": "Paste a calendar's iCal address to let the agent read it. Google Calendar: Settings › your calendar › Integrate calendar › Secret address in iCal format. Outlook: Settings › Calendar › Shared calendars › Publish a calendar, then the ICS link. iCloud: share the calendar as a Public Calendar. The agent can read it but not change it.",
+      "passwordUrl": null,
+      "custom": false,
+      "feed": true,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": false,
+      "contacts": false
+     },
+     {
+      "id": "custom",
+      "label": "Other provider",
+      "icon": "mail",
+      "help": "Enter the IMAP and SMTP servers from your provider. Calendar and contacts are optional and need CalDAV or CardDAV URLs.",
+      "passwordUrl": null,
+      "custom": true,
+      "feed": false,
+      "unsupported": false,
+      "alternativeProvider": null,
+      "calendar": true,
+      "contacts": true
+     }
+    ],
+    "accounts": [
+     {
+      "email": "Team",
+      "preset": "ical",
+      "apps": [
+       "Calendar link"
+      ]
+     }
+    ]
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": [
+    {
+     "app_key": "calendar_feed",
+     "status": "connected",
+     "account_email": "Team",
+     "scopes_json": [
+      "ical:read"
+     ],
+     "metadata_json": {
+      "preset": "ical",
+      "access_mode": "read_write"
+     },
+     "credentials_json": {
+      "url": "https://cal.example.com/team.ics",
+      "name": "Team"
+     }
+    }
+   ]
+  }
+ ]
+}

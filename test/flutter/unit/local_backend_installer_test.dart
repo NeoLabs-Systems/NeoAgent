@@ -268,29 +268,27 @@ void main() {
     );
   });
 
-  test('extracted runtime node stays executable', () async {
+  test('extracted runtime binary stays executable', () async {
     if (Platform.isWindows) return;
     final root = await Directory.systemTemp.createTemp('neoagent-zip-exec-');
     addTearDown(() => root.deleteSync(recursive: true));
     final stage = Directory('${root.path}${Platform.pathSeparator}stage')
       ..createSync();
-    Directory(
-      '${stage.path}${Platform.pathSeparator}node'
-      '${Platform.pathSeparator}bin',
-    ).createSync(recursive: true);
-    Directory(
+    for (final directory in <String>['bin', 'public']) {
+      Directory(
+        '${stage.path}${Platform.pathSeparator}app'
+        '${Platform.pathSeparator}$directory',
+      ).createSync(recursive: true);
+    }
+    final binary = File(
       '${stage.path}${Platform.pathSeparator}app'
-      '${Platform.pathSeparator}bin',
-    ).createSync(recursive: true);
-    final node = File(
-      '${stage.path}${Platform.pathSeparator}node'
-      '${Platform.pathSeparator}bin${Platform.pathSeparator}node',
+      '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent',
     )..writeAsStringSync('#!/bin/sh\necho ok\n');
     File(
       '${stage.path}${Platform.pathSeparator}app'
-      '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js',
-    ).writeAsStringSync('console.log(1);\n');
-    expect(Process.runSync('chmod', <String>['755', node.path]).exitCode, 0);
+      '${Platform.pathSeparator}public${Platform.pathSeparator}index.html',
+    ).writeAsStringSync('<!doctype html>\n');
+    expect(Process.runSync('chmod', <String>['755', binary.path]).exitCode, 0);
     final zipFile = File('${root.path}${Platform.pathSeparator}runtime.zip');
     final zipped = Process.runSync('zip', <String>[
       '-qry',
@@ -305,11 +303,10 @@ void main() {
     final activation = RuntimeActivationService(onEvent: (_) {});
     activation.validateExtractedRuntime(extracted);
     expect(activation.isCompleteRuntime(extracted), isTrue);
-    final extractedNode = File(
-      '${extracted.path}${Platform.pathSeparator}node'
-      '${Platform.pathSeparator}bin${Platform.pathSeparator}node',
+    final run = Process.runSync(
+      activation.runtimeExecutable(extracted).path,
+      const <String>[],
     );
-    final run = Process.runSync(extractedNode.path, const <String>[]);
     expect(run.exitCode, 0, reason: run.stderr.toString());
     expect(run.stdout.toString(), contains('ok'));
   });

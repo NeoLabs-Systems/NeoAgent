@@ -1,0 +1,502 @@
+{
+ "syntactic": [
+  {
+   "url": "https://api.openai.com/v1",
+   "allowed": true
+  },
+  {
+   "url": "http://example.com",
+   "allowed": true
+  },
+  {
+   "url": "https://example.com:8443/path?q=1",
+   "allowed": true
+  },
+  {
+   "url": "HTTPS://Example.COM",
+   "allowed": true
+  },
+  {
+   "url": "example.com",
+   "allowed": false,
+   "reason": "\"example.com\" has no scheme. Use a full URL such as https://example.com"
+  },
+  {
+   "url": "example.com:443",
+   "allowed": false,
+   "reason": "\"example.com:443\" has no scheme. Use a full URL such as https://example.com:443"
+  },
+  {
+   "url": "",
+   "allowed": false,
+   "reason": "No URL was given."
+  },
+  {
+   "url": " ",
+   "allowed": false,
+   "reason": "\" \" has no scheme. Use a full URL such as https://"
+  },
+  {
+   "url": "://x",
+   "allowed": false,
+   "reason": "\"://x\" has no scheme. Use a full URL such as https://://x"
+  },
+  {
+   "url": "http://",
+   "allowed": false,
+   "reason": "\"http://\" is not a valid URL."
+  },
+  {
+   "url": "https://user:pw@example.com",
+   "allowed": true
+  },
+  {
+   "url": "ftp://example.com",
+   "allowed": false,
+   "reason": "The ftp: scheme is not allowed. Only http:// and https:// URLs can be opened."
+  },
+  {
+   "url": "javascript:alert(1)",
+   "allowed": false,
+   "reason": "The javascript: scheme is not allowed. Only http:// and https:// URLs can be opened."
+  },
+  {
+   "url": "file:///etc/passwd",
+   "allowed": false,
+   "reason": "The file: scheme is not allowed. Only http:// and https:// URLs can be opened."
+  },
+  {
+   "url": "data:text/html,hi",
+   "allowed": false,
+   "reason": "The data: scheme is not allowed. Only http:// and https:// URLs can be opened."
+  },
+  {
+   "url": "about:blank",
+   "allowed": false,
+   "reason": "The about: scheme is not allowed. Only http:// and https:// URLs can be opened."
+  },
+  {
+   "url": "chrome://settings",
+   "allowed": false,
+   "reason": "The chrome: scheme is not allowed. Only http:// and https:// URLs can be opened."
+  },
+  {
+   "url": "http://localhost",
+   "allowed": false,
+   "reason": "localhost is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://localhost:11434",
+   "allowed": false,
+   "reason": "localhost is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://LOCALHOST/x",
+   "allowed": false,
+   "reason": "localhost is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://localhost.localdomain",
+   "allowed": false,
+   "reason": "localhost.localdomain is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://foo.localhost",
+   "allowed": false,
+   "reason": "foo.localhost is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://printer.local",
+   "allowed": false,
+   "reason": "printer.local is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://metadata.internal",
+   "allowed": false,
+   "reason": "metadata.internal is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://127.0.0.1",
+   "allowed": false,
+   "reason": "127.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://127.1.2.3:80",
+   "allowed": false,
+   "reason": "127.1.2.3 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://0.0.0.0",
+   "allowed": false,
+   "reason": "0.0.0.0 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://10.0.0.1",
+   "allowed": false,
+   "reason": "10.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://172.16.0.1",
+   "allowed": false,
+   "reason": "172.16.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://172.15.0.1",
+   "allowed": true
+  },
+  {
+   "url": "http://172.31.255.255",
+   "allowed": false,
+   "reason": "172.31.255.255 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://172.32.0.1",
+   "allowed": true
+  },
+  {
+   "url": "http://192.168.1.1",
+   "allowed": false,
+   "reason": "192.168.1.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://169.254.169.254",
+   "allowed": false,
+   "reason": "169.254.169.254 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://100.64.0.1",
+   "allowed": false,
+   "reason": "100.64.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://100.128.0.1",
+   "allowed": true
+  },
+  {
+   "url": "http://192.0.0.5",
+   "allowed": false,
+   "reason": "192.0.0.5 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://192.0.2.9",
+   "allowed": false,
+   "reason": "192.0.2.9 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://198.18.0.1",
+   "allowed": false,
+   "reason": "198.18.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://198.20.0.1",
+   "allowed": true
+  },
+  {
+   "url": "http://198.51.100.1",
+   "allowed": false,
+   "reason": "198.51.100.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://203.0.113.9",
+   "allowed": false,
+   "reason": "203.0.113.9 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://224.0.0.1",
+   "allowed": false,
+   "reason": "224.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://255.255.255.255",
+   "allowed": false,
+   "reason": "255.255.255.255 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://8.8.8.8",
+   "allowed": true
+  },
+  {
+   "url": "http://1.1.1.1",
+   "allowed": true
+  },
+  {
+   "url": "http://[::1]",
+   "allowed": false,
+   "reason": "[::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[::]",
+   "allowed": false,
+   "reason": "[::] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[fe80::1]",
+   "allowed": false,
+   "reason": "[fe80::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[fec0::1]",
+   "allowed": false,
+   "reason": "[fec0::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[fc00::1]",
+   "allowed": false,
+   "reason": "[fc00::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[fd12::1]",
+   "allowed": false,
+   "reason": "[fd12::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[ff02::1]",
+   "allowed": false,
+   "reason": "[ff02::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[100::1]",
+   "allowed": false,
+   "reason": "[100::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[2001:db8::1]",
+   "allowed": false,
+   "reason": "[2001:db8::1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[2606:4700::1111]",
+   "allowed": true
+  },
+  {
+   "url": "http://[::ffff:127.0.0.1]",
+   "allowed": false,
+   "reason": "[::ffff:7f00:1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[::ffff:7f00:1]",
+   "allowed": false,
+   "reason": "[::ffff:7f00:1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[::ffff:8.8.8.8]",
+   "allowed": true
+  },
+  {
+   "url": "http://[::7f00:1]",
+   "allowed": false,
+   "reason": "[::7f00:1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[::10.0.0.1]",
+   "allowed": false,
+   "reason": "[::a00:1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://[::ffff:a00:1]",
+   "allowed": false,
+   "reason": "[::ffff:a00:1] is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://2130706433",
+   "allowed": false,
+   "reason": "127.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://0x7f.1",
+   "allowed": false,
+   "reason": "127.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://017700000001",
+   "allowed": false,
+   "reason": "127.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://127.1",
+   "allowed": false,
+   "reason": "127.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "http://ffmpeg.org",
+   "allowed": true
+  },
+  {
+   "url": "http://0.gravatar.com",
+   "allowed": true
+  },
+  {
+   "url": "http://localhost./x",
+   "allowed": true
+  },
+  {
+   "url": "http://example.xxx",
+   "allowed": false,
+   "reason": "example.xxx is on a blocked adult-content domain."
+  },
+  {
+   "url": "http://xxx",
+   "allowed": false,
+   "reason": "xxx is on a blocked adult-content domain."
+  },
+  {
+   "url": "http://a.porn",
+   "allowed": false,
+   "reason": "a.porn is on a blocked adult-content domain."
+  },
+  {
+   "url": "http://sex.com",
+   "allowed": true
+  },
+  {
+   "url": "http://example.sexy",
+   "allowed": false,
+   "reason": "example.sexy is on a blocked adult-content domain."
+  },
+  {
+   "url": "http://notxxx.com",
+   "allowed": true
+  },
+  {
+   "url": "https://gateway.ai.cloudflare.com/v1/acct/gw/openai",
+   "allowed": true
+  },
+  {
+   "url": "http://my-ollama.lan:11434",
+   "allowed": true
+  },
+  {
+   "url": "http://exa mple.com",
+   "allowed": false,
+   "reason": "\"http://exa mple.com\" is not a valid URL."
+  },
+  {
+   "url": "http://-bad_host-.example.com",
+   "allowed": true
+  },
+  {
+   "url": "http://a%20b.com",
+   "allowed": false,
+   "reason": "\"http://a%20b.com\" is not a valid URL."
+  },
+  {
+   "url": "http://a<b.com",
+   "allowed": false,
+   "reason": "\"http://a<b.com\" is not a valid URL."
+  }
+ ],
+ "dns": [
+  {
+   "url": "https://example.com",
+   "addresses": [
+    "93.184.216.34"
+   ],
+   "allowed": true
+  },
+  {
+   "url": "https://example.com",
+   "addresses": [
+    "93.184.216.34",
+    "2606:2800:220:1::1"
+   ],
+   "allowed": true
+  },
+  {
+   "url": "https://example.com",
+   "addresses": [
+    "93.184.216.34",
+    "10.0.0.5"
+   ],
+   "allowed": false,
+   "reason": "example.com resolves to a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "https://rebind.example.com",
+   "addresses": [
+    "127.0.0.1"
+   ],
+   "allowed": false,
+   "reason": "rebind.example.com resolves to a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "https://rebind.example.com",
+   "addresses": [
+    "::1"
+   ],
+   "allowed": false,
+   "reason": "rebind.example.com resolves to a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "https://rebind.example.com",
+   "addresses": [
+    "::ffff:192.168.0.1"
+   ],
+   "allowed": false,
+   "reason": "rebind.example.com resolves to a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "https://rebind.example.com",
+   "addresses": [
+    "fe80::1"
+   ],
+   "allowed": false,
+   "reason": "rebind.example.com resolves to a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "https://empty.example.com",
+   "addresses": [],
+   "allowed": false,
+   "reason": "Could not resolve empty.example.com. Check that the domain is spelled correctly and exists."
+  },
+  {
+   "url": "https://gone.example.com",
+   "error": "ENOTFOUND",
+   "allowed": false,
+   "reason": "Could not resolve gone.example.com (ENOTFOUND). Check that the domain is spelled correctly and exists."
+  },
+  {
+   "url": "https://slow.example.com",
+   "error": "DNS_TIMEOUT",
+   "allowed": false,
+   "reason": "DNS lookup for slow.example.com timed out. The domain may be down or misspelled; retry, or use a different URL."
+  },
+  {
+   "url": "https://flaky.example.com",
+   "error": "EAI_AGAIN",
+   "allowed": false,
+   "reason": "Could not resolve flaky.example.com (EAI_AGAIN). Check that the domain is spelled correctly and exists."
+  },
+  {
+   "url": "https://odd.example.com",
+   "error": "",
+   "allowed": false,
+   "reason": "Could not resolve odd.example.com. Check that the domain is spelled correctly and exists."
+  },
+  {
+   "url": "http://8.8.8.8",
+   "addresses": [],
+   "allowed": true
+  },
+  {
+   "url": "http://[2606:4700::1111]",
+   "addresses": [],
+   "allowed": true
+  },
+  {
+   "url": "http://127.0.0.1",
+   "addresses": [
+    "8.8.8.8"
+   ],
+   "allowed": false,
+   "reason": "127.0.0.1 is a local or private network address, which is not reachable from here."
+  },
+  {
+   "url": "ftp://example.com",
+   "addresses": [
+    "8.8.8.8"
+   ],
+   "allowed": false,
+   "reason": "The ftp: scheme is not allowed. Only http:// and https:// URLs can be opened."
+  }
+ ]
+}

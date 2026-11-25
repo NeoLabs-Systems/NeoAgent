@@ -177,7 +177,7 @@ class LocalBackendInstaller {
           versionDirectory: versionDirectory,
           paths: paths,
           profile: profile,
-          nodeExecutable: _activationService.nodeExecutable(versionDirectory),
+          executable: _activationService.runtimeExecutable(versionDirectory),
           channel: channel,
         );
       } on Object {

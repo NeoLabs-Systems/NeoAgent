@@ -1,0 +1,7 @@
+xset -dpms
+xset s off
+xset s noblank
+chvt 1 >/dev/null 2>&1 || true
+/usr/local/bin/neoagent-display-setup || true
+pcmanfm --desktop --profile neoagent &
+tint2 -c /etc/xdg/tint2/tint2rc &

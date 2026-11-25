@@ -1,0 +1,323 @@
+{
+ "ops": [
+  {
+   "kind": "task",
+   "userId": 1,
+   "agentId": "agent-a",
+   "taskId": 7,
+   "taskName": "  Morning   mail\ncheck ",
+   "eventKind": "task_started",
+   "occurredAt": "2026-11-20T10:00:00.000Z",
+   "triggerType": "schedule",
+   "triggerSource": "schedule"
+  },
+  {
+   "kind": "task",
+   "userId": 1,
+   "agentId": "agent-a",
+   "taskId": 7,
+   "taskName": "Morning mail check",
+   "eventKind": "task_completed",
+   "occurredAt": "2026-11-20T10:02:00.000Z",
+   "runId": "run-1",
+   "triggerType": "schedule"
+  },
+  {
+   "kind": "task",
+   "userId": 1,
+   "agentId": "agent-b",
+   "taskId": 8,
+   "taskName": "Weather alerts for Berlin",
+   "eventKind": "task_failed",
+   "occurredAt": "2026-11-21T10:00:00.000Z",
+   "error": "Provider said: \"rate limit\"\nretry later",
+   "runId": "run-2"
+  },
+  {
+   "kind": "task",
+   "userId": 1,
+   "agentId": null,
+   "taskId": 9,
+   "taskName": "",
+   "eventKind": "task_skipped",
+   "occurredAt": "2026-11-22T10:00:00.000Z",
+   "reason": "stale_start_delay"
+  },
+  {
+   "kind": "task",
+   "userId": 1,
+   "agentId": "agent-a",
+   "taskId": 10,
+   "taskName": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "eventKind": "task_started",
+   "occurredAt": "2026-11-22T11:00:00.000Z",
+   "triggerType": "geofence_event"
+  },
+  {
+   "kind": "task",
+   "userId": 2,
+   "agentId": null,
+   "taskId": 1,
+   "taskName": "Bob private",
+   "eventKind": "task_started",
+   "occurredAt": "2026-11-22T10:00:00.000Z"
+  },
+  {
+   "kind": "run",
+   "userId": 1,
+   "agentId": "agent-a",
+   "runId": "run-3",
+   "title": "Plan the trip to Lisbon",
+   "eventKind": "run_started",
+   "occurredAt": "2026-11-23T10:00:00.000Z",
+   "status": "running",
+   "triggerSource": "user"
+  },
+  {
+   "kind": "run",
+   "userId": 1,
+   "agentId": "agent-b",
+   "runId": null,
+   "title": "",
+   "eventKind": "run_failed",
+   "occurredAt": "2026-11-23T12:00:00.000Z",
+   "error": "boom"
+  },
+  {
+   "kind": "run",
+   "userId": 1,
+   "agentId": "agent-a",
+   "runId": "run-4",
+   "title": "Summarize inbox",
+   "eventKind": "run_completed",
+   "occurredAt": "2026-11-23T14:00:00+02:00",
+   "status": "completed"
+  },
+  {
+   "kind": "raw",
+   "userId": 1,
+   "agentId": "agent-a",
+   "sourceKind": "screen",
+   "eventKind": "focus",
+   "occurredAt": "2026-11-23T13:00:00.000Z",
+   "title": "Browser",
+   "summary": "Reading Lisbon flight prices",
+   "metadata": {
+    "appName": "Safari",
+    "windowTitle": "Flights to Lisbon",
+    "deviceLabel": "MacBook"
+   }
+  },
+  {
+   "kind": "raw",
+   "userId": 1,
+   "agentId": null,
+   "sourceKind": "screen",
+   "eventKind": "focus",
+   "occurredAt": " 2026-11-19T08:30:00Z ",
+   "title": "Untimed",
+   "summary": "",
+   "metadata": {
+    "previewText": {
+     "x": 1
+    }
+   }
+  },
+  {
+   "kind": "raw",
+   "userId": 1,
+   "agentId": null,
+   "sourceKind": " other ",
+   "eventKind": "misc",
+   "occurredAt": "2026-11-19T10:00:00.000Z",
+   "title": "Other source",
+   "summary": "élan",
+   "metadata": {}
+  }
+ ],
+ "stored": [
+  "{\"id\":1,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-20T10:00:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":\"schedule\"}}",
+  "{\"id\":2,\"sourceKind\":\"tasks\",\"eventKind\":\"task_completed\",\"occurredAt\":\"2026-11-20T10:02:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":\"run-1\",\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":null}}",
+  "{\"id\":3,\"sourceKind\":\"tasks\",\"eventKind\":\"task_failed\",\"occurredAt\":\"2026-11-21T10:00:00.000Z\",\"title\":\"Weather alerts for Berlin\",\"summary\":\"Provider said: \\\"rate limit\\\" retry later\",\"agentId\":\"agent-b\",\"sourceId\":\"8\",\"metadata\":{\"taskId\":8,\"taskName\":\"Weather alerts for Berlin\",\"runId\":\"run-2\",\"reason\":null,\"error\":\"Provider said: \\\"rate limit\\\"\\nretry later\",\"triggerType\":null,\"triggerSource\":null}}",
+  "{\"id\":4,\"sourceKind\":\"tasks\",\"eventKind\":\"task_skipped\",\"occurredAt\":\"2026-11-22T10:00:00.000Z\",\"title\":\"Task 9\",\"summary\":\"stale_start_delay\",\"agentId\":null,\"sourceId\":\"9\",\"metadata\":{\"taskId\":9,\"taskName\":\"Task 9\",\"runId\":null,\"reason\":\"stale_start_delay\",\"error\":null,\"triggerType\":null,\"triggerSource\":null}}",
+  "{\"id\":5,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-22T11:00:00.000Z\",\"title\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"summary\":\"geofence_event\",\"agentId\":\"agent-a\",\"sourceId\":\"10\",\"metadata\":{\"taskId\":10,\"taskName\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"geofence_event\",\"triggerSource\":null}}",
+  "{\"id\":6,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-22T10:00:00.000Z\",\"title\":\"Bob private\",\"summary\":\"\",\"agentId\":null,\"sourceId\":\"1\",\"metadata\":{\"taskId\":1,\"taskName\":\"Bob private\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":null,\"triggerSource\":null}}",
+  "{\"id\":7,\"sourceKind\":\"runs\",\"eventKind\":\"run_started\",\"occurredAt\":\"2026-11-23T10:00:00.000Z\",\"title\":\"Plan the trip to Lisbon\",\"summary\":\"running\",\"agentId\":\"agent-a\",\"sourceId\":\"run-3\",\"metadata\":{\"runId\":\"run-3\",\"title\":\"Plan the trip to Lisbon\",\"status\":\"running\",\"triggerSource\":\"user\",\"error\":null}}",
+  "{\"id\":8,\"sourceKind\":\"runs\",\"eventKind\":\"run_failed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Untitled run\",\"summary\":\"boom\",\"agentId\":\"agent-b\",\"sourceId\":null,\"metadata\":{\"runId\":null,\"title\":\"Untitled run\",\"status\":null,\"triggerSource\":null,\"error\":\"boom\"}}",
+  "{\"id\":9,\"sourceKind\":\"runs\",\"eventKind\":\"run_completed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Summarize inbox\",\"summary\":\"completed\",\"agentId\":\"agent-a\",\"sourceId\":\"run-4\",\"metadata\":{\"runId\":\"run-4\",\"title\":\"Summarize inbox\",\"status\":\"completed\",\"triggerSource\":null,\"error\":null}}",
+  "{\"id\":10,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-23T13:00:00.000Z\",\"title\":\"Browser\",\"summary\":\"Reading Lisbon flight prices\",\"agentId\":\"agent-a\",\"sourceId\":null,\"metadata\":{\"appName\":\"Safari\",\"windowTitle\":\"Flights to Lisbon\",\"deviceLabel\":\"MacBook\"}}",
+  "{\"id\":11,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-19T08:30:00.000Z\",\"title\":\"Untimed\",\"summary\":\"\",\"agentId\":null,\"sourceId\":null,\"metadata\":{\"previewText\":{\"x\":1}}}",
+  "{\"id\":12,\"sourceKind\":\"other\",\"eventKind\":\"misc\",\"occurredAt\":\"2026-11-19T10:00:00.000Z\",\"title\":\"Other source\",\"summary\":\"élan\",\"agentId\":null,\"sourceId\":null,\"metadata\":{}}"
+ ],
+ "queries": [
+  {
+   "name": "list default",
+   "call": "list",
+   "userId": 1,
+   "out": "[{\"id\":10,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-23T13:00:00.000Z\",\"title\":\"Browser\",\"summary\":\"Reading Lisbon flight prices\",\"agentId\":\"agent-a\",\"sourceId\":null,\"metadata\":{\"appName\":\"Safari\",\"windowTitle\":\"Flights to Lisbon\",\"deviceLabel\":\"MacBook\"}},{\"id\":9,\"sourceKind\":\"runs\",\"eventKind\":\"run_completed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Summarize inbox\",\"summary\":\"completed\",\"agentId\":\"agent-a\",\"sourceId\":\"run-4\",\"metadata\":{\"runId\":\"run-4\",\"title\":\"Summarize inbox\",\"status\":\"completed\",\"triggerSource\":null,\"error\":null}},{\"id\":8,\"sourceKind\":\"runs\",\"eventKind\":\"run_failed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Untitled run\",\"summary\":\"boom\",\"agentId\":\"agent-b\",\"sourceId\":null,\"metadata\":{\"runId\":null,\"title\":\"Untitled run\",\"status\":null,\"triggerSource\":null,\"error\":\"boom\"}},{\"id\":7,\"sourceKind\":\"runs\",\"eventKind\":\"run_started\",\"occurredAt\":\"2026-11-23T10:00:00.000Z\",\"title\":\"Plan the trip to Lisbon\",\"summary\":\"running\",\"agentId\":\"agent-a\",\"sourceId\":\"run-3\",\"metadata\":{\"runId\":\"run-3\",\"title\":\"Plan the trip to Lisbon\",\"status\":\"running\",\"triggerSource\":\"user\",\"error\":null}},{\"id\":5,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-22T11:00:00.000Z\",\"title\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"summary\":\"geofence_event\",\"agentId\":\"agent-a\",\"sourceId\":\"10\",\"metadata\":{\"taskId\":10,\"taskName\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"geofence_event\",\"triggerSource\":null}},{\"id\":4,\"sourceKind\":\"tasks\",\"eventKind\":\"task_skipped\",\"occurredAt\":\"2026-11-22T10:00:00.000Z\",\"title\":\"Task 9\",\"summary\":\"stale_start_delay\",\"agentId\":null,\"sourceId\":\"9\",\"metadata\":{\"taskId\":9,\"taskName\":\"Task 9\",\"runId\":null,\"reason\":\"stale_start_delay\",\"error\":null,\"triggerType\":null,\"triggerSource\":null}},{\"id\":3,\"sourceKind\":\"tasks\",\"eventKind\":\"task_failed\",\"occurredAt\":\"2026-11-21T10:00:00.000Z\",\"title\":\"Weather alerts for Berlin\",\"summary\":\"Provider said: \\\"rate limit\\\" retry later\",\"agentId\":\"agent-b\",\"sourceId\":\"8\",\"metadata\":{\"taskId\":8,\"taskName\":\"Weather alerts for Berlin\",\"runId\":\"run-2\",\"reason\":null,\"error\":\"Provider said: \\\"rate limit\\\"\\nretry later\",\"triggerType\":null,\"triggerSource\":null}},{\"id\":2,\"sourceKind\":\"tasks\",\"eventKind\":\"task_completed\",\"occurredAt\":\"2026-11-20T10:02:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":\"run-1\",\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":null}},{\"id\":1,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-20T10:00:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":\"schedule\"}},{\"id\":12,\"sourceKind\":\"other\",\"eventKind\":\"misc\",\"occurredAt\":\"2026-11-19T10:00:00.000Z\",\"title\":\"Other source\",\"summary\":\"élan\",\"agentId\":null,\"sourceId\":null,\"metadata\":{}},{\"id\":11,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-19T08:30:00.000Z\",\"title\":\"Untimed\",\"summary\":\"\",\"agentId\":null,\"sourceId\":null,\"metadata\":{\"previewText\":{\"x\":1}}}]"
+  },
+  {
+   "name": "list limit 3",
+   "call": "list",
+   "userId": 1,
+   "options": {
+    "limit": "3"
+   },
+   "out": "[{\"id\":10,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-23T13:00:00.000Z\",\"title\":\"Browser\",\"summary\":\"Reading Lisbon flight prices\",\"agentId\":\"agent-a\",\"sourceId\":null,\"metadata\":{\"appName\":\"Safari\",\"windowTitle\":\"Flights to Lisbon\",\"deviceLabel\":\"MacBook\"}},{\"id\":9,\"sourceKind\":\"runs\",\"eventKind\":\"run_completed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Summarize inbox\",\"summary\":\"completed\",\"agentId\":\"agent-a\",\"sourceId\":\"run-4\",\"metadata\":{\"runId\":\"run-4\",\"title\":\"Summarize inbox\",\"status\":\"completed\",\"triggerSource\":null,\"error\":null}},{\"id\":8,\"sourceKind\":\"runs\",\"eventKind\":\"run_failed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Untitled run\",\"summary\":\"boom\",\"agentId\":\"agent-b\",\"sourceId\":null,\"metadata\":{\"runId\":null,\"title\":\"Untitled run\",\"status\":null,\"triggerSource\":null,\"error\":\"boom\"}}]"
+  },
+  {
+   "name": "list limit junk",
+   "call": "list",
+   "userId": 1,
+   "options": {
+    "limit": "abc"
+   },
+   "out": "[{\"id\":10,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-23T13:00:00.000Z\",\"title\":\"Browser\",\"summary\":\"Reading Lisbon flight prices\",\"agentId\":\"agent-a\",\"sourceId\":null,\"metadata\":{\"appName\":\"Safari\",\"windowTitle\":\"Flights to Lisbon\",\"deviceLabel\":\"MacBook\"}},{\"id\":9,\"sourceKind\":\"runs\",\"eventKind\":\"run_completed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Summarize inbox\",\"summary\":\"completed\",\"agentId\":\"agent-a\",\"sourceId\":\"run-4\",\"metadata\":{\"runId\":\"run-4\",\"title\":\"Summarize inbox\",\"status\":\"completed\",\"triggerSource\":null,\"error\":null}},{\"id\":8,\"sourceKind\":\"runs\",\"eventKind\":\"run_failed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Untitled run\",\"summary\":\"boom\",\"agentId\":\"agent-b\",\"sourceId\":null,\"metadata\":{\"runId\":null,\"title\":\"Untitled run\",\"status\":null,\"triggerSource\":null,\"error\":\"boom\"}},{\"id\":7,\"sourceKind\":\"runs\",\"eventKind\":\"run_started\",\"occurredAt\":\"2026-11-23T10:00:00.000Z\",\"title\":\"Plan the trip to Lisbon\",\"summary\":\"running\",\"agentId\":\"agent-a\",\"sourceId\":\"run-3\",\"metadata\":{\"runId\":\"run-3\",\"title\":\"Plan the trip to Lisbon\",\"status\":\"running\",\"triggerSource\":\"user\",\"error\":null}},{\"id\":5,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-22T11:00:00.000Z\",\"title\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"summary\":\"geofence_event\",\"agentId\":\"agent-a\",\"sourceId\":\"10\",\"metadata\":{\"taskId\":10,\"taskName\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"geofence_event\",\"triggerSource\":null}},{\"id\":4,\"sourceKind\":\"tasks\",\"eventKind\":\"task_skipped\",\"occurredAt\":\"2026-11-22T10:00:00.000Z\",\"title\":\"Task 9\",\"summary\":\"stale_start_delay\",\"agentId\":null,\"sourceId\":\"9\",\"metadata\":{\"taskId\":9,\"taskName\":\"Task 9\",\"runId\":null,\"reason\":\"stale_start_delay\",\"error\":null,\"triggerType\":null,\"triggerSource\":null}},{\"id\":3,\"sourceKind\":\"tasks\",\"eventKind\":\"task_failed\",\"occurredAt\":\"2026-11-21T10:00:00.000Z\",\"title\":\"Weather alerts for Berlin\",\"summary\":\"Provider said: \\\"rate limit\\\" retry later\",\"agentId\":\"agent-b\",\"sourceId\":\"8\",\"metadata\":{\"taskId\":8,\"taskName\":\"Weather alerts for Berlin\",\"runId\":\"run-2\",\"reason\":null,\"error\":\"Provider said: \\\"rate limit\\\"\\nretry later\",\"triggerType\":null,\"triggerSource\":null}},{\"id\":2,\"sourceKind\":\"tasks\",\"eventKind\":\"task_completed\",\"occurredAt\":\"2026-11-20T10:02:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":\"run-1\",\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":null}},{\"id\":1,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-20T10:00:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":\"schedule\"}},{\"id\":12,\"sourceKind\":\"other\",\"eventKind\":\"misc\",\"occurredAt\":\"2026-11-19T10:00:00.000Z\",\"title\":\"Other source\",\"summary\":\"élan\",\"agentId\":null,\"sourceId\":null,\"metadata\":{}},{\"id\":11,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-19T08:30:00.000Z\",\"title\":\"Untimed\",\"summary\":\"\",\"agentId\":null,\"sourceId\":null,\"metadata\":{\"previewText\":{\"x\":1}}}]"
+  },
+  {
+   "name": "list limit huge",
+   "call": "list",
+   "userId": 1,
+   "options": {
+    "limit": 5000
+   },
+   "out": "[{\"id\":10,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-23T13:00:00.000Z\",\"title\":\"Browser\",\"summary\":\"Reading Lisbon flight prices\",\"agentId\":\"agent-a\",\"sourceId\":null,\"metadata\":{\"appName\":\"Safari\",\"windowTitle\":\"Flights to Lisbon\",\"deviceLabel\":\"MacBook\"}},{\"id\":9,\"sourceKind\":\"runs\",\"eventKind\":\"run_completed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Summarize inbox\",\"summary\":\"completed\",\"agentId\":\"agent-a\",\"sourceId\":\"run-4\",\"metadata\":{\"runId\":\"run-4\",\"title\":\"Summarize inbox\",\"status\":\"completed\",\"triggerSource\":null,\"error\":null}},{\"id\":8,\"sourceKind\":\"runs\",\"eventKind\":\"run_failed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Untitled run\",\"summary\":\"boom\",\"agentId\":\"agent-b\",\"sourceId\":null,\"metadata\":{\"runId\":null,\"title\":\"Untitled run\",\"status\":null,\"triggerSource\":null,\"error\":\"boom\"}},{\"id\":7,\"sourceKind\":\"runs\",\"eventKind\":\"run_started\",\"occurredAt\":\"2026-11-23T10:00:00.000Z\",\"title\":\"Plan the trip to Lisbon\",\"summary\":\"running\",\"agentId\":\"agent-a\",\"sourceId\":\"run-3\",\"metadata\":{\"runId\":\"run-3\",\"title\":\"Plan the trip to Lisbon\",\"status\":\"running\",\"triggerSource\":\"user\",\"error\":null}},{\"id\":5,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-22T11:00:00.000Z\",\"title\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"summary\":\"geofence_event\",\"agentId\":\"agent-a\",\"sourceId\":\"10\",\"metadata\":{\"taskId\":10,\"taskName\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"geofence_event\",\"triggerSource\":null}},{\"id\":4,\"sourceKind\":\"tasks\",\"eventKind\":\"task_skipped\",\"occurredAt\":\"2026-11-22T10:00:00.000Z\",\"title\":\"Task 9\",\"summary\":\"stale_start_delay\",\"agentId\":null,\"sourceId\":\"9\",\"metadata\":{\"taskId\":9,\"taskName\":\"Task 9\",\"runId\":null,\"reason\":\"stale_start_delay\",\"error\":null,\"triggerType\":null,\"triggerSource\":null}},{\"id\":3,\"sourceKind\":\"tasks\",\"eventKind\":\"task_failed\",\"occurredAt\":\"2026-11-21T10:00:00.000Z\",\"title\":\"Weather alerts for Berlin\",\"summary\":\"Provider said: \\\"rate limit\\\" retry later\",\"agentId\":\"agent-b\",\"sourceId\":\"8\",\"metadata\":{\"taskId\":8,\"taskName\":\"Weather alerts for Berlin\",\"runId\":\"run-2\",\"reason\":null,\"error\":\"Provider said: \\\"rate limit\\\"\\nretry later\",\"triggerType\":null,\"triggerSource\":null}},{\"id\":2,\"sourceKind\":\"tasks\",\"eventKind\":\"task_completed\",\"occurredAt\":\"2026-11-20T10:02:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":\"run-1\",\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":null}},{\"id\":1,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-20T10:00:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":\"schedule\"}},{\"id\":12,\"sourceKind\":\"other\",\"eventKind\":\"misc\",\"occurredAt\":\"2026-11-19T10:00:00.000Z\",\"title\":\"Other source\",\"summary\":\"élan\",\"agentId\":null,\"sourceId\":null,\"metadata\":{}},{\"id\":11,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-19T08:30:00.000Z\",\"title\":\"Untimed\",\"summary\":\"\",\"agentId\":null,\"sourceId\":null,\"metadata\":{\"previewText\":{\"x\":1}}}]"
+  },
+  {
+   "name": "list tasks only",
+   "call": "list",
+   "userId": 1,
+   "options": {
+    "sources": [
+     "tasks"
+    ]
+   },
+   "out": "[{\"id\":5,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-22T11:00:00.000Z\",\"title\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"summary\":\"geofence_event\",\"agentId\":\"agent-a\",\"sourceId\":\"10\",\"metadata\":{\"taskId\":10,\"taskName\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"geofence_event\",\"triggerSource\":null}},{\"id\":4,\"sourceKind\":\"tasks\",\"eventKind\":\"task_skipped\",\"occurredAt\":\"2026-11-22T10:00:00.000Z\",\"title\":\"Task 9\",\"summary\":\"stale_start_delay\",\"agentId\":null,\"sourceId\":\"9\",\"metadata\":{\"taskId\":9,\"taskName\":\"Task 9\",\"runId\":null,\"reason\":\"stale_start_delay\",\"error\":null,\"triggerType\":null,\"triggerSource\":null}},{\"id\":3,\"sourceKind\":\"tasks\",\"eventKind\":\"task_failed\",\"occurredAt\":\"2026-11-21T10:00:00.000Z\",\"title\":\"Weather alerts for Berlin\",\"summary\":\"Provider said: \\\"rate limit\\\" retry later\",\"agentId\":\"agent-b\",\"sourceId\":\"8\",\"metadata\":{\"taskId\":8,\"taskName\":\"Weather alerts for Berlin\",\"runId\":\"run-2\",\"reason\":null,\"error\":\"Provider said: \\\"rate limit\\\"\\nretry later\",\"triggerType\":null,\"triggerSource\":null}},{\"id\":2,\"sourceKind\":\"tasks\",\"eventKind\":\"task_completed\",\"occurredAt\":\"2026-11-20T10:02:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":\"run-1\",\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":null}},{\"id\":1,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-20T10:00:00.000Z\",\"title\":\"Morning mail check\",\"summary\":\"schedule\",\"agentId\":\"agent-a\",\"sourceId\":\"7\",\"metadata\":{\"taskId\":7,\"taskName\":\"Morning mail check\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":\"schedule\",\"triggerSource\":\"schedule\"}}]"
+  },
+  {
+   "name": "list sources padded",
+   "call": "list",
+   "userId": 1,
+   "options": {
+    "sources": [
+     " screen ",
+     "",
+     "runs"
+    ]
+   },
+   "out": "[{\"id\":10,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-23T13:00:00.000Z\",\"title\":\"Browser\",\"summary\":\"Reading Lisbon flight prices\",\"agentId\":\"agent-a\",\"sourceId\":null,\"metadata\":{\"appName\":\"Safari\",\"windowTitle\":\"Flights to Lisbon\",\"deviceLabel\":\"MacBook\"}},{\"id\":9,\"sourceKind\":\"runs\",\"eventKind\":\"run_completed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Summarize inbox\",\"summary\":\"completed\",\"agentId\":\"agent-a\",\"sourceId\":\"run-4\",\"metadata\":{\"runId\":\"run-4\",\"title\":\"Summarize inbox\",\"status\":\"completed\",\"triggerSource\":null,\"error\":null}},{\"id\":8,\"sourceKind\":\"runs\",\"eventKind\":\"run_failed\",\"occurredAt\":\"2026-11-23T12:00:00.000Z\",\"title\":\"Untitled run\",\"summary\":\"boom\",\"agentId\":\"agent-b\",\"sourceId\":null,\"metadata\":{\"runId\":null,\"title\":\"Untitled run\",\"status\":null,\"triggerSource\":null,\"error\":\"boom\"}},{\"id\":7,\"sourceKind\":\"runs\",\"eventKind\":\"run_started\",\"occurredAt\":\"2026-11-23T10:00:00.000Z\",\"title\":\"Plan the trip to Lisbon\",\"summary\":\"running\",\"agentId\":\"agent-a\",\"sourceId\":\"run-3\",\"metadata\":{\"runId\":\"run-3\",\"title\":\"Plan the trip to Lisbon\",\"status\":\"running\",\"triggerSource\":\"user\",\"error\":null}},{\"id\":11,\"sourceKind\":\"screen\",\"eventKind\":\"focus\",\"occurredAt\":\"2026-11-19T08:30:00.000Z\",\"title\":\"Untimed\",\"summary\":\"\",\"agentId\":null,\"sourceId\":null,\"metadata\":{\"previewText\":{\"x\":1}}}]"
+  },
+  {
+   "name": "list bob",
+   "call": "list",
+   "userId": 2,
+   "out": "[{\"id\":6,\"sourceKind\":\"tasks\",\"eventKind\":\"task_started\",\"occurredAt\":\"2026-11-22T10:00:00.000Z\",\"title\":\"Bob private\",\"summary\":\"\",\"agentId\":null,\"sourceId\":\"1\",\"metadata\":{\"taskId\":1,\"taskName\":\"Bob private\",\"runId\":null,\"reason\":null,\"error\":null,\"triggerType\":null,\"triggerSource\":null}}]"
+  },
+  {
+   "name": "list nobody",
+   "call": "list",
+   "userId": 3,
+   "out": "[]"
+  },
+  {
+   "name": "prompt default",
+   "call": "prompt",
+   "userId": 1,
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [task 2026-11-22 10:00] Task 9 · task_skipped — stale_start_delay\n- [task 2026-11-22 11:00] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · task_started — geofence_event\n- [run 2026-11-23 10:00] Plan the trip to Lisbon · run_started — running\n- [run 2026-11-23 12:00] Summarize inbox · run_completed — completed\n- [run 2026-11-23 12:00] Untitled run · run_failed — boom\n- [run 2026-11-23 13:00] Browser · focus — Reading Lisbon flight prices"
+  },
+  {
+   "name": "prompt limit 2",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "limit": 2
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [run 2026-11-23 12:00] Summarize inbox · run_completed — completed\n- [run 2026-11-23 13:00] Browser · focus — Reading Lisbon flight prices"
+  },
+  {
+   "name": "prompt query lisbon",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "query": "Lisbon flights"
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [run 2026-11-23 10:00] Plan the trip to Lisbon · run_started — running\n- [run 2026-11-23 13:00] Browser · focus — Reading Lisbon flight prices"
+  },
+  {
+   "name": "prompt query no match",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "query": "quantum physics"
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [task 2026-11-22 10:00] Task 9 · task_skipped — stale_start_delay\n- [task 2026-11-22 11:00] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · task_started — geofence_event\n- [run 2026-11-23 10:00] Plan the trip to Lisbon · run_started — running\n- [run 2026-11-23 12:00] Summarize inbox · run_completed — completed\n- [run 2026-11-23 12:00] Untitled run · run_failed — boom\n- [run 2026-11-23 13:00] Browser · focus — Reading Lisbon flight prices"
+  },
+  {
+   "name": "prompt query short words",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "query": "a to be"
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [task 2026-11-22 10:00] Task 9 · task_skipped — stale_start_delay\n- [task 2026-11-22 11:00] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · task_started — geofence_event\n- [run 2026-11-23 10:00] Plan the trip to Lisbon · run_started — running\n- [run 2026-11-23 12:00] Summarize inbox · run_completed — completed\n- [run 2026-11-23 12:00] Untitled run · run_failed — boom\n- [run 2026-11-23 13:00] Browser · focus — Reading Lisbon flight prices"
+  },
+  {
+   "name": "prompt agent b",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "agentId": "agent-b"
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [task 2026-11-22 10:00] Task 9 · task_skipped — stale_start_delay\n- [task 2026-11-22 11:00] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · task_started — geofence_event\n- [run 2026-11-23 10:00] Plan the trip to Lisbon · run_started — running\n- [run 2026-11-23 12:00] Summarize inbox · run_completed — completed\n- [run 2026-11-23 12:00] Untitled run · run_failed — boom\n- [run 2026-11-23 13:00] Browser · focus — Reading Lisbon flight prices"
+  },
+  {
+   "name": "prompt agent and query",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "agentId": " agent-b ",
+    "query": "mail check",
+    "limit": 3
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [task 2026-11-20 10:00] Morning mail check · task_started — schedule\n- [task 2026-11-20 10:02] Morning mail check · task_completed · run run-1 — schedule\n- [run 2026-11-23 12:00] Untitled run · run_failed — boom"
+  },
+  {
+   "name": "prompt tasks",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "sources": [
+     "tasks"
+    ],
+    "limit": 12
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [task 2026-11-20 10:00] Morning mail check · task_started — schedule\n- [task 2026-11-20 10:02] Morning mail check · task_completed · run run-1 — schedule\n- [task 2026-11-21 10:00] Weather alerts for Berlin · task_failed · run run-2 — Provider said: \"rate limit\" retry later\n- [task 2026-11-22 10:00] Task 9 · task_skipped — stale_start_delay\n- [task 2026-11-22 11:00] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · task_started — geofence_event"
+  },
+  {
+   "name": "prompt other source",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "sources": [
+     "other"
+    ]
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [run 2026-11-19 10:00] Other source · misc — élan"
+  },
+  {
+   "name": "prompt empty",
+   "call": "prompt",
+   "userId": 3,
+   "out": ""
+  },
+  {
+   "name": "prompt limit capped",
+   "call": "prompt",
+   "userId": 1,
+   "options": {
+    "limit": 99
+   },
+   "out": "Recent timeline context (user-wide, recent activity only; use as soft situational context, not as authoritative proof):\n- [run 2026-11-19 08:30] Untimed · focus\n- [task 2026-11-20 10:00] Morning mail check · task_started — schedule\n- [task 2026-11-20 10:02] Morning mail check · task_completed · run run-1 — schedule\n- [task 2026-11-21 10:00] Weather alerts for Berlin · task_failed · run run-2 — Provider said: \"rate limit\" retry later\n- [task 2026-11-22 10:00] Task 9 · task_skipped — stale_start_delay\n- [task 2026-11-22 11:00] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · task_started — geofence_event\n- [run 2026-11-23 10:00] Plan the trip to Lisbon · run_started — running\n- [run 2026-11-23 12:00] Summarize inbox · run_completed — completed\n- [run 2026-11-23 12:00] Untitled run · run_failed — boom\n- [run 2026-11-23 13:00] Browser · focus — Reading Lisbon flight prices"
+  }
+ ]
+}

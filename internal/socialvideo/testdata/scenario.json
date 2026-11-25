@@ -1,0 +1,2466 @@
+{
+ "urlVectors": [
+  {
+   "input": "https://youtu.be/abc123?si=xyz&t=5",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?t=5&v=abc123"
+   }
+  },
+  {
+   "input": "youtu.be/abc123",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?v=abc123"
+   }
+  },
+  {
+   "input": "https://youtu.be/",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch"
+   }
+  },
+  {
+   "input": "https://m.youtube.com/watch?v=1&utm_source=a&utm_medium=b",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?v=1"
+   }
+  },
+  {
+   "input": "https://www.youtube.com/watch?v=a b&x=%41%zz+q#frag",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?v=a%20b&x=%41%zz+q"
+   }
+  },
+  {
+   "input": "HTTPS://WWW.YouTube.com:443/Watch?v=1",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/Watch?v=1"
+   }
+  },
+  {
+   "input": "https://youtube.com:8080/shorts/xx",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com:8080/shorts/xx"
+   }
+  },
+  {
+   "input": "https://twitter.com/user/status/123?s=20&utm_campaign=z",
+   "ok": {
+    "platform": "x",
+    "normalizedUrl": "https://x.com/user/status/123?s=20"
+   }
+  },
+  {
+   "input": "x.com/a/status/1",
+   "ok": {
+    "platform": "x",
+    "normalizedUrl": "https://x.com/a/status/1"
+   }
+  },
+  {
+   "input": "https://mobile.twitter.com/a",
+   "ok": {
+    "platform": "x",
+    "normalizedUrl": "https://x.com/a"
+   }
+  },
+  {
+   "input": "https://vm.tiktok.com/ZM123/",
+   "ok": {
+    "platform": "tiktok",
+    "normalizedUrl": "https://vm.tiktok.com/ZM123/"
+   }
+  },
+  {
+   "input": "https://www.tiktok.com/@u/video/1?utm_x=1",
+   "ok": {
+    "platform": "tiktok",
+    "normalizedUrl": "https://www.tiktok.com/@u/video/1"
+   }
+  },
+  {
+   "input": "https://instagr.am/p/abc/?igshid=1&si=2",
+   "ok": {
+    "platform": "instagram",
+    "normalizedUrl": "https://instagr.am/p/abc/?igshid=1"
+   }
+  },
+  {
+   "input": "https://www.instagram.com/reel/abc/?utm_source=ig_web",
+   "ok": {
+    "platform": "instagram",
+    "normalizedUrl": "https://www.instagram.com/reel/abc/"
+   }
+  },
+  {
+   "input": "https://www.instagram.com/p/a/../b/./c",
+   "ok": {
+    "platform": "instagram",
+    "normalizedUrl": "https://www.instagram.com/p/b/c"
+   }
+  },
+  {
+   "input": "https://www.youtube.com/watch?v=é&q=ü",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?v=%C3%A9&q=%C3%BC"
+   }
+  },
+  {
+   "input": "https://www.youtube.com/wätch?v=1",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/w%C3%A4tch?v=1"
+   }
+  },
+  {
+   "input": "https://example.com/video",
+   "error": "Unsupported social video URL. Supported platforms: YouTube, TikTok, Instagram, and X."
+  },
+  {
+   "input": "ftp://youtube.com/x",
+   "error": "Only http and https URLs are supported."
+  },
+  {
+   "input": "javascript:alert(1)",
+   "error": "Invalid URL"
+  },
+  {
+   "input": "",
+   "error": "url is required."
+  },
+  {
+   "input": "   ",
+   "error": "url is required."
+  },
+  {
+   "input": "not a url",
+   "error": "Invalid URL"
+  },
+  {
+   "input": "https://",
+   "error": "Invalid URL"
+  },
+  {
+   "input": "https://youtube.com:99999/x",
+   "error": "Invalid URL"
+  },
+  {
+   "input": "https://user:pw@youtube.com/watch?v=1",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://user:pw@www.youtube.com/watch?v=1"
+   }
+  },
+  {
+   "input": "https://www.youtube.com/watch?v=1&v=2&si=3",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?v=1&v=2"
+   }
+  },
+  {
+   "input": "https://youtu.be/id?v=old&a=1",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?v=id&a=1"
+   }
+  },
+  {
+   "input": "https://www.youtube.com\\watch?v=2",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?v=2"
+   }
+  },
+  {
+   "input": "https://nottiktok.com/x",
+   "error": "Unsupported social video URL. Supported platforms: YouTube, TikTok, Instagram, and X."
+  },
+  {
+   "input": "https://evil.com/?u=youtube.com",
+   "error": "Unsupported social video URL. Supported platforms: YouTube, TikTok, Instagram, and X."
+  },
+  {
+   "input": "https://www.youtube.com/watch?a=1&&b=2&=c&d",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?a=1&&b=2&=c&d"
+   }
+  },
+  {
+   "input": "https://www.youtube.com/watch?q=\"x\"'y'",
+   "ok": {
+    "platform": "youtube",
+    "normalizedUrl": "https://www.youtube.com/watch?q=%22x%22%27y%27"
+   }
+  }
+ ],
+ "pickVectors": [
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/en.srt",
+       "ext": "srt"
+      },
+      {
+       "url": "https://x/en.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "items": [
+      {
+       "url": "https://x/gb.json3",
+       "ext": "json3"
+      }
+     ]
+    },
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    }
+   ],
+   "prefs": [],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/en.srt\",\"ext\":\"srt\"},{\"url\":\"https://x/en.vtt\",\"ext\":\"vtt\"}],\"en-GB\":[{\"url\":\"https://x/gb.json3\",\"ext\":\"json3\"}],\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/en.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/en.srt",
+       "ext": "srt"
+      },
+      {
+       "url": "https://x/en.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "items": [
+      {
+       "url": "https://x/gb.json3",
+       "ext": "json3"
+      }
+     ]
+    },
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "en",
+    "en-us"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/en.srt\",\"ext\":\"srt\"},{\"url\":\"https://x/en.vtt\",\"ext\":\"vtt\"}],\"en-GB\":[{\"url\":\"https://x/gb.json3\",\"ext\":\"json3\"}],\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/en.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/en.srt",
+       "ext": "srt"
+      },
+      {
+       "url": "https://x/en.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "items": [
+      {
+       "url": "https://x/gb.json3",
+       "ext": "json3"
+      }
+     ]
+    },
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "fr"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/en.srt\",\"ext\":\"srt\"},{\"url\":\"https://x/en.vtt\",\"ext\":\"vtt\"}],\"en-GB\":[{\"url\":\"https://x/gb.json3\",\"ext\":\"json3\"}],\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/en.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/en.srt",
+       "ext": "srt"
+      },
+      {
+       "url": "https://x/en.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "items": [
+      {
+       "url": "https://x/gb.json3",
+       "ext": "json3"
+      }
+     ]
+    },
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "EN-GB",
+    "en"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/en.srt\",\"ext\":\"srt\"},{\"url\":\"https://x/en.vtt\",\"ext\":\"vtt\"}],\"en-GB\":[{\"url\":\"https://x/gb.json3\",\"ext\":\"json3\"}],\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}]}",
+   "pick": {
+    "language": "en-gb",
+    "url": "https://x/gb.json3",
+    "ext": "json3",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/en.srt",
+       "ext": "srt"
+      },
+      {
+       "url": "https://x/en.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "en-GB",
+     "items": [
+      {
+       "url": "https://x/gb.json3",
+       "ext": "json3"
+      }
+     ]
+    },
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "xx"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/en.srt\",\"ext\":\"srt\"},{\"url\":\"https://x/en.vtt\",\"ext\":\"vtt\"}],\"en-GB\":[{\"url\":\"https://x/gb.json3\",\"ext\":\"json3\"}],\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/en.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "fr",
+     "items": [
+      {
+       "url": "https://x/fr.ttml",
+       "ext": "ttml"
+      }
+     ]
+    }
+   ],
+   "prefs": [],
+   "groupsJson": "{\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}],\"fr\":[{\"url\":\"https://x/fr.ttml\",\"ext\":\"ttml\"}]}",
+   "pick": {
+    "language": "de",
+    "url": "https://x/de.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "fr",
+     "items": [
+      {
+       "url": "https://x/fr.ttml",
+       "ext": "ttml"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "en",
+    "en-us"
+   ],
+   "groupsJson": "{\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}],\"fr\":[{\"url\":\"https://x/fr.ttml\",\"ext\":\"ttml\"}]}",
+   "pick": {
+    "language": "de",
+    "url": "https://x/de.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "fr",
+     "items": [
+      {
+       "url": "https://x/fr.ttml",
+       "ext": "ttml"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "fr"
+   ],
+   "groupsJson": "{\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}],\"fr\":[{\"url\":\"https://x/fr.ttml\",\"ext\":\"ttml\"}]}",
+   "pick": {
+    "language": "fr",
+    "url": "https://x/fr.ttml",
+    "ext": "ttml",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "fr",
+     "items": [
+      {
+       "url": "https://x/fr.ttml",
+       "ext": "ttml"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "EN-GB",
+    "en"
+   ],
+   "groupsJson": "{\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}],\"fr\":[{\"url\":\"https://x/fr.ttml\",\"ext\":\"ttml\"}]}",
+   "pick": {
+    "language": "de",
+    "url": "https://x/de.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "de",
+     "items": [
+      {
+       "url": "https://x/de.vtt",
+       "ext": "vtt"
+      }
+     ]
+    },
+    {
+     "language": "fr",
+     "items": [
+      {
+       "url": "https://x/fr.ttml",
+       "ext": "ttml"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "xx"
+   ],
+   "groupsJson": "{\"de\":[{\"url\":\"https://x/de.vtt\",\"ext\":\"vtt\"}],\"fr\":[{\"url\":\"https://x/fr.ttml\",\"ext\":\"ttml\"}]}",
+   "pick": {
+    "language": "de",
+    "url": "https://x/de.vtt",
+    "ext": "vtt",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en-US",
+     "items": [
+      {
+       "url": " https://x/a ",
+       "ext": "XML",
+       "name": " A "
+      }
+     ]
+    },
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "",
+       "ext": "vtt"
+      },
+      null,
+      5
+     ]
+    }
+   ],
+   "prefs": [],
+   "groupsJson": "{\"en-US\":[{\"url\":\" https://x/a \",\"ext\":\"XML\",\"name\":\" A \"}],\"en\":[{\"url\":\"\",\"ext\":\"vtt\"},null,5]}",
+   "pick": {
+    "language": "en-us",
+    "url": "https://x/a",
+    "ext": "xml",
+    "name": "A"
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en-US",
+     "items": [
+      {
+       "url": " https://x/a ",
+       "ext": "XML",
+       "name": " A "
+      }
+     ]
+    },
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "",
+       "ext": "vtt"
+      },
+      null,
+      5
+     ]
+    }
+   ],
+   "prefs": [
+    "en",
+    "en-us"
+   ],
+   "groupsJson": "{\"en-US\":[{\"url\":\" https://x/a \",\"ext\":\"XML\",\"name\":\" A \"}],\"en\":[{\"url\":\"\",\"ext\":\"vtt\"},null,5]}",
+   "pick": {
+    "language": "en-us",
+    "url": "https://x/a",
+    "ext": "xml",
+    "name": "A"
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en-US",
+     "items": [
+      {
+       "url": " https://x/a ",
+       "ext": "XML",
+       "name": " A "
+      }
+     ]
+    },
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "",
+       "ext": "vtt"
+      },
+      null,
+      5
+     ]
+    }
+   ],
+   "prefs": [
+    "fr"
+   ],
+   "groupsJson": "{\"en-US\":[{\"url\":\" https://x/a \",\"ext\":\"XML\",\"name\":\" A \"}],\"en\":[{\"url\":\"\",\"ext\":\"vtt\"},null,5]}",
+   "pick": {
+    "language": "en-us",
+    "url": "https://x/a",
+    "ext": "xml",
+    "name": "A"
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en-US",
+     "items": [
+      {
+       "url": " https://x/a ",
+       "ext": "XML",
+       "name": " A "
+      }
+     ]
+    },
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "",
+       "ext": "vtt"
+      },
+      null,
+      5
+     ]
+    }
+   ],
+   "prefs": [
+    "EN-GB",
+    "en"
+   ],
+   "groupsJson": "{\"en-US\":[{\"url\":\" https://x/a \",\"ext\":\"XML\",\"name\":\" A \"}],\"en\":[{\"url\":\"\",\"ext\":\"vtt\"},null,5]}",
+   "pick": {
+    "language": "en-us",
+    "url": "https://x/a",
+    "ext": "xml",
+    "name": "A"
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en-US",
+     "items": [
+      {
+       "url": " https://x/a ",
+       "ext": "XML",
+       "name": " A "
+      }
+     ]
+    },
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "",
+       "ext": "vtt"
+      },
+      null,
+      5
+     ]
+    }
+   ],
+   "prefs": [
+    "xx"
+   ],
+   "groupsJson": "{\"en-US\":[{\"url\":\" https://x/a \",\"ext\":\"XML\",\"name\":\" A \"}],\"en\":[{\"url\":\"\",\"ext\":\"vtt\"},null,5]}",
+   "pick": {
+    "language": "en-us",
+    "url": "https://x/a",
+    "ext": "xml",
+    "name": "A"
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/1",
+       "ext": "json"
+      },
+      {
+       "url": "https://x/2",
+       "ext": "json"
+      }
+     ]
+    }
+   ],
+   "prefs": [],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/1\",\"ext\":\"json\"},{\"url\":\"https://x/2\",\"ext\":\"json\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/1",
+    "ext": "json",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/1",
+       "ext": "json"
+      },
+      {
+       "url": "https://x/2",
+       "ext": "json"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "en",
+    "en-us"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/1\",\"ext\":\"json\"},{\"url\":\"https://x/2\",\"ext\":\"json\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/1",
+    "ext": "json",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/1",
+       "ext": "json"
+      },
+      {
+       "url": "https://x/2",
+       "ext": "json"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "fr"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/1\",\"ext\":\"json\"},{\"url\":\"https://x/2\",\"ext\":\"json\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/1",
+    "ext": "json",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/1",
+       "ext": "json"
+      },
+      {
+       "url": "https://x/2",
+       "ext": "json"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "EN-GB",
+    "en"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/1\",\"ext\":\"json\"},{\"url\":\"https://x/2\",\"ext\":\"json\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/1",
+    "ext": "json",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": [
+      {
+       "url": "https://x/1",
+       "ext": "json"
+      },
+      {
+       "url": "https://x/2",
+       "ext": "json"
+      }
+     ]
+    }
+   ],
+   "prefs": [
+    "xx"
+   ],
+   "groupsJson": "{\"en\":[{\"url\":\"https://x/1\",\"ext\":\"json\"},{\"url\":\"https://x/2\",\"ext\":\"json\"}]}",
+   "pick": {
+    "language": "en",
+    "url": "https://x/1",
+    "ext": "json",
+    "name": ""
+   }
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": "nope"
+    },
+    {
+     "language": "fr",
+     "items": []
+    }
+   ],
+   "prefs": [],
+   "groupsJson": "{\"en\":\"nope\",\"fr\":[]}",
+   "pick": null
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": "nope"
+    },
+    {
+     "language": "fr",
+     "items": []
+    }
+   ],
+   "prefs": [
+    "en",
+    "en-us"
+   ],
+   "groupsJson": "{\"en\":\"nope\",\"fr\":[]}",
+   "pick": null
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": "nope"
+    },
+    {
+     "language": "fr",
+     "items": []
+    }
+   ],
+   "prefs": [
+    "fr"
+   ],
+   "groupsJson": "{\"en\":\"nope\",\"fr\":[]}",
+   "pick": null
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": "nope"
+    },
+    {
+     "language": "fr",
+     "items": []
+    }
+   ],
+   "prefs": [
+    "EN-GB",
+    "en"
+   ],
+   "groupsJson": "{\"en\":\"nope\",\"fr\":[]}",
+   "pick": null
+  },
+  {
+   "groups": [
+    {
+     "language": "en",
+     "items": "nope"
+    },
+    {
+     "language": "fr",
+     "items": []
+    }
+   ],
+   "prefs": [
+    "xx"
+   ],
+   "groupsJson": "{\"en\":\"nope\",\"fr\":[]}",
+   "pick": null
+  },
+  {
+   "groups": [],
+   "prefs": [],
+   "groupsJson": "{}",
+   "pick": null
+  },
+  {
+   "groups": [],
+   "prefs": [
+    "en",
+    "en-us"
+   ],
+   "groupsJson": "{}",
+   "pick": null
+  },
+  {
+   "groups": [],
+   "prefs": [
+    "fr"
+   ],
+   "groupsJson": "{}",
+   "pick": null
+  },
+  {
+   "groups": [],
+   "prefs": [
+    "EN-GB",
+    "en"
+   ],
+   "groupsJson": "{}",
+   "pick": null
+  },
+  {
+   "groups": [],
+   "prefs": [
+    "xx"
+   ],
+   "groupsJson": "{}",
+   "pick": null
+  }
+ ],
+ "parseVectors": [
+  {
+   "raw": "WEBVTT\n\nNOTE hello\n\n1\n00:00:01.000 --> 00:00:02.000\n<c.color>Hello</c> &amp; {\\an8}world [Music]\n\n00:03.000 --> 00:04.000\nHello &amp; world\nHello &amp; world\n\n2\n00:00:05,000 --> 00:00:06,000\nbye&nbsp;now\r\nline",
+   "ext": "vtt",
+   "text": "Hello & world bye now line"
+  },
+  {
+   "raw": "WEBVTT\n\nNOTE hello\n\n1\n00:00:01.000 --> 00:00:02.000\n<c.color>Hello</c> &amp; {\\an8}world [Music]\n\n00:03.000 --> 00:04.000\nHello &amp; world\nHello &amp; world\n\n2\n00:00:05,000 --> 00:00:06,000\nbye&nbsp;now\r\nline",
+   "ext": "WEBVTT",
+   "text": "Hello & world bye now line"
+  },
+  {
+   "raw": "WEBVTT\n\nNOTE hello\n\n1\n00:00:01.000 --> 00:00:02.000\n<c.color>Hello</c> &amp; {\\an8}world [Music]\n\n00:03.000 --> 00:04.000\nHello &amp; world\nHello &amp; world\n\n2\n00:00:05,000 --> 00:00:06,000\nbye&nbsp;now\r\nline",
+   "ext": "srt",
+   "text": "Hello & world bye now line"
+  },
+  {
+   "raw": "WEBVTT\n\nNOTE hello\n\n1\n00:00:01.000 --> 00:00:02.000\n<c.color>Hello</c> &amp; {\\an8}world [Music]\n\n00:03.000 --> 00:04.000\nHello &amp; world\nHello &amp; world\n\n2\n00:00:05,000 --> 00:00:06,000\nbye&nbsp;now\r\nline",
+   "ext": "",
+   "text": "Hello & world bye now line"
+  },
+  {
+   "raw": "<?xml version=\"1.0\"?><tt xmlns=\"http://www.w3.org/ns/ttml\"><body><div><p begin=\"1\">Hi<br/>there &amp; &lt;you&gt;</p><p>Hi there &amp; &lt;you&gt;</p><p>&quot;q&quot; &#39;s&#39;</p></div></body></tt>",
+   "ext": "ttml",
+   "text": "Hi there & <you> \"q\" 's'"
+  },
+  {
+   "raw": "<?xml version=\"1.0\"?><tt xmlns=\"http://www.w3.org/ns/ttml\"><body><div><p begin=\"1\">Hi<br/>there &amp; &lt;you&gt;</p><p>Hi there &amp; &lt;you&gt;</p><p>&quot;q&quot; &#39;s&#39;</p></div></body></tt>",
+   "ext": "xml",
+   "text": "Hi there & <you> \"q\" 's'"
+  },
+  {
+   "raw": "<?xml version=\"1.0\"?><tt xmlns=\"http://www.w3.org/ns/ttml\"><body><div><p begin=\"1\">Hi<br/>there &amp; &lt;you&gt;</p><p>Hi there &amp; &lt;you&gt;</p><p>&quot;q&quot; &#39;s&#39;</p></div></body></tt>",
+   "ext": "",
+   "text": "Hi there & <you> \"q\" 's'"
+  },
+  {
+   "raw": "<tt xmlns:x=\"a\">plain &amp; text</tt>",
+   "ext": "unknown",
+   "text": "plain & text"
+  },
+  {
+   "raw": "{\"events\":[{\"segs\":[{\"utf8\":\"Hello \"},{\"utf8\":\"there\"}]},{\"segs\":[{\"utf8\":\"Hello there\"}]},{},{\"segs\":[{\"utf8\":\"[Music]\"}]},{\"segs\":[{\"utf8\":\"ok <b>x</b>\"},{}]}]}",
+   "ext": "json3",
+   "text": "Hello there ok x"
+  },
+  {
+   "raw": "{\"events\":[{\"segs\":[{\"utf8\":\"Hello \"},{\"utf8\":\"there\"}]},{\"segs\":[{\"utf8\":\"Hello there\"}]},{},{\"segs\":[{\"utf8\":\"[Music]\"}]},{\"segs\":[{\"utf8\":\"ok <b>x</b>\"},{}]}]}",
+   "ext": "json",
+   "text": "Hello there ok x"
+  },
+  {
+   "raw": "not json",
+   "ext": "json3",
+   "text": ""
+  },
+  {
+   "raw": "<p>a</p><p>a</p><p>b</p>",
+   "ext": "xml",
+   "text": "a b"
+  },
+  {
+   "raw": "no paragraphs <b>here</b> &amp; there",
+   "ext": "ttml",
+   "text": "no paragraphs here & there"
+  },
+  {
+   "raw": "1\n00:00:01,500 --> 00:00:02,000\nWell, hello, you",
+   "ext": "srt",
+   "text": "Well. hello. you"
+  }
+ ],
+ "tooBig": {
+  "ext": "vtt",
+  "size": 2097153,
+  "error": "parseWebVttToText input exceeds MAX_VTT_BYTES (2097152)."
+ },
+ "htmlVectors": [
+  {
+   "html": "<html><head><title> My &amp; Title </title><meta property=\"og:title\" content=\"OG &quot;T&quot;\"><meta name=\"description\" content=\"Desc   here\"><link rel=\"canonical\" href=\"https://c/x\"></head></html>",
+   "meta": {
+    "title": "OG \"T\"",
+    "description": "Desc here",
+    "canonicalUrl": "https://c/x"
+   }
+  },
+  {
+   "html": "<meta content=\"Rev order\" property=\"og:description\"><meta content=\"D2\" name=\"twitter:description\"><title>T</title>",
+   "meta": {
+    "title": "T",
+    "description": "Rev order",
+    "canonicalUrl": "https://fallback"
+   }
+  },
+  {
+   "html": "<link href=\"https://c/y\" rel=\"canonical\">",
+   "meta": {
+    "title": "",
+    "description": "",
+    "canonicalUrl": "https://c/y"
+   }
+  },
+  {
+   "html": "<link rel=\"alternate\" href=\"https://c/z\"><link rel=\"canonical\">",
+   "meta": {
+    "title": "",
+    "description": "",
+    "canonicalUrl": "https://fallback"
+   }
+  },
+  {
+   "html": "<TITLE>Up</TITLE>",
+   "meta": {
+    "title": "Up",
+    "description": "",
+    "canonicalUrl": "https://fallback"
+   }
+  },
+  {
+   "html": "",
+   "meta": {
+    "title": "",
+    "description": "",
+    "canonicalUrl": "https://fallback"
+   }
+  },
+  {
+   "html": "<meta name=\"twitter:title\" content=\"TT\nx\">",
+   "meta": {
+    "title": "TT x",
+    "description": "",
+    "canonicalUrl": "https://fallback"
+   }
+  },
+  {
+   "html": "<meta name=\"description\" content=\"\">",
+   "meta": {
+    "title": "",
+    "description": "",
+    "canonicalUrl": "https://fallback"
+   }
+  }
+ ],
+ "frameVectors": [
+  {
+   "duration": null,
+   "second": 2,
+   "set": false
+  },
+  {
+   "duration": null,
+   "second": 2,
+   "set": true
+  },
+  {
+   "duration": 0,
+   "second": 2,
+   "set": true
+  },
+  {
+   "duration": -5,
+   "second": 2,
+   "set": true
+  },
+  {
+   "duration": "x",
+   "second": 2,
+   "set": true
+  },
+  {
+   "duration": 1,
+   "second": 1,
+   "set": true
+  },
+  {
+   "duration": 3,
+   "second": 1,
+   "set": true
+  },
+  {
+   "duration": 3.4,
+   "second": 1,
+   "set": true
+  },
+  {
+   "duration": 4.5,
+   "second": 1,
+   "set": true
+  },
+  {
+   "duration": 100,
+   "second": 33,
+   "set": true
+  },
+  {
+   "duration": 1000,
+   "second": 120,
+   "set": true
+  },
+  {
+   "duration": 1000000000,
+   "second": 120,
+   "set": true
+  }
+ ],
+ "mimeVectors": [
+  {
+   "file": "a.JPG",
+   "mime": "image/jpeg"
+  },
+  {
+   "file": "b.jpeg",
+   "mime": "image/jpeg"
+  },
+  {
+   "file": "c.webp",
+   "mime": "image/webp"
+  },
+  {
+   "file": "d.png",
+   "mime": "image/png"
+  },
+  {
+   "file": "e.gif",
+   "mime": "application/octet-stream"
+  },
+  {
+   "file": "noext",
+   "mime": "application/octet-stream"
+  }
+ ],
+ "errorVectors": [
+  {
+   "text": "Unsupported social video URL. x",
+   "error": {
+    "code": "unsupported_url",
+    "message": "Unsupported social video URL. x"
+   }
+  },
+  {
+   "text": "unsupported url",
+   "error": {
+    "code": "unsupported_url",
+    "message": "unsupported url"
+   }
+  },
+  {
+   "text": "Sign in to confirm you are not a bot",
+   "error": {
+    "code": "private_or_auth_required",
+    "message": "Sign in to confirm you are not a bot"
+   }
+  },
+  {
+   "text": "HTTP Error 429",
+   "error": {
+    "code": "rate_limited",
+    "message": "HTTP Error 429"
+   }
+  },
+  {
+   "text": "Rate-limit hit",
+   "error": {
+    "code": "rate_limited",
+    "message": "Rate-limit hit"
+   }
+  },
+  {
+   "text": "rate limit",
+   "error": {
+    "code": "rate_limited",
+    "message": "rate limit"
+   }
+  },
+  {
+   "text": "Forbidden",
+   "error": {
+    "code": "blocked_or_unavailable",
+    "message": "Forbidden"
+   }
+  },
+  {
+   "text": "blocked",
+   "error": {
+    "code": "blocked_or_unavailable",
+    "message": "blocked"
+   }
+  },
+  {
+   "text": "socket hang up",
+   "error": {
+    "code": "network_error",
+    "message": "socket hang up"
+   }
+  },
+  {
+   "text": "timed out",
+   "error": {
+    "code": "network_error",
+    "message": "timed out"
+   }
+  },
+  {
+   "text": "This video is unavailable",
+   "error": {
+    "code": "content_unavailable",
+    "message": "This video is unavailable"
+   }
+  },
+  {
+   "text": "removed by uploader",
+   "error": {
+    "code": "content_unavailable",
+    "message": "removed by uploader"
+   }
+  },
+  {
+   "text": "HTTP 404",
+   "error": {
+    "code": "content_unavailable",
+    "message": "HTTP 404"
+   }
+  },
+  {
+   "text": "weird",
+   "error": {
+    "code": "social_video_extract_failed",
+    "message": "weird"
+   }
+  },
+  {
+   "text": "  padded  ",
+   "error": {
+    "code": "social_video_extract_failed",
+    "message": "padded"
+   }
+  },
+  {
+   "text": "This is a private video",
+   "error": {
+    "code": "private_or_auth_required",
+    "message": "This is a private video"
+   }
+  }
+ ],
+ "jar": {
+  "cookies": [
+   {
+    "name": "a",
+    "value": "x\ty\nz",
+    "domain": ".youtube.com",
+    "path": "/p",
+    "secure": true,
+    "httpOnly": true,
+    "expires": 1700000000.9
+   },
+   {
+    "name": "b",
+    "value": "1",
+    "domain": "x.com",
+    "path": "",
+    "secure": false,
+    "httpOnly": false,
+    "expires": 0
+   },
+   {
+    "name": "c",
+    "value": "1",
+    "domain": "",
+    "path": "",
+    "secure": false,
+    "httpOnly": false,
+    "expires": 0
+   },
+   {
+    "name": "",
+    "value": "1",
+    "domain": "y.com",
+    "path": "",
+    "secure": false,
+    "httpOnly": false,
+    "expires": 0
+   },
+   {
+    "name": "n",
+    "value": "v",
+    "domain": "z.com",
+    "path": " ",
+    "secure": false,
+    "httpOnly": false,
+    "expires": -1
+   }
+  ],
+  "text": "# Netscape HTTP Cookie File\n#HttpOnly_.youtube.com\tTRUE\t/p\tTRUE\t1700000000\ta\tx y z\nx.com\tFALSE\t/\tFALSE\t0\tb\t1\nz.com\tFALSE\t/\tFALSE\t0\tn\tv\n"
+ },
+ "cases": {
+  "ok": {
+   "sourceUrl": "https://youtu.be/a",
+   "resolvedUrl": "https://www.youtube.com/watch?v=a",
+   "canonicalUrl": "https://www.youtube.com/watch?v=a",
+   "platform": "youtube",
+   "title": " T ",
+   "description": "D",
+   "transcript": "hello",
+   "transcriptSource": "captions",
+   "frameImage": {
+    "url": "/api/artifacts/1/content",
+    "artifactId": "1",
+    "mimeType": "image/jpeg",
+    "byteSize": 10,
+    "source": "frame"
+   },
+   "metadata": {
+    "provider": "yt-dlp",
+    "durationSeconds": 12,
+    "videoId": "a"
+   },
+   "setup": {
+    "ready": true,
+    "dependencies": [
+     {
+      "name": "yt-dlp",
+      "available": true,
+      "version": "1",
+      "installHint": null,
+      "error": null,
+      "required": true
+     }
+    ],
+    "speechToText": {
+     "note": "n"
+    },
+    "checkedAt": "now"
+   },
+   "warnings": [
+    " w ",
+    "",
+    "x"
+   ],
+   "errors": []
+  },
+  "partial": {
+   "sourceUrl": "s",
+   "platform": "tiktok",
+   "title": "Only title",
+   "errors": [
+    {
+     "code": "rate_limited",
+     "message": "slow"
+    },
+    "plain",
+    {
+     "message": ""
+    },
+    {
+     "code": 7,
+     "message": "m"
+    },
+    null
+   ]
+  },
+  "failed": {
+   "sourceUrl": "s",
+   "resolvedUrl": "s",
+   "errors": [
+    {
+     "code": "private_or_auth_required",
+     "message": "private"
+    }
+   ],
+   "warnings": [
+    "careful"
+   ],
+   "frameImage": {
+    "url": ""
+   }
+  },
+  "setup": {
+   "sourceUrl": "s",
+   "platform": "unknown",
+   "setup": {
+    "ready": false,
+    "dependencies": [
+     {
+      "name": "yt-dlp",
+      "available": false,
+      "version": null,
+      "installHint": "Install yt-dlp",
+      "error": "x",
+      "required": true
+     }
+    ],
+    "speechToText": {
+     "note": "n"
+    },
+    "checkedAt": "now"
+   },
+   "errors": [
+    {
+     "code": "social_video_extract_failed",
+     "message": "Missing required dependency: yt-dlp"
+    }
+   ]
+  },
+  "thumb": {
+   "sourceUrl": "s",
+   "frameImage": {
+    "url": "file:///x.jpg",
+    "mimeType": "image/png"
+   },
+   "metadata": "nope",
+   "canonicalUrl": "  "
+  }
+ },
+ "health": {
+  "ready": true,
+  "dependencies": [
+   {
+    "name": "yt-dlp",
+    "available": true,
+    "version": "2025.1.1",
+    "installHint": null,
+    "error": null,
+    "required": true
+   },
+   {
+    "name": "ffmpeg",
+    "available": false,
+    "version": null,
+    "installHint": "Install ffmpeg",
+    "error": "x",
+    "required": false
+   }
+  ],
+  "speechToText": {
+   "note": "n"
+  },
+  "checkedAt": "2026-11-24T10:00:00.000Z"
+ },
+ "steps": [
+  {
+   "name": "anonymous health",
+   "method": "GET",
+   "path": "/api/social-video/health",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "body": {
+     "error": "Unauthorized"
+    }
+   },
+   "expectCalls": []
+  },
+  {
+   "name": "anonymous extract",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": null,
+   "body": "{\"url\":\"x\"}",
+   "expect": {
+    "status": 401,
+    "body": {
+     "error": "Unauthorized"
+    }
+   },
+   "expectCalls": []
+  },
+  {
+   "name": "health",
+   "method": "GET",
+   "path": "/api/social-video/health",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "ready": true,
+     "dependencies": [
+      {
+       "name": "yt-dlp",
+       "available": true,
+       "version": "2025.1.1",
+       "installHint": null,
+       "error": null,
+       "required": true
+      },
+      {
+       "name": "ffmpeg",
+       "available": false,
+       "version": null,
+       "installHint": "Install ffmpeg",
+       "error": "x",
+       "required": false
+      }
+     ],
+     "speechToText": {
+      "note": "n"
+     },
+     "checkedAt": "2026-11-24T10:00:00.000Z"
+    }
+   },
+   "expectCalls": [
+    {
+     "health": false
+    }
+   ]
+  },
+  {
+   "name": "health refresh 1",
+   "method": "GET",
+   "path": "/api/social-video/health?refresh=1",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "ready": true,
+     "dependencies": [
+      {
+       "name": "yt-dlp",
+       "available": true,
+       "version": "2025.1.1",
+       "installHint": null,
+       "error": null,
+       "required": true
+      },
+      {
+       "name": "ffmpeg",
+       "available": false,
+       "version": null,
+       "installHint": "Install ffmpeg",
+       "error": "x",
+       "required": false
+      }
+     ],
+     "speechToText": {
+      "note": "n"
+     },
+     "checkedAt": "2026-11-24T10:00:00.000Z"
+    }
+   },
+   "expectCalls": [
+    {
+     "health": true
+    }
+   ]
+  },
+  {
+   "name": "health refresh true",
+   "method": "GET",
+   "path": "/api/social-video/health?refresh=true",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "ready": true,
+     "dependencies": [
+      {
+       "name": "yt-dlp",
+       "available": true,
+       "version": "2025.1.1",
+       "installHint": null,
+       "error": null,
+       "required": true
+      },
+      {
+       "name": "ffmpeg",
+       "available": false,
+       "version": null,
+       "installHint": "Install ffmpeg",
+       "error": "x",
+       "required": false
+      }
+     ],
+     "speechToText": {
+      "note": "n"
+     },
+     "checkedAt": "2026-11-24T10:00:00.000Z"
+    }
+   },
+   "expectCalls": [
+    {
+     "health": true
+    }
+   ]
+  },
+  {
+   "name": "health refresh yes",
+   "method": "GET",
+   "path": "/api/social-video/health?refresh=yes",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "body": {
+     "ready": true,
+     "dependencies": [
+      {
+       "name": "yt-dlp",
+       "available": true,
+       "version": "2025.1.1",
+       "installHint": null,
+       "error": null,
+       "required": true
+      },
+      {
+       "name": "ffmpeg",
+       "available": false,
+       "version": null,
+       "installHint": "Install ffmpeg",
+       "error": "x",
+       "required": false
+      }
+     ],
+     "speechToText": {
+      "note": "n"
+     },
+     "checkedAt": "2026-11-24T10:00:00.000Z"
+    }
+   },
+   "expectCalls": [
+    {
+     "health": false
+    }
+   ]
+  },
+  {
+   "name": "extract missing url",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "error": "url is required."
+    }
+   },
+   "expectCalls": []
+  },
+  {
+   "name": "extract blank url",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"   \"}",
+   "expect": {
+    "status": 400,
+    "body": {
+     "error": "url is required."
+    }
+   },
+   "expectCalls": []
+  },
+  {
+   "name": "extract number url",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":5}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "https://youtu.be/a",
+     "resolvedUrl": "https://www.youtube.com/watch?v=a",
+     "canonicalUrl": "https://www.youtube.com/watch?v=a",
+     "platform": "youtube",
+     "title": "T",
+     "description": "D",
+     "transcript": "hello",
+     "transcriptSource": "captions",
+     "frameImage": {
+      "url": "/api/artifacts/1/content",
+      "artifactId": "1",
+      "mimeType": "image/jpeg",
+      "byteSize": 10,
+      "source": "frame"
+     },
+     "metadata": {
+      "provider": "yt-dlp",
+      "durationSeconds": 12,
+      "videoId": "a"
+     },
+     "setup": {
+      "ready": true,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": true,
+        "version": "1",
+        "installHint": null,
+        "error": null,
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [
+      "w",
+      "x"
+     ],
+     "errors": [],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "5",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract no body",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "body": {
+     "error": "url is required."
+    }
+   },
+   "expectCalls": []
+  },
+  {
+   "name": "extract ok",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"ok\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "https://youtu.be/a",
+     "resolvedUrl": "https://www.youtube.com/watch?v=a",
+     "canonicalUrl": "https://www.youtube.com/watch?v=a",
+     "platform": "youtube",
+     "title": "T",
+     "description": "D",
+     "transcript": "hello",
+     "transcriptSource": "captions",
+     "frameImage": {
+      "url": "/api/artifacts/1/content",
+      "artifactId": "1",
+      "mimeType": "image/jpeg",
+      "byteSize": 10,
+      "source": "frame"
+     },
+     "metadata": {
+      "provider": "yt-dlp",
+      "durationSeconds": 12,
+      "videoId": "a"
+     },
+     "setup": {
+      "ready": true,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": true,
+        "version": "1",
+        "installHint": null,
+        "error": null,
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [
+      "w",
+      "x"
+     ],
+     "errors": [],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "ok",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract partial",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"partial\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "s",
+     "resolvedUrl": "",
+     "canonicalUrl": null,
+     "platform": "tiktok",
+     "title": "Only title",
+     "description": "",
+     "transcript": "",
+     "transcriptSource": "unavailable",
+     "frameImage": null,
+     "metadata": {},
+     "setup": null,
+     "warnings": [],
+     "errors": [
+      {
+       "code": "rate_limited",
+       "message": "slow"
+      },
+      {
+       "message": "plain"
+      },
+      {
+       "code": "7",
+       "message": "m"
+      }
+     ],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "partial",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract failed",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"failed\"}",
+   "expect": {
+    "status": 422,
+    "body": {
+     "sourceUrl": "s",
+     "resolvedUrl": "s",
+     "canonicalUrl": null,
+     "platform": "unknown",
+     "title": "",
+     "description": "",
+     "transcript": "",
+     "transcriptSource": "unavailable",
+     "frameImage": null,
+     "metadata": {},
+     "setup": null,
+     "warnings": [
+      "careful"
+     ],
+     "errors": [
+      {
+       "code": "private_or_auth_required",
+       "message": "private"
+      }
+     ],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "failed",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract setup",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"setup\"}",
+   "expect": {
+    "status": 503,
+    "body": {
+     "sourceUrl": "s",
+     "resolvedUrl": "",
+     "canonicalUrl": null,
+     "platform": "unknown",
+     "title": "",
+     "description": "",
+     "transcript": "",
+     "transcriptSource": "unavailable",
+     "frameImage": null,
+     "metadata": {},
+     "setup": {
+      "ready": false,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": false,
+        "version": null,
+        "installHint": "Install yt-dlp",
+        "error": "x",
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [],
+     "errors": [
+      {
+       "code": "social_video_extract_failed",
+       "message": "Missing required dependency: yt-dlp"
+      }
+     ],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "setup",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract thumb",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"thumb\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "s",
+     "resolvedUrl": "",
+     "canonicalUrl": null,
+     "platform": "unknown",
+     "title": "",
+     "description": "",
+     "transcript": "",
+     "transcriptSource": "unavailable",
+     "frameImage": {
+      "url": "file:///x.jpg",
+      "artifactId": null,
+      "mimeType": "image/png",
+      "byteSize": null,
+      "source": "frame"
+     },
+     "metadata": {},
+     "setup": null,
+     "warnings": [],
+     "errors": [],
+     "partial": false
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "thumb",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract boom",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"boom\"}",
+   "expect": {
+    "status": 500,
+    "body": {
+     "error": "kaboom"
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "boom",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract unknown-case",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"unknown-case\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "https://youtu.be/a",
+     "resolvedUrl": "https://www.youtube.com/watch?v=a",
+     "canonicalUrl": "https://www.youtube.com/watch?v=a",
+     "platform": "youtube",
+     "title": "T",
+     "description": "D",
+     "transcript": "hello",
+     "transcriptSource": "captions",
+     "frameImage": {
+      "url": "/api/artifacts/1/content",
+      "artifactId": "1",
+      "mimeType": "image/jpeg",
+      "byteSize": 10,
+      "source": "frame"
+     },
+     "metadata": {
+      "provider": "yt-dlp",
+      "durationSeconds": 12,
+      "videoId": "a"
+     },
+     "setup": {
+      "ready": true,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": true,
+        "version": "1",
+        "installHint": null,
+        "error": null,
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [
+      "w",
+      "x"
+     ],
+     "errors": [],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "unknown-case",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract frame off",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"ok\",\"include_frame\":false}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "https://youtu.be/a",
+     "resolvedUrl": "https://www.youtube.com/watch?v=a",
+     "canonicalUrl": "https://www.youtube.com/watch?v=a",
+     "platform": "youtube",
+     "title": "T",
+     "description": "D",
+     "transcript": "hello",
+     "transcriptSource": "captions",
+     "frameImage": {
+      "url": "/api/artifacts/1/content",
+      "artifactId": "1",
+      "mimeType": "image/jpeg",
+      "byteSize": 10,
+      "source": "frame"
+     },
+     "metadata": {
+      "provider": "yt-dlp",
+      "durationSeconds": 12,
+      "videoId": "a"
+     },
+     "setup": {
+      "ready": true,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": true,
+        "version": "1",
+        "installHint": null,
+        "error": null,
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [
+      "w",
+      "x"
+     ],
+     "errors": [],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "ok",
+     "includeFrame": false,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract frame null",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"ok\",\"include_frame\":null}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "https://youtu.be/a",
+     "resolvedUrl": "https://www.youtube.com/watch?v=a",
+     "canonicalUrl": "https://www.youtube.com/watch?v=a",
+     "platform": "youtube",
+     "title": "T",
+     "description": "D",
+     "transcript": "hello",
+     "transcriptSource": "captions",
+     "frameImage": {
+      "url": "/api/artifacts/1/content",
+      "artifactId": "1",
+      "mimeType": "image/jpeg",
+      "byteSize": 10,
+      "source": "frame"
+     },
+     "metadata": {
+      "provider": "yt-dlp",
+      "durationSeconds": 12,
+      "videoId": "a"
+     },
+     "setup": {
+      "ready": true,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": true,
+        "version": "1",
+        "installHint": null,
+        "error": null,
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [
+      "w",
+      "x"
+     ],
+     "errors": [],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "ok",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "extract stt",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\" ok \",\"force_stt\":true}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "https://youtu.be/a",
+     "resolvedUrl": "https://www.youtube.com/watch?v=a",
+     "canonicalUrl": "https://www.youtube.com/watch?v=a",
+     "platform": "youtube",
+     "title": "T",
+     "description": "D",
+     "transcript": "hello",
+     "transcriptSource": "captions",
+     "frameImage": {
+      "url": "/api/artifacts/1/content",
+      "artifactId": "1",
+      "mimeType": "image/jpeg",
+      "byteSize": 10,
+      "source": "frame"
+     },
+     "metadata": {
+      "provider": "yt-dlp",
+      "durationSeconds": 12,
+      "videoId": "a"
+     },
+     "setup": {
+      "ready": true,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": true,
+        "version": "1",
+        "installHint": null,
+        "error": null,
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [
+      "w",
+      "x"
+     ],
+     "errors": [],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "ok",
+     "includeFrame": true,
+     "forceStt": true
+    }
+   ]
+  },
+  {
+   "name": "extract stt string",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"ok\",\"force_stt\":\"true\"}",
+   "expect": {
+    "status": 200,
+    "body": {
+     "sourceUrl": "https://youtu.be/a",
+     "resolvedUrl": "https://www.youtube.com/watch?v=a",
+     "canonicalUrl": "https://www.youtube.com/watch?v=a",
+     "platform": "youtube",
+     "title": "T",
+     "description": "D",
+     "transcript": "hello",
+     "transcriptSource": "captions",
+     "frameImage": {
+      "url": "/api/artifacts/1/content",
+      "artifactId": "1",
+      "mimeType": "image/jpeg",
+      "byteSize": 10,
+      "source": "frame"
+     },
+     "metadata": {
+      "provider": "yt-dlp",
+      "durationSeconds": 12,
+      "videoId": "a"
+     },
+     "setup": {
+      "ready": true,
+      "dependencies": [
+       {
+        "name": "yt-dlp",
+        "available": true,
+        "version": "1",
+        "installHint": null,
+        "error": null,
+        "required": true
+       }
+      ],
+      "speechToText": {
+       "note": "n"
+      },
+      "checkedAt": "now"
+     },
+     "warnings": [
+      "w",
+      "x"
+     ],
+     "errors": [],
+     "partial": true
+    }
+   },
+   "expectCalls": [
+    {
+     "userId": 1,
+     "url": "ok",
+     "includeFrame": true,
+     "forceStt": false
+    }
+   ]
+  },
+  {
+   "name": "unavailable health",
+   "method": "GET",
+   "path": "/api/social-video/health",
+   "user": 1,
+   "noService": true,
+   "expect": {
+    "status": 503,
+    "body": {
+     "ready": false,
+     "error": "Social video service is unavailable."
+    }
+   },
+   "expectCalls": []
+  },
+  {
+   "name": "unavailable extract",
+   "method": "POST",
+   "path": "/api/social-video/extract",
+   "user": 1,
+   "body": "{\"url\":\"ok\"}",
+   "noService": true,
+   "expect": {
+    "status": 503,
+    "body": {
+     "error": "Social video service is unavailable."
+    }
+   },
+   "expectCalls": []
+  }
+ ]
+}

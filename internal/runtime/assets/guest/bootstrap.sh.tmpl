@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+BOOTSTRAP_MARKER="/var/lib/neoagent/bootstrap-complete"
+BROWSER_READY_MARKER="/var/lib/neoagent/browser-runtime-ready"
+BROWSER_DEPS_MARKER="/var/lib/neoagent/browser-deps-installed"
+ENV_FILE="/etc/neoagent/neoagent.env"
+GUEST_AGENT="/usr/local/bin/neoagent-guest"
+
+mkdir -p /etc/neoagent /var/lib/neoagent
+if [ -f /home/neo/.neoagent/package-manifest.txt ]; then cp /home/neo/.neoagent/package-manifest.txt /tmp/neoagent-package-manifest.previous; fi
+
+# Redirect logs to a guest-local file and console
+LOG_FILE="/var/log/neoagent-bootstrap.log"
+exec > >(tee -a "$LOG_FILE" >/dev/console) 2>&1
+echo "NeoAgent guest bootstrap starting..."
+rm -f "$BOOTSTRAP_MARKER" "$BROWSER_READY_MARKER"
+
+function retry_cmd() {
+  local n=1
+  local max=3
+  local delay=5
+  while true; do
+    "$@" && break || {
+      if [[ $n -lt $max ]]; then
+        ((n++))
+        echo "Command failed. Attempt $n/$max in ${delay}s..."
+        sleep $delay
+      else
+        echo "The command has failed after $n attempts." >&2
+        return 1
+      fi
+    }
+  done
+}
+
+if [ ! -x "$GUEST_AGENT" ]; then
+  echo "Error: The guest agent is missing at $GUEST_AGENT." >&2
+  exit 1
+fi
+
+# Node.js is the agent's toolchain for user projects, not part of the guest agent.
+if ! command -v node >/dev/null 2>&1 || ! node -e "process.exit(Number(process.versions.node.split('.')[0]) >= 24 ? 0 : 1)"; then
+  echo "Installing Node.js..."
+  curl -fsSL "https://deb.nodesource.com/setup_24.x" | bash - || true
+  retry_cmd apt-get install -y --no-install-recommends nodejs || { echo "Error: Failed to install Node.js" >&2; exit 1; }
+fi
+
+printf '%s
+' "NEOAGENT_VM_GUEST_TOKEN_B64=@@TOKEN_B64@@" > "$ENV_FILE"
+printf '%s
+' "NEOAGENT_GUEST_AGENT_PORT=@@PORT@@" >> "$ENV_FILE"
+printf '%s
+' "NEOAGENT_GUEST_PROFILE=browser_cli" >> "$ENV_FILE"
+chmod 0600 "$ENV_FILE"
+
+echo "Ensuring guest runtime utilities..."
+retry_cmd apt-get update || echo "Warning: apt-get update failed, proceeding with cached lists."
+retry_cmd apt-get install -y --no-install-recommends at-spi2-core ca-certificates chromium curl dbus-x11 git jq ripgrep nftables lightdm lightdm-gtk-greeter lxterminal mousepad openssh-client openbox pcmanfm python3 python3-pip python3-pyatspi python3-venv rsync scrot sudo tint2 unzip x11-xserver-utils xdotool xserver-xorg-core xserver-xorg-input-libinput xserver-xorg-video-fbdev zip zram-tools wmctrl || { echo "Error: Failed to install required guest runtime utilities." >&2; exit 1; }
+@@TAILSCALE_INSTALL@@
+apt-get clean
+rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+if [ -s /tmp/neoagent-package-manifest.previous ]; then
+  retry_cmd apt-get update || true
+  cut -f1 /tmp/neoagent-package-manifest.previous | grep -Ev "^(linux-image-|linux-headers-|grub-|shim-|systemd-boot|qemu-system-|libvirt-|ovmf)" | xargs -r apt-get install -y --no-install-recommends || echo "Warning: Some user packages were unavailable after the guest upgrade."
+  rm -f /tmp/neoagent-package-manifest.previous
+  apt-get clean
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+fi
+
+echo "NeoAgent guest runtime is ready."
+
+echo "Configuring the lightweight Linux desktop..."
+install -d -m 0755 /etc/lightdm/lightdm.conf.d /etc/chromium/policies/managed /etc/apt/apt.conf.d /etc/apt/preferences.d /etc/security/limits.d /etc/profile.d /etc/systemd/system/user-1000.slice.d
+install -d -m 0755 /etc/X11/xorg.conf.d
+cat > /etc/chromium/policies/managed/neoagent.json <<'EOF'
+{"BackgroundModeEnabled":false,"NetworkPredictionOptions":2,"RestoreOnStartup":1,"RemoteDebuggingAllowed":true,"DefaultBrowserSettingEnabled":false,"BrowserSignin":0,"MetricsReportingEnabled":false,"HighEfficiencyModeEnabled":true,"MemorySaverModeSavings":2,"DefaultDownloadDirectory":"/home/neo/Downloads"}
+EOF
+cat > /etc/apt/apt.conf.d/90neoagent-cleanup <<'EOF'
+APT::Keep-Downloaded-Packages "false";
+DPkg::Pre-Invoke { "test $(df -Pk / | awk 'NR==2 {print $4}') -ge 262144 || { echo NeoAgent: system disk safety reserve reached >&2; exit 1; }"; };
+DPkg::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb || true"; };
+DPkg::Post-Invoke { "mkdir -p /home/neo/.neoagent; dpkg-query -W -f='${binary:Package}\t${Version}\n' > /home/neo/.neoagent/package-manifest.txt; chown -R neo:neo /home/neo/.neoagent || true"; };
+EOF
+cat > /etc/apt/preferences.d/90neoagent-immutable-boot <<'EOF'
+Package: linux-image-* linux-headers-* grub-* shim-* systemd-boot* qemu-system-* libvirt-* ovmf
+Pin: release *
+Pin-Priority: -1
+EOF
+cat > /etc/pip.conf <<'EOF'
+[global]
+no-cache-dir = true
+disable-pip-version-check = true
+EOF
+cat > /etc/npmrc <<'EOF'
+cache=/tmp/neoagent-npm-cache
+audit=false
+fund=false
+EOF
+cat > /etc/profile.d/neoagent-user-packages.sh <<'EOF'
+export PIP_NO_CACHE_DIR=1
+export NPM_CONFIG_CACHE=/tmp/neoagent-npm-cache
+export NPM_CONFIG_PREFIX="$HOME/.local"
+export PATH="$HOME/.local/bin:$PATH"
+EOF
+cat > /etc/default/zramswap <<'EOF'
+ALGO=zstd
+PERCENT=20
+PRIORITY=100
+EOF
+printf "%s
+" "neo soft nproc 1024" "neo hard nproc 1536" > /etc/security/limits.d/90-neoagent.conf
+cat > /etc/systemd/system/user-1000.slice.d/90-neoagent-resources.conf <<'EOF'
+[Slice]
+TasksMax=1024
+MemoryHigh=85%
+MemoryMax=95%
+CPUQuota=180%
+EOF
+cat > /usr/local/bin/neoagent-shell-audit <<'PYEOF'
+#!/usr/bin/env python3
+import json, os, shlex, sys, time
+try:
+    parts = shlex.split(sys.argv[2])
+except Exception:
+    parts = []
+if not parts:
+    raise SystemExit(0)
+root = os.path.expanduser("~/.neoagent")
+os.makedirs(root, mode=0o700, exist_ok=True)
+def safe_argument(value):
+    suffix = os.path.splitext(value)[1].lower()
+    return value[:300] if value.startswith("-") or "/" in value or suffix in {".py", ".js", ".json", ".csv", ".txt", ".md", ".sh"} else "[argument]"
+event = {"at": int(time.time() * 1000), "executable": os.path.basename(parts[0]), "arguments": [safe_argument(value) for value in parts[1:20]], "exitCode": int(sys.argv[1])}
+with open(os.path.join(root, "teach-shell-events.jsonl"), "a", encoding="utf-8") as handle:
+    handle.write(json.dumps(event, separators=(",", ":")) + "\n")
+PYEOF
+chmod 0755 /usr/local/bin/neoagent-shell-audit
+cat > /etc/profile.d/neoagent-shell-audit.sh <<'EOF'
+if [ -n "$BASH_VERSION" ]; then
+  export PROMPT_COMMAND='neoagent_status=$?; neoagent_command=$(history 1 | sed "s/^[ ]*[0-9]*[ ]*//"); /usr/local/bin/neoagent-shell-audit "$neoagent_status" "$neoagent_command" >/dev/null 2>&1; history -a'
+fi
+EOF
+install -d -o neo -g neo /home/neo/.config/openbox /home/neo/.config/tint2 /home/neo/.neoagent/data/browser-profiles/default /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
+@@DESKTOP_FILES@@
+/usr/local/bin/neoagent-apply-desktop-home
+chmod 0755 /usr/local/bin/neoagent-display-setup /usr/local/bin/neoagent-ensure-desktop /usr/local/bin/neoagent-apply-desktop-home /usr/local/share/applications/neoagent-*.desktop
+if [ -f /etc/default/grub ]; then sed -i 's/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"/' /etc/default/grub && update-grub || true; fi
+if [ -d /etc/initramfs-tools ]; then
+  for module in virtio_gpu bochs; do grep -qxF "$module" /etc/initramfs-tools/modules || echo "$module" >> /etc/initramfs-tools/modules; done
+  update-initramfs -u || true
+fi
+install -d -m 0755 /etc/systemd/system-generators
+ln -sfn /dev/null /etc/systemd/system-generators/systemd-ssh-generator
+systemctl daemon-reload
+systemctl set-default graphical.target
+systemctl mask getty@tty1.service || true
+systemctl enable neoagent-framebuffer-desktop.service neoagent-desktop-seat.service lightdm.service || true
+chown neo:neo /home/neo
+chown -R neo:neo /home/neo/.config /home/neo/.neoagent /home/neo/Desktop /home/neo/Downloads /home/neo/workspace
+printf "%s
+" "neo ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-neoagent
+chmod 0440 /etc/sudoers.d/90-neoagent
+touch "$BROWSER_DEPS_MARKER"
+touch "$BROWSER_READY_MARKER"
+touch "$BOOTSTRAP_MARKER"
+echo "NeoAgent guest bootstrap completed."

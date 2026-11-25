@@ -1,0 +1,29 @@
+// hand edited
+{
+  agents: {
+    defaults: { model: { primary: 'anthropic/claude-sonnet-4' }, models: { 'openrouter/acme/x1': { alias: 'fast' } }, workspace: '~/openclaw/ws' },
+    list: [
+      { id: 'main', default: true, identity: { name: 'Jarvis' }, workspace: '~/openclaw/ws' },
+      { id: 'helper', name: 'Helper Bot', model: 'fast', workspace: '~/openclaw/helper-ws' },
+    ],
+  },
+  env: { vars: { BRAVE_API_KEY: 'brave-123' }, EXTRA: 'x' },
+  models: { providers: {
+    ollama: { baseUrl: 'http://localhost:11434/v1' },
+    acme: { baseUrl: 'https://api.acme.test/v1', apiKey: '${ACME_KEY}', api: 'openai-completions' },
+    second: { baseUrl: 'https://second.test/v1', api: 'openai-completions' },
+    openai: { apiKey: { source: 'env', id: 'OPENAI_API_KEY' } },
+  } },
+  mcp: { servers: {
+    remote: { url: 'https://mcp.example.test/sse', headers: { Authorization: 'Bearer ${MCP_TOKEN}', 'X-Team': 'blue' } },
+    off: { url: 'https://mcp2.example.test/mcp', enabled: false, transport: 'streamable-http' },
+    local: { command: 'npx', args: ['-y', 'fs'], env: { API_TOKEN: 'abc', PLAIN: 'p' } },
+  } },
+  channels: {
+    telegram: { botToken: '${TG_TOKEN}', allowFrom: ['@alice', '12345', '*'], dm: { allowFrom: ['999'] } },
+    discord: { token: 'dtok', accounts: { a: { enabled: true }, b: { enabled: true } } },
+    whatsapp: { allowFrom: ['+4915112345678'] },
+    slack: { enabled: true },
+    matrix: { enabled: true },
+  },
+}

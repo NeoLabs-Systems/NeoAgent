@@ -1,0 +1,1650 @@
+[
+ {
+  "name": "unbounded",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {},
+  "result": {
+   "count": 6,
+   "timedCount": 5,
+   "upcomingTimedCount": 5,
+   "ongoingTimedCount": 0,
+   "allDayCount": 1,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": null,
+    "timeMax": null
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    },
+    {
+     "id": "started",
+     "allDay": false,
+     "start": "2026-11-24T09:30:00Z",
+     "end": "2026-11-24T10:00:00Z"
+    },
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    },
+    {
+     "id": "started",
+     "allDay": false,
+     "start": "2026-11-24T09:30:00Z",
+     "end": "2026-11-24T10:00:00Z"
+    },
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    }
+   ],
+   "allDayEvents": [
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "events": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    },
+    {
+     "id": "started",
+     "allDay": false,
+     "start": "2026-11-24T09:30:00Z",
+     "end": "2026-11-24T10:00:00Z"
+    },
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    },
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 0,
+   "omittedAllDayCount": 0,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "overlap"
+  }
+ },
+ {
+  "name": "bounded default",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z"
+  },
+  "result": {
+   "count": 1,
+   "timedCount": 1,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 0,
+   "allDayCount": 0,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "allDayEvents": [],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 2,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "starts_within_window"
+  }
+ },
+ {
+  "name": "bounded with ongoing",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z",
+   "args": {
+    "include_ongoing": true
+   }
+  },
+  "result": {
+   "count": 3,
+   "timedCount": 3,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 2,
+   "allDayCount": 0,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": true,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "allDayEvents": [],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 0,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "overlap"
+  }
+ },
+ {
+  "name": "bounded with all day",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z",
+   "args": {
+    "include_all_day": true
+   }
+  },
+  "result": {
+   "count": 2,
+   "timedCount": 1,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 0,
+   "allDayCount": 1,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "allDayEvents": [
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 2,
+   "omittedAllDayCount": 0,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "starts_within_window"
+  }
+ },
+ {
+  "name": "bounded with both",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z",
+   "args": {
+    "include_ongoing": true,
+    "include_all_day": true
+   }
+  },
+  "result": {
+   "count": 4,
+   "timedCount": 3,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 2,
+   "allDayCount": 1,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": true,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "allDayEvents": [
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    },
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 0,
+   "omittedAllDayCount": 0,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "overlap"
+  }
+ },
+ {
+  "name": "only start bound",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z"
+  },
+  "result": {
+   "count": 2,
+   "timedCount": 2,
+   "upcomingTimedCount": 2,
+   "ongoingTimedCount": 0,
+   "allDayCount": 0,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": null
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    }
+   ],
+   "allDayEvents": [],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 2,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "starts_within_window"
+  }
+ },
+ {
+  "name": "blank bounds",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "  ",
+   "timeMax": ""
+  },
+  "result": {
+   "count": 6,
+   "timedCount": 5,
+   "upcomingTimedCount": 5,
+   "ongoingTimedCount": 0,
+   "allDayCount": 1,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": null,
+    "timeMax": null
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    },
+    {
+     "id": "started",
+     "allDay": false,
+     "start": "2026-11-24T09:30:00Z",
+     "end": "2026-11-24T10:00:00Z"
+    },
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    },
+    {
+     "id": "started",
+     "allDay": false,
+     "start": "2026-11-24T09:30:00Z",
+     "end": "2026-11-24T10:00:00Z"
+    },
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    }
+   ],
+   "allDayEvents": [
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "events": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    },
+    {
+     "id": "started",
+     "allDay": false,
+     "start": "2026-11-24T09:30:00Z",
+     "end": "2026-11-24T10:00:00Z"
+    },
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "later",
+     "allDay": false,
+     "start": "2026-11-24T13:00:00Z",
+     "end": "2026-11-24T14:00:00Z"
+    },
+    {
+     "id": "birthday",
+     "allDay": true,
+     "start": "2026-11-24",
+     "end": "2026-11-25"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 0,
+   "omittedAllDayCount": 0,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "overlap"
+  }
+ },
+ {
+  "name": "only omitted overlaps",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z"
+  },
+  "result": {
+   "count": 0,
+   "timedCount": 0,
+   "upcomingTimedCount": 0,
+   "ongoingTimedCount": 0,
+   "allDayCount": 0,
+   "hasTimedEvents": false,
+   "hasUpcomingTimedEvents": false,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": null,
+   "nextTimedEvent": null,
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [],
+   "ongoingTimedEvents": [],
+   "timedEvents": [],
+   "allDayEvents": [],
+   "events": [],
+   "overlapCount": 2,
+   "omittedOngoingTimedCount": 1,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": true,
+   "windowMode": "starts_within_window"
+  }
+ },
+ {
+  "name": "no events",
+  "events": [],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z"
+  },
+  "result": {
+   "count": 0,
+   "timedCount": 0,
+   "upcomingTimedCount": 0,
+   "ongoingTimedCount": 0,
+   "allDayCount": 0,
+   "hasTimedEvents": false,
+   "hasUpcomingTimedEvents": false,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": null,
+   "nextTimedEvent": null,
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [],
+   "ongoingTimedEvents": [],
+   "timedEvents": [],
+   "allDayEvents": [],
+   "events": [],
+   "overlapCount": 0,
+   "omittedOngoingTimedCount": 0,
+   "omittedAllDayCount": 0,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "starts_within_window"
+  }
+ },
+ {
+  "name": "task reminder drops started events",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z",
+   "executionOptions": {
+    "triggerSource": "schedule",
+    "taskId": 7,
+    "scheduledAt": "2026-11-24T10:15:00Z"
+   }
+  },
+  "result": {
+   "count": 1,
+   "timedCount": 1,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 0,
+   "allDayCount": 0,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "allDayEvents": [],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "overlapCount": 3,
+   "omittedOngoingTimedCount": 0,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "starts_within_window"
+  }
+ },
+ {
+  "name": "task reminder opts into ongoing",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z",
+   "args": {
+    "include_ongoing": true
+   },
+   "executionOptions": {
+    "triggerSource": "tasks",
+    "taskId": 7,
+    "scheduledAt": "2026-11-24T10:15:00Z"
+   }
+  },
+  "result": {
+   "count": 3,
+   "timedCount": 3,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 2,
+   "allDayCount": 0,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": true,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "allDayEvents": [],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    },
+    {
+     "id": "past-long",
+     "allDay": false,
+     "start": "2026-11-24T08:00:00Z",
+     "end": "2026-11-24T12:00:00Z"
+    },
+    {
+     "id": "ongoing-open",
+     "allDay": false,
+     "start": "2026-11-24T09:00:00Z",
+     "end": null
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 0,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "overlap"
+  }
+ },
+ {
+  "name": "task without id is not automatic",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z",
+   "executionOptions": {
+    "triggerSource": "schedule",
+    "scheduledAt": "2026-11-24T10:15:00Z"
+   }
+  },
+  "result": {
+   "count": 1,
+   "timedCount": 1,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 0,
+   "allDayCount": 0,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "allDayEvents": [],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 2,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "starts_within_window"
+  }
+ },
+ {
+  "name": "task with unparsable instant",
+  "events": [
+   {
+    "id": "past-long",
+    "allDay": false,
+    "start": "2026-11-24T08:00:00Z",
+    "end": "2026-11-24T12:00:00Z"
+   },
+   {
+    "id": "ongoing-open",
+    "allDay": false,
+    "start": "2026-11-24T09:00:00Z",
+    "end": null
+   },
+   {
+    "id": "started",
+    "allDay": false,
+    "start": "2026-11-24T09:30:00Z",
+    "end": "2026-11-24T10:00:00Z"
+   },
+   {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   {
+    "id": "later",
+    "allDay": false,
+    "start": "2026-11-24T13:00:00Z",
+    "end": "2026-11-24T14:00:00Z"
+   },
+   {
+    "id": "bad-start",
+    "allDay": false,
+    "start": "nonsense",
+    "end": null
+   },
+   {
+    "id": "birthday",
+    "allDay": true,
+    "start": "2026-11-24",
+    "end": "2026-11-25"
+   }
+  ],
+  "options": {
+   "timeMin": "2026-11-24T10:00:00Z",
+   "timeMax": "2026-11-24T12:00:00Z",
+   "executionOptions": {
+    "triggerSource": "tasks",
+    "taskId": 1,
+    "scheduledAt": "soon"
+   }
+  },
+  "result": {
+   "count": 1,
+   "timedCount": 1,
+   "upcomingTimedCount": 1,
+   "ongoingTimedCount": 0,
+   "allDayCount": 0,
+   "hasTimedEvents": true,
+   "hasUpcomingTimedEvents": true,
+   "hasOngoingTimedEvents": false,
+   "hasOnlyOngoingTimedEvents": false,
+   "hasOnlyAllDayEvents": false,
+   "nextUpcomingTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "nextTimedEvent": {
+    "id": "soon",
+    "allDay": false,
+    "start": "2026-11-24T10:30:00Z",
+    "end": "2026-11-24T11:00:00Z"
+   },
+   "queryWindow": {
+    "timeMin": "2026-11-24T10:00:00Z",
+    "timeMax": "2026-11-24T12:00:00Z"
+   },
+   "upcomingTimedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "ongoingTimedEvents": [],
+   "timedEvents": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "allDayEvents": [],
+   "events": [
+    {
+     "id": "soon",
+     "allDay": false,
+     "start": "2026-11-24T10:30:00Z",
+     "end": "2026-11-24T11:00:00Z"
+    }
+   ],
+   "overlapCount": 7,
+   "omittedOngoingTimedCount": 2,
+   "omittedAllDayCount": 1,
+   "hasOnlyOmittedOverlaps": false,
+   "windowMode": "starts_within_window"
+  }
+ }
+]

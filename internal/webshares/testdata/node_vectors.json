@@ -1,0 +1,621 @@
+{
+ "slugs": [
+  {
+   "name": "My App",
+   "slug": "my-app"
+  },
+  {
+   "name": "  Ünïcödé — Shop!  ",
+   "slug": "unicode-shop"
+  },
+  {
+   "name": "---",
+   "slug": ""
+  },
+  {
+   "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx tail",
+   "slug": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+   "name": "Café Ñandú 2",
+   "slug": "cafe-nandu-2"
+  },
+  {
+   "name": "",
+   "slug": ""
+  }
+ ],
+ "ports": [
+  {
+   "port": 3000,
+   "valid": 3000
+  },
+  {
+   "port": "8080",
+   "valid": 8080
+  },
+  {
+   "port": 0,
+   "valid": null
+  },
+  {
+   "port": 65536,
+   "valid": null
+  },
+  {
+   "port": 8421,
+   "valid": null
+  },
+  {
+   "port": 1.5,
+   "valid": null
+  },
+  {
+   "port": "",
+   "valid": null
+  },
+  {
+   "port": null,
+   "valid": null
+  },
+  {
+   "port": "abc",
+   "valid": null
+  },
+  {
+   "port": 65535,
+   "valid": 65535
+  }
+ ],
+ "locations": [
+  {
+   "location": "/a",
+   "port": 3000,
+   "result": "/neo/app/a"
+  },
+  {
+   "location": "//cdn/x",
+   "port": 3000,
+   "result": "//cdn/x"
+  },
+  {
+   "location": "http://localhost:3000/b",
+   "port": 3000,
+   "result": "/neo/app/b"
+  },
+  {
+   "location": "http://127.0.0.1/c",
+   "port": 3000,
+   "result": "/neo/app/c"
+  },
+  {
+   "location": "http://localhost:9999/d",
+   "port": 3000,
+   "result": "http://localhost:9999/d"
+  },
+  {
+   "location": "https://[::1]:3000",
+   "port": 3000,
+   "result": "/neo/app/"
+  },
+  {
+   "location": "https://x.org/",
+   "port": 3000,
+   "result": "https://x.org/"
+  }
+ ],
+ "tool": [
+  {
+   "label": "share closed port",
+   "result": {
+    "error": "Nothing answers on port 4000 inside your computer. Start the app there (listening on localhost or 0.0.0.0), then share it."
+   }
+  },
+  {
+   "label": "share bad port",
+   "result": {
+    "error": "port must be the port the app listens on inside your computer (1-65535)."
+   }
+  },
+  {
+   "label": "share no name",
+   "result": {
+    "error": "name is required."
+   }
+  },
+  {
+   "label": "share reserved user",
+   "result": {
+    "error": "Pages cannot be shared under the account name \"api\", which the server uses for its own pages."
+   }
+  },
+  {
+   "label": "share off",
+   "result": {
+    "error": "Web page sharing is turned off in settings."
+   }
+  },
+  {
+   "label": "share not running",
+   "result": {
+    "error": "Your computer is not running, so there is nothing to share. Start the app on it first."
+   }
+  },
+  {
+   "label": "share",
+   "result": {
+    "shared": true,
+    "id": "f8facdb4-74c1-4aa9-b678-aac475c7fc69",
+    "name": "My App",
+    "slug": "my-app",
+    "port": 3000,
+    "url": "https://agent.example/Neo/my-app/",
+    "created_at": "2026-11-24 22:42:51",
+    "updated_at": "2026-11-24 22:42:51",
+    "replaced_existing": false,
+    "note": "The page is served under that path, not at a domain root: links, scripts and styles must use relative paths (or the base path from the X-Forwarded-Prefix header). It runs sandboxed, so it gets no cookies or local storage. It is reachable only while your computer and the app on it run. A shared page is public and appears under this server's name, so it must stay clean: no profanity or hard swearing, no slurs, no racist, sexist or otherwise hateful content, no harassment of anyone, no sexual content and nothing illegal, also not in text the page generates. This holds even when the user asks for it: then do not share the page, and tell the user why. If anything on it breaks that, stop sharing it now."
+   }
+  },
+  {
+   "label": "share again",
+   "result": {
+    "shared": true,
+    "id": "f8facdb4-74c1-4aa9-b678-aac475c7fc69",
+    "name": "my app",
+    "slug": "my-app",
+    "port": 3000,
+    "url": "https://agent.example/Neo/my-app/",
+    "created_at": "2026-11-24 22:42:51",
+    "updated_at": "2026-11-24 22:42:51",
+    "replaced_existing": true,
+    "note": "The page is served under that path, not at a domain root: links, scripts and styles must use relative paths (or the base path from the X-Forwarded-Prefix header). It runs sandboxed, so it gets no cookies or local storage. It is reachable only while your computer and the app on it run. A shared page is public and appears under this server's name, so it must stay clean: no profanity or hard swearing, no slurs, no racist, sexist or otherwise hateful content, no harassment of anyone, no sexual content and nothing illegal, also not in text the page generates. This holds even when the user asks for it: then do not share the page, and tell the user why. If anything on it breaks that, stop sharing it now."
+   }
+  },
+  {
+   "label": "share symbols",
+   "result": {
+    "error": "name needs at least one letter or digit."
+   }
+  },
+  {
+   "label": "stop unknown",
+   "result": {
+    "error": "No shared page matches \"Nope\".",
+    "shared_pages": [
+     "my app"
+    ]
+   }
+  },
+  {
+   "label": "stop by name",
+   "result": {
+    "stopped": true
+   }
+  }
+ ],
+ "http": [
+  {
+   "method": "GET",
+   "path": "/Neo/my-app",
+   "headers": {},
+   "status": 308,
+   "responseHeaders": {
+    "content-type": "text/plain; charset=utf-8",
+    "location": "/Neo/my-app/",
+    "vary": "Accept"
+   },
+   "body": "Permanent Redirect. Redirecting to /Neo/my-app/"
+  },
+  {
+   "method": "GET",
+   "path": "/neo/my-app/?q=1",
+   "headers": {
+    "sec-fetch-dest": "document",
+    "cookie": "sid=1",
+    "x-forwarded-for": "1.2.3.4"
+   },
+   "status": 200,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "content-type": "text/html; charset=utf-8",
+    "vary": "Cookie",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "<html><head></head><BODY class=\"x\"><div id=\"neoagent-share-notice\" role=\"note\" aria-label=\"About this page\"><input type=\"checkbox\" id=\"neoagent-share-dismiss\" hidden><div class=\"nasn-bar\"><span class=\"nasn-text\">Shared by <b>Neo</b>. A NeoAgent user made this page; it does not come from or represent NeoAgent.</span><a class=\"nasn-link\" href=\"/neo/my-app/.neoagent/hide-notice?back=%2Fneo%2Fmy-app%2F%3Fq%3D1\">Don't show again</a><label class=\"nasn-close\" for=\"neoagent-share-dismiss\" title=\"Dismiss\" aria-label=\"Dismiss\">&#x2715;</label></div><style>#neoagent-share-notice .nasn-bar{all:initial;position:fixed;z-index:2147483647;left:50%;bottom:16px;transform:translateX(-50%);box-sizing:border-box;max-width:min(680px,calc(100vw - 24px));display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:999px;background:rgba(24,24,27,.94);color:#f4f4f5;box-shadow:0 6px 24px rgba(0,0,0,.28);font:13px/1.4 system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;-webkit-font-smoothing:antialiased}#neoagent-share-notice .nasn-text{all:unset;flex:1;min-width:0}#neoagent-share-notice .nasn-text b{all:unset;font-weight:600}#neoagent-share-notice .nasn-link{all:unset;cursor:pointer;white-space:nowrap;color:#a5b4fc;text-decoration:underline;text-underline-offset:2px}#neoagent-share-notice .nasn-close{all:unset;cursor:pointer;display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;color:#d4d4d8}#neoagent-share-notice .nasn-close:hover,#neoagent-share-notice .nasn-link:hover{color:#fff}#neoagent-share-notice .nasn-close:focus-visible,#neoagent-share-notice .nasn-link:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}#neoagent-share-dismiss:checked+.nasn-bar{display:none}@media (max-width:520px){#neoagent-share-notice .nasn-bar{border-radius:14px;bottom:12px;flex-wrap:wrap;gap:4px 12px;padding:10px 8px 10px 14px}#neoagent-share-notice .nasn-text{flex-basis:calc(100% - 44px)}}</style></div>Hello</BODY></html>"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/gz",
+   "headers": {},
+   "status": 200,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "content-type": "text/html",
+    "vary": "Cookie",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "<div id=\"neoagent-share-notice\" role=\"note\" aria-label=\"About this page\"><input type=\"checkbox\" id=\"neoagent-share-dismiss\" hidden><div class=\"nasn-bar\"><span class=\"nasn-text\">Shared by <b>Neo</b>. A NeoAgent user made this page; it does not come from or represent NeoAgent.</span><a class=\"nasn-link\" href=\"/Neo/my-app/.neoagent/hide-notice?back=%2FNeo%2Fmy-app%2Fgz\">Don't show again</a><label class=\"nasn-close\" for=\"neoagent-share-dismiss\" title=\"Dismiss\" aria-label=\"Dismiss\">&#x2715;</label></div><style>#neoagent-share-notice .nasn-bar{all:initial;position:fixed;z-index:2147483647;left:50%;bottom:16px;transform:translateX(-50%);box-sizing:border-box;max-width:min(680px,calc(100vw - 24px));display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:999px;background:rgba(24,24,27,.94);color:#f4f4f5;box-shadow:0 6px 24px rgba(0,0,0,.28);font:13px/1.4 system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;-webkit-font-smoothing:antialiased}#neoagent-share-notice .nasn-text{all:unset;flex:1;min-width:0}#neoagent-share-notice .nasn-text b{all:unset;font-weight:600}#neoagent-share-notice .nasn-link{all:unset;cursor:pointer;white-space:nowrap;color:#a5b4fc;text-decoration:underline;text-underline-offset:2px}#neoagent-share-notice .nasn-close{all:unset;cursor:pointer;display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;color:#d4d4d8}#neoagent-share-notice .nasn-close:hover,#neoagent-share-notice .nasn-link:hover{color:#fff}#neoagent-share-notice .nasn-close:focus-visible,#neoagent-share-notice .nasn-link:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}#neoagent-share-dismiss:checked+.nasn-bar{display:none}@media (max-width:520px){#neoagent-share-notice .nasn-bar{border-radius:14px;bottom:12px;flex-wrap:wrap;gap:4px 12px;padding:10px 8px 10px 14px}#neoagent-share-notice .nasn-text{flex-basis:calc(100% - 44px)}}</style></div>Zipped page"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/plain",
+   "headers": {},
+   "status": 200,
+   "responseHeaders": {
+    "content-security-policy": "default-src 'self', sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "content-type": "text/plain",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "just text"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/redirect",
+   "headers": {},
+   "status": 302,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "location": "/Neo/my-app/next?x=1",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": ""
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/away",
+   "headers": {},
+   "status": 301,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "location": "https://example.org/",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": ""
+  },
+  {
+   "method": "POST",
+   "path": "/Neo/my-app/rel",
+   "headers": {
+    "content-type": "text/plain"
+   },
+   "status": 303,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "location": "/Neo/my-app/login",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": ""
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/nohtml",
+   "headers": {
+    "x-requested-with": "fetch"
+   },
+   "status": 200,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "content-type": "text/html",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "no body tag"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/nohtml",
+   "headers": {},
+   "status": 200,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "content-type": "text/html",
+    "vary": "Cookie",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "<div id=\"neoagent-share-notice\" role=\"note\" aria-label=\"About this page\"><input type=\"checkbox\" id=\"neoagent-share-dismiss\" hidden><div class=\"nasn-bar\"><span class=\"nasn-text\">Shared by <b>Neo</b>. A NeoAgent user made this page; it does not come from or represent NeoAgent.</span><a class=\"nasn-link\" href=\"/Neo/my-app/.neoagent/hide-notice?back=%2FNeo%2Fmy-app%2Fnohtml\">Don't show again</a><label class=\"nasn-close\" for=\"neoagent-share-dismiss\" title=\"Dismiss\" aria-label=\"Dismiss\">&#x2715;</label></div><style>#neoagent-share-notice .nasn-bar{all:initial;position:fixed;z-index:2147483647;left:50%;bottom:16px;transform:translateX(-50%);box-sizing:border-box;max-width:min(680px,calc(100vw - 24px));display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:999px;background:rgba(24,24,27,.94);color:#f4f4f5;box-shadow:0 6px 24px rgba(0,0,0,.28);font:13px/1.4 system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;-webkit-font-smoothing:antialiased}#neoagent-share-notice .nasn-text{all:unset;flex:1;min-width:0}#neoagent-share-notice .nasn-text b{all:unset;font-weight:600}#neoagent-share-notice .nasn-link{all:unset;cursor:pointer;white-space:nowrap;color:#a5b4fc;text-decoration:underline;text-underline-offset:2px}#neoagent-share-notice .nasn-close{all:unset;cursor:pointer;display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;color:#d4d4d8}#neoagent-share-notice .nasn-close:hover,#neoagent-share-notice .nasn-link:hover{color:#fff}#neoagent-share-notice .nasn-close:focus-visible,#neoagent-share-notice .nasn-link:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}#neoagent-share-dismiss:checked+.nasn-bar{display:none}@media (max-width:520px){#neoagent-share-notice .nasn-bar{border-radius:14px;bottom:12px;flex-wrap:wrap;gap:4px 12px;padding:10px 8px 10px 14px}#neoagent-share-notice .nasn-text{flex-basis:calc(100% - 44px)}}</style></div>no body tag"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/",
+   "headers": {
+    "cookie": "neoagent_share_notice=hidden"
+   },
+   "status": 200,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "content-type": "text/html; charset=utf-8",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "<html><head></head><BODY class=\"x\">Hello</BODY></html>"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/.neoagent/hide-notice?back=%2FNeo%2Fmy-app%2Fgz",
+   "headers": {},
+   "status": 303,
+   "responseHeaders": {
+    "cache-control": "no-store",
+    "content-type": "text/plain; charset=utf-8",
+    "location": "/Neo/my-app/gz",
+    "set-cookie": "neoagent_share_notice=hidden; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly; Secure",
+    "vary": "Accept"
+   },
+   "body": "See Other. Redirecting to /Neo/my-app/gz"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/.neoagent/hide-notice?back=https://evil",
+   "headers": {},
+   "status": 303,
+   "responseHeaders": {
+    "cache-control": "no-store",
+    "content-type": "text/plain; charset=utf-8",
+    "location": "/Neo/my-app/",
+    "set-cookie": "neoagent_share_notice=hidden; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly; Secure",
+    "vary": "Accept"
+   },
+   "body": "See Other. Redirecting to /Neo/my-app/"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/other/",
+   "headers": {},
+   "status": 418,
+   "responseHeaders": {
+    "content-type": "text/html; charset=utf-8"
+   },
+   "body": "fallthrough"
+  },
+  {
+   "method": "GET",
+   "path": "/api/x",
+   "headers": {},
+   "status": 418,
+   "responseHeaders": {
+    "content-type": "text/html; charset=utf-8"
+   },
+   "body": "fallthrough"
+  },
+  {
+   "method": "GET",
+   "path": "/off/x/",
+   "headers": {},
+   "status": 418,
+   "responseHeaders": {
+    "content-type": "text/html; charset=utf-8"
+   },
+   "body": "fallthrough"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/missing",
+   "headers": {},
+   "status": 404,
+   "responseHeaders": {
+    "content-security-policy": "sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation",
+    "content-type": "text/plain",
+    "x-content-type-options": "nosniff",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "nope"
+  },
+  {
+   "method": "GET",
+   "path": "/Neo/my-app/",
+   "headers": {},
+   "status": 503,
+   "responseHeaders": {
+    "cache-control": "no-store",
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "content-type": "text/html; charset=utf-8",
+    "retry-after": "30",
+    "x-robots-tag": "noindex, nofollow"
+   },
+   "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\">\n<title>my app is offline</title>\n<style>\n:root{color-scheme:light dark;--bg:#fafafa;--card:#fff;--text:#18181b;--muted:#71717a;--line:#e4e4e7}\n@media (prefers-color-scheme:dark){:root{--bg:#09090b;--card:#18181b;--text:#f4f4f5;--muted:#a1a1aa;--line:#27272a}}\nbody{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;padding:16px;box-sizing:border-box}\nmain{max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px}\nh1{font-size:19px;margin:0 0 8px}p{margin:0 0 12px;color:var(--muted)}small{color:var(--muted)}\n</style></head><body><main>\n<h1>my app is offline</h1>\n<p>The computer serving this page is not running right now, or the app on it has stopped. It comes back when its owner starts it again.</p>\n<small>Shared by Neo. A NeoAgent user made this page; it does not come from or represent NeoAgent.</small>\n</main></body></html>"
+  }
+ ],
+ "guest": {
+  "/proxy/3000/": {
+   "status": 200,
+   "headers": {
+    "content-type": "text/html; charset=utf-8",
+    "set-cookie": "a=b",
+    "etag": "\"x\""
+   },
+   "body": "<html><head></head><BODY class=\"x\">Hello</BODY></html>"
+  },
+  "/proxy/3000/gz": {
+   "status": 200,
+   "headers": {
+    "content-type": "text/html",
+    "content-encoding": "gzip"
+   },
+   "body": "Zipped page",
+   "gzip": true
+  },
+  "/proxy/3000/plain": {
+   "status": 200,
+   "headers": {
+    "content-type": "text/plain",
+    "content-security-policy": "default-src 'self'"
+   },
+   "body": "just text"
+  },
+  "/proxy/3000/redirect": {
+   "status": 302,
+   "headers": {
+    "location": "http://localhost:3000/next?x=1"
+   },
+   "body": ""
+  },
+  "/proxy/3000/away": {
+   "status": 301,
+   "headers": {
+    "location": "https://example.org/"
+   },
+   "body": ""
+  },
+  "/proxy/3000/rel": {
+   "status": 303,
+   "headers": {
+    "location": "/login"
+   },
+   "body": ""
+  },
+  "/proxy/3000/nohtml": {
+   "status": 200,
+   "headers": {
+    "content-type": "text/html"
+   },
+   "body": "no body tag"
+  },
+  "/proxy/4000/": {
+   "status": 502,
+   "headers": {
+    "x-neoagent-proxy": "1"
+   },
+   "body": "closed"
+  }
+ },
+ "guestSeen": [
+  {
+   "url": "/proxy/4000/",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/",
+   "method": "GET",
+   "authorization": "Bearer t",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/?q=1",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/gz",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/plain",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/redirect",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/away",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/rel",
+   "method": "POST",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/nohtml",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/nohtml",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  },
+  {
+   "url": "/proxy/3000/missing",
+   "method": "GET",
+   "authorization": "Bearer tok",
+   "prefix": "/Neo/my-app",
+   "host": "agent.example",
+   "proto": "https",
+   "cookie": null
+  }
+ ],
+ "list": [
+  {
+   "id": "f8facdb4-74c1-4aa9-b678-aac475c7fc69",
+   "name": "my app",
+   "slug": "my-app",
+   "port": 3000,
+   "url": "https://agent.example/Neo/my-app/",
+   "created_at": "2026-11-24 22:42:51",
+   "updated_at": "2026-11-24 22:42:51"
+  }
+ ]
+}

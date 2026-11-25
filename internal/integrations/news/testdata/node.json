@@ -1,0 +1,293 @@
+{
+ "steps": [
+  {
+   "name": "headlines",
+   "answers": [
+    {
+     "body": {
+      "articles": [
+       {
+        "id": "a1",
+        "title": " T ",
+        "description": "D",
+        "url": "https://x.example/1",
+        "source": {
+         "name": "S"
+        },
+        "publishedAt": "2026-01-01T00:00:00Z"
+       },
+       {
+        "url": "https://x.example/2"
+       }
+      ]
+     }
+    }
+   ],
+   "result": {
+    "count": 2,
+    "articles": [
+     {
+      "id": "a1",
+      "title": "T",
+      "description": "D",
+      "url": "https://x.example/1",
+      "source": "S",
+      "publishedAt": "2026-01-01T00:00:00Z"
+     },
+     {
+      "id": "https://x.example/2",
+      "title": "",
+      "description": "",
+      "url": "https://x.example/2",
+      "source": "",
+      "publishedAt": ""
+     }
+    ]
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://gnews.io/api/v4/top-headlines?category=science&lang=de&max=10&q=mars+rover&country=at&apikey=k",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "news_get_headlines",
+   "args": {
+    "query": "mars rover",
+    "category": "Science",
+    "lang": "DE",
+    "country": "AT",
+    "max": 50
+   },
+   "credentials": {
+    "apiKey": "k"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "headlines defaults",
+   "answers": [
+    {
+     "body": {}
+    }
+   ],
+   "result": {
+    "count": 0,
+    "articles": []
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://gnews.io/api/v4/top-headlines?category=world&lang=en&max=10&apikey=k",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "news_get_headlines",
+   "args": {
+    "category": "nope"
+   },
+   "credentials": {
+    "apiKey": "k"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "missing key",
+   "answers": [],
+   "error": "GNews API key is missing. Save it again in Official Integrations.",
+   "requests": [],
+   "tool": "news_get_headlines",
+   "args": {},
+   "credentials": {},
+   "metadata": {}
+  },
+  {
+   "name": "setup before save",
+   "answers": [],
+   "result": {
+    "hasApiKey": false,
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": []
+  },
+  {
+   "name": "save needs key",
+   "answers": [],
+   "error": "GNews API key is required.",
+   "requests": [],
+   "op": "save",
+   "config": {},
+   "rows": []
+  },
+  {
+   "name": "save rejected",
+   "answers": [
+    {
+     "status": 401,
+     "body": {
+      "errors": [
+       "nope"
+      ]
+     }
+    }
+   ],
+   "error": "GNews request failed: {\"errors\":[\"nope\"]}",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://gnews.io/api/v4/top-headlines?category=world&lang=en&max=1&apikey=bad",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "apiKey": "bad"
+   },
+   "rows": []
+  },
+  {
+   "name": "save",
+   "answers": [
+    {
+     "body": {
+      "articles": []
+     }
+    }
+   ],
+   "result": {
+    "hasApiKey": true,
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://gnews.io/api/v4/top-headlines?category=world&lang=en&max=1&apikey=good",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "apiKey": " good "
+   },
+   "rows": [
+    {
+     "app_key": "headlines",
+     "status": "connected",
+     "account_email": "news:gnews",
+     "scopes_json": [
+      "gnews:read"
+     ],
+     "metadata_json": {
+      "source": "gnews"
+     },
+     "credentials_json": {
+      "apiKey": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "setup after save",
+   "answers": [],
+   "result": {
+    "hasApiKey": true,
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": [
+    {
+     "app_key": "headlines",
+     "status": "connected",
+     "account_email": "news:gnews",
+     "scopes_json": [
+      "gnews:read"
+     ],
+     "metadata_json": {
+      "source": "gnews"
+     },
+     "credentials_json": {
+      "apiKey": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "save keeps key",
+   "answers": [
+    {
+     "body": {
+      "articles": []
+     }
+    }
+   ],
+   "result": {
+    "hasApiKey": true,
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://gnews.io/api/v4/top-headlines?category=world&lang=en&max=1&apikey=good",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {},
+   "rows": [
+    {
+     "app_key": "headlines",
+     "status": "connected",
+     "account_email": "news:gnews",
+     "scopes_json": [
+      "gnews:read"
+     ],
+     "metadata_json": {
+      "source": "gnews"
+     },
+     "credentials_json": {
+      "apiKey": "good"
+     }
+    }
+   ]
+  },
+  {
+   "name": "clear",
+   "answers": [],
+   "result": {
+    "cleared": true
+   },
+   "requests": [],
+   "op": "clear",
+   "config": null,
+   "rows": []
+  }
+ ]
+}

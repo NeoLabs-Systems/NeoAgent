@@ -16,19 +16,19 @@ class RuntimeActivationService {
   final RuntimeActivationEventSink _onEvent;
 
   void validateExtractedRuntime(Directory directory) {
-    final nodePath = nodeExecutable(directory);
-    final cliPath = File(
+    final executable = runtimeExecutable(directory);
+    final webClient = File(
       '${directory.path}${Platform.pathSeparator}app'
-      '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js',
+      '${Platform.pathSeparator}public${Platform.pathSeparator}index.html',
     );
-    if (!nodePath.existsSync() || !cliPath.existsSync()) {
+    if (!executable.existsSync() || !webClient.existsSync()) {
       throw LocalBackendInstallerException(
         'SETUP_RUNTIME_INCOMPLETE',
         appStrings.theVerifiedRuntimePackageIsMissing,
         retryable: false,
       );
     }
-    restoreExtractedRuntimePermissions(directory, nodeExecutable: nodePath);
+    restoreExtractedRuntimePermissions(directory, executable: executable);
   }
 
   bool isCompleteRuntime(Directory directory) {
@@ -40,13 +40,13 @@ class RuntimeActivationService {
     }
   }
 
-  File nodeExecutable(Directory directory) {
-    final path = Platform.isWindows
-        ? '${directory.path}${Platform.pathSeparator}node'
-              '${Platform.pathSeparator}node.exe'
-        : '${directory.path}${Platform.pathSeparator}node'
-              '${Platform.pathSeparator}bin${Platform.pathSeparator}node';
-    return File(path);
+  /// The NeoAgent binary of an unpacked runtime: server and CLI in one.
+  File runtimeExecutable(Directory directory) {
+    return File(
+      '${directory.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}bin${Platform.pathSeparator}'
+      '${Platform.isWindows ? 'neoagent.exe' : 'neoagent'}',
+    );
   }
 
   Future<String?> activate(Directory runtimeRoot, String version) async {
@@ -93,13 +93,9 @@ class RuntimeActivationService {
       '${Platform.pathSeparator}$rollbackVersion',
     );
     try {
-      final cli =
-          '${rollbackDirectory.path}${Platform.pathSeparator}app'
-          '${Platform.pathSeparator}bin${Platform.pathSeparator}neoagent.js';
       await Process.run(
-        nodeExecutable(rollbackDirectory).path,
+        runtimeExecutable(rollbackDirectory).path,
         <String>[
-          cli,
           previousVersion == null ? 'stop' : 'repair',
           '--runtime-package',
           '--json',
@@ -187,19 +183,23 @@ class RuntimeActivationService {
 
 void restoreExtractedRuntimePermissions(
   Directory directory, {
-  required File nodeExecutable,
+  required File executable,
 }) {
   if (Platform.isWindows) return;
-  _chmodUnixExecutable(nodeExecutable);
-  final qemuBin = Directory(
-    '${directory.path}${Platform.pathSeparator}app'
-    '${Platform.pathSeparator}computer-runtime'
-    '${Platform.pathSeparator}qemu'
-    '${Platform.pathSeparator}bin',
-  );
-  if (!qemuBin.existsSync()) return;
-  for (final entity in qemuBin.listSync()) {
-    if (entity is File) _chmodUnixExecutable(entity);
+  _chmodUnixExecutable(executable);
+  for (final binDirectory in <Directory>[
+    executable.parent,
+    Directory(
+      '${directory.path}${Platform.pathSeparator}app'
+      '${Platform.pathSeparator}computer-runtime'
+      '${Platform.pathSeparator}qemu'
+      '${Platform.pathSeparator}bin',
+    ),
+  ]) {
+    if (!binDirectory.existsSync()) continue;
+    for (final entity in binDirectory.listSync()) {
+      if (entity is File) _chmodUnixExecutable(entity);
+    }
   }
 }
 

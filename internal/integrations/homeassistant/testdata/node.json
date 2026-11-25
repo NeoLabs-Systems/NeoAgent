@@ -1,0 +1,789 @@
+{
+ "agent": "97950a8c-71eb-4d79-bbda-0405681575f7",
+ "steps": [
+  {
+   "name": "get config",
+   "answers": [
+    {
+     "body": {
+      "location_name": "Home",
+      "version": "2026.1"
+     }
+    }
+   ],
+   "result": {
+    "location_name": "Home",
+    "version": "2026.1"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "list states filtered",
+   "answers": [
+    {
+     "body": [
+      {
+       "entity_id": "light.kitchen",
+       "state": "on",
+       "attributes": {
+        "b": 1
+       },
+       "last_changed": "x",
+       "last_updated": "y"
+      },
+      {
+       "entity_id": "sensor.t",
+       "state": "21"
+      },
+      {
+       "entity_id": "light.hall",
+       "state": "",
+       "attributes": null
+      },
+      {
+       "entity_id": "light.bath",
+       "state": "off"
+      }
+     ]
+    }
+   ],
+   "result": [
+    {
+     "entity_id": "light.kitchen",
+     "state": "on",
+     "attributes": {
+      "b": 1
+     },
+     "last_changed": "x",
+     "last_updated": "y"
+    },
+    {
+     "entity_id": "light.hall",
+     "state": null,
+     "attributes": {},
+     "last_changed": null,
+     "last_updated": null
+    }
+   ],
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/states",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_list_states",
+   "args": {
+    "entity_domain": "Light",
+    "limit": 2
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "list states default limit",
+   "answers": [
+    {
+     "body": [
+      {
+       "entity_id": "a.b"
+      }
+     ]
+    }
+   ],
+   "result": [
+    {
+     "entity_id": "a.b",
+     "state": null,
+     "attributes": {},
+     "last_changed": null,
+     "last_updated": null
+    }
+   ],
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/states",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_list_states",
+   "args": {
+    "limit": "x"
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "get state encodes",
+   "answers": [
+    {
+     "body": {
+      "state": "on"
+     }
+    }
+   ],
+   "result": {
+    "state": "on"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/states/light.k%20x%2Fy",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_get_state",
+   "args": {
+    "entity_id": "light.k x/y"
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "get state needs id",
+   "answers": [],
+   "error": "entity_id is required.",
+   "requests": [],
+   "tool": "home_assistant_get_state",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "call service bad domain",
+   "answers": [],
+   "error": "domain must contain only lowercase letters, numbers, and underscores.",
+   "requests": [],
+   "tool": "home_assistant_call_service",
+   "args": {
+    "domain": "Light!",
+    "service": "turn_on"
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "call service",
+   "answers": [
+    {
+     "body": []
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://ha.example/api/services/light/turn_on",
+     "headers": {
+      "authorization": "Bearer tok",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"entity_id\":\"light.k\",\"brightness\":3}"
+    }
+   ],
+   "tool": "home_assistant_call_service",
+   "args": {
+    "domain": "Light",
+    "service": "turn_on",
+    "service_data": {
+     "entity_id": "light.k",
+     "brightness": 3
+    }
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "call service array data",
+   "answers": [
+    {
+     "body": []
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://ha.example/api/services/script/run",
+     "headers": {
+      "authorization": "Bearer tok",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{}"
+    }
+   ],
+   "tool": "home_assistant_call_service",
+   "args": {
+    "domain": "script",
+    "service": "run",
+    "service_data": [
+     1
+    ]
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "api request off origin",
+   "answers": [],
+   "error": "Home Assistant API path must stay on the connected origin and start with /api/.",
+   "requests": [],
+   "tool": "home_assistant_api_request",
+   "args": {
+    "method": "GET",
+    "path": "https://evil.example/api/x"
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "api request outside api",
+   "answers": [],
+   "error": "Home Assistant API path must stay on the connected origin and start with /api/.",
+   "requests": [],
+   "tool": "home_assistant_api_request",
+   "args": {
+    "method": "GET",
+    "path": "/auth/token"
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "api request bad method",
+   "answers": [],
+   "error": "Unsupported Home Assistant API method.",
+   "requests": [],
+   "tool": "home_assistant_api_request",
+   "args": {
+    "method": "TRACE",
+    "path": "/api/x"
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "api request query and body",
+   "answers": [
+    {
+     "body": {
+      "message": "ok"
+     }
+    }
+   ],
+   "result": {
+    "message": "ok"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://ha.example/api/events/x?keep=1&a=1&b=2",
+     "headers": {
+      "authorization": "Bearer tok",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"k\":\"v\"}"
+    }
+   ],
+   "tool": "home_assistant_api_request",
+   "args": {
+    "method": "post",
+    "path": "/api/events/x?keep=1",
+    "query": {
+     "a": " 1 ",
+     "b": 2,
+     "c": "",
+     "d": null
+    },
+    "body": {
+     "k": "v"
+    }
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "api request text answer",
+   "answers": [
+    {
+     "body": "plain text",
+     "headers": {
+      "content-type": "text/plain"
+     }
+    }
+   ],
+   "result": "plain text",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/error_log",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_api_request",
+   "args": {
+    "method": "GET",
+    "path": "/api/error_log"
+   },
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "unauthorized",
+   "answers": [
+    {
+     "status": 401,
+     "body": {
+      "message": "Unauthorized"
+     }
+    }
+   ],
+   "error": "Home Assistant request failed: Unauthorized",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "server error text",
+   "answers": [
+    {
+     "status": 500,
+     "body": " boom ",
+     "headers": {
+      "content-type": "text/plain"
+     }
+    }
+   ],
+   "error": "Home Assistant request failed: boom",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "server error empty",
+   "answers": [
+    {
+     "status": 503,
+     "body": ""
+    }
+   ],
+   "error": "Home Assistant request failed: 503 Service Unavailable",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "redirect refused",
+   "answers": [
+    {
+     "status": 302,
+     "body": "",
+     "headers": {
+      "location": "https://x.example"
+     }
+    }
+   ],
+   "error": "Home Assistant redirected the API request; redirects are not followed.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "http refused",
+   "answers": [],
+   "error": "Home Assistant URL must use HTTPS.",
+   "requests": [],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "http://ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "port refused",
+   "answers": [],
+   "error": "Home Assistant URL must use port 443 or 8123.",
+   "requests": [],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example:8080",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "credentials refused",
+   "answers": [],
+   "error": "Home Assistant URL must not include credentials.",
+   "requests": [],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://u:p@ha.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "private address refused",
+   "answers": [],
+   "error": "Home Assistant URL must not point to a private, loopback, or link-local address.",
+   "requests": [],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://10.0.0.5",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "private resolution refused",
+   "answers": [],
+   "error": "Home Assistant URL resolves to a private, loopback, or reserved address.",
+   "requests": [],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://private.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "unresolvable",
+   "answers": [],
+   "error": "Could not resolve Home Assistant host: getaddrinfo ENOTFOUND nowhere.example",
+   "requests": [],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://nowhere.example",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "missing token",
+   "answers": [],
+   "error": "Home Assistant token is required.",
+   "requests": [],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://ha.example"
+   }
+  },
+  {
+   "name": "port 8123 and path",
+   "answers": [
+    {
+     "body": {}
+    }
+   ],
+   "result": {},
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example:8123/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "tool": "home_assistant_get_config",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://HA.example:8123/base///",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "setup before save",
+   "answers": [],
+   "result": {
+    "baseUrl": "",
+    "hasToken": false,
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get"
+  },
+  {
+   "name": "save needs token",
+   "answers": [],
+   "error": "Home Assistant Long-Lived Access Token is required.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://ha.example"
+   }
+  },
+  {
+   "name": "save rejected token",
+   "answers": [
+    {
+     "status": 401,
+     "body": {
+      "message": "Unauthorized"
+     }
+    }
+   ],
+   "error": "Home Assistant rejected the token. Create a new Long-Lived Access Token and try again.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer bad",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://ha.example",
+    "token": "bad"
+   }
+  },
+  {
+   "name": "save",
+   "answers": [
+    {
+     "body": {
+      "location_name": "Home",
+      "version": "2026.1",
+      "time_zone": "Europe/Berlin"
+     }
+    }
+   ],
+   "result": {
+    "baseUrl": "https://ha.example",
+    "hasToken": true,
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true,
+    "accountEmail": "home_assistant:Home",
+    "locationName": "Home",
+    "version": "2026.1"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://HA.example:443/",
+    "token": "tok"
+   }
+  },
+  {
+   "name": "setup after save",
+   "answers": [],
+   "result": {
+    "baseUrl": "https://ha.example",
+    "hasToken": true,
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true
+   },
+   "requests": [],
+   "op": "get"
+  },
+  {
+   "name": "save keeps token, renamed instance",
+   "answers": [
+    {
+     "body": {
+      "version": "2026.2"
+     }
+    }
+   ],
+   "result": {
+    "baseUrl": "https://ha.example",
+    "hasToken": true,
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true,
+    "accountEmail": "home_assistant:ha.example",
+    "locationName": null,
+    "version": "2026.2"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://ha.example/api/config",
+     "headers": {
+      "authorization": "Bearer tok",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://ha.example"
+   }
+  },
+  {
+   "name": "clear",
+   "answers": [],
+   "result": {
+    "cleared": true
+   },
+   "requests": [],
+   "op": "clear"
+  },
+  {
+   "name": "setup after clear",
+   "answers": [],
+   "result": {
+    "baseUrl": "",
+    "hasToken": false,
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get"
+  }
+ ],
+ "rowsAfterSave": [
+  {
+   "app_key": "home_assistant",
+   "status": "connected",
+   "account_email": "home_assistant:ha.example",
+   "scopes_json": "[\"home_assistant:api\"]",
+   "metadata_json": "{\"access_mode\":\"read_write\",\"locationName\":null,\"version\":\"2026.2\",\"timeZone\":null}",
+   "credentials_json": {
+    "baseUrl": "https://ha.example",
+    "token": "tok"
+   }
+  }
+ ]
+}

@@ -1,0 +1,45 @@
+name: Package runtime
+description: >
+  Stages the backend runtime (binary, guest agent, web client, landing page,
+  optional portable QEMU) and writes the runtime archive and its metadata to
+  dist/. Needs the web client built into public/ first.
+
+inputs:
+  platform:
+    required: true
+  architecture:
+    required: true
+  version:
+    required: true
+  binary:
+    required: true
+  guest:
+    required: true
+  computer-runtime:
+    description: Portable QEMU directory from neoagent-release stage-qemu
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PLATFORM: ${{ inputs.platform }}
+        ARCHITECTURE: ${{ inputs.architecture }}
+        VERSION: ${{ inputs.version }}
+        BINARY: ${{ inputs.binary }}
+        GUEST: ${{ inputs.guest }}
+        COMPUTER_RUNTIME: ${{ inputs.computer-runtime }}
+      run: |
+        set -euo pipefail
+        stage="$RUNNER_TEMP/neoagent-runtime-$PLATFORM-$ARCHITECTURE"
+        asset="dist/neoagent-runtime-$PLATFORM-$ARCHITECTURE-$VERSION.zip"
+        args=(--output "$stage" --binary "$BINARY" --guest "$GUEST" --web public --landing landing
+              --license LICENSE --platform "$PLATFORM" --architecture "$ARCHITECTURE")
+        if [ -n "$COMPUTER_RUNTIME" ]; then args+=(--computer-runtime "$COMPUTER_RUNTIME"); fi
+        go run ./cmd/neoagent-release stage-runtime "${args[@]}"
+        go run ./cmd/neoagent-release runtime-archive --input "$stage" --output "$asset"
+        go run ./cmd/neoagent-release runtime-metadata --asset "$asset" \
+          --output "dist/neoagent-runtime-metadata-$PLATFORM-$ARCHITECTURE.json" \
+          --platform "$PLATFORM" --architecture "$ARCHITECTURE"

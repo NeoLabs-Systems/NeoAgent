@@ -1,0 +1,358 @@
+{
+  "key": "notion",
+  "label": "Notion",
+  "description": "Official Notion OAuth account connections for workspace docs, pages, and knowledge workflows.",
+  "icon": "notion",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "notion",
+      "label": "Notion",
+      "description": "Search, read, create, and update pages, databases, and blocks in a connected Notion workspace."
+    }
+  ],
+  "connectPrompt": "Connect Notion to search, read, create, and update workspace content.",
+  "supportsMultipleAccounts": true,
+  "connectionMethod": "oauth",
+  "tools": [
+    {
+      "appId": "notion",
+      "name": "notion_search",
+      "access": "read",
+      "description": "Search pages and databases available to the connected Notion integration. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query text."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional Notion search filter object."
+          },
+          "page_size": {
+            "type": "number",
+            "description": "Maximum results to return, default 10."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_get_page",
+      "access": "read",
+      "description": "Retrieve a Notion page by ID. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Notion page ID."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_create_page",
+      "access": "write",
+      "description": "Create a Notion page under a page or database parent. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "parent": {
+            "type": "object",
+            "description": "Notion parent object, e.g. { \"page_id\": \"...\" } or { \"database_id\": \"...\" }."
+          },
+          "properties": {
+            "type": "object",
+            "description": "Notion page properties object."
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Optional block children."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "parent",
+          "properties"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_update_page",
+      "access": "write",
+      "description": "Update a Notion page properties, icon, cover, or archived state. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": {
+            "type": "string",
+            "description": "Notion page ID."
+          },
+          "properties": {
+            "type": "object",
+            "description": "Optional Notion page properties patch."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Optional archive state."
+          },
+          "icon": {
+            "type": "object",
+            "description": "Optional Notion icon object."
+          },
+          "cover": {
+            "type": "object",
+            "description": "Optional Notion cover object."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "page_id"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_query_database",
+      "access": "read",
+      "description": "Query a Notion database or data source by ID. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "database_id": {
+            "type": "string",
+            "description": "Notion database/data source ID."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional filter object."
+          },
+          "sorts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Optional sort objects."
+          },
+          "page_size": {
+            "type": "number",
+            "description": "Maximum results to return, default 10."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "database_id"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_get_block_children",
+      "access": "read",
+      "description": "List child blocks under a Notion block or page. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Notion block or page ID."
+          },
+          "page_size": {
+            "type": "number",
+            "description": "Maximum blocks to return, default 25."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "block_id"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_append_block_children",
+      "access": "write",
+      "description": "Append child blocks under a Notion block or page. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Notion block or page ID."
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Notion block children to append."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "block_id",
+          "children"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_update_block",
+      "access": "write",
+      "description": "Update a Notion block. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Notion block ID."
+          },
+          "body": {
+            "type": "object",
+            "description": "Notion block patch body."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "block_id",
+          "body"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_delete_block",
+      "access": "write",
+      "description": "Delete/archive a Notion block. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "Notion block ID."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "block_id"
+        ]
+      }
+    },
+    {
+      "appId": "notion",
+      "name": "notion_api_request",
+      "access": "dynamic_http_method",
+      "description": "Make an authenticated Notion API request for advanced Notion operations. When multiple Notion accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "description": "HTTP method: GET, POST, PATCH, or DELETE."
+          },
+          "path": {
+            "type": "string",
+            "description": "Notion API path, e.g. /v1/comments or /v1/users."
+          },
+          "query": {
+            "type": "object",
+            "description": "Optional query parameters."
+          },
+          "body": {
+            "type": "object",
+            "description": "Optional JSON body."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Notion account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Notion account email or identifier."
+          }
+        },
+        "required": [
+          "method",
+          "path"
+        ]
+      }
+    }
+  ]
+}

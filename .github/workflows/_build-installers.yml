@@ -37,6 +37,8 @@ on:
         required: false
       APPLE_NOTARY_ISSUER_ID:
         required: false
+      NEOLABS_GO_TOKEN:
+        required: false
 
 permissions:
   contents: write
@@ -61,6 +63,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+        with:
+          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Set up Flutter
         id: flutter
@@ -144,7 +151,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         shell: pwsh
         run: |
-          $publicKey = (node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()").Trim()
+          $publicKey = (go run ./cmd/neoagent-release signing-public-key).Trim()
           if ([string]::IsNullOrWhiteSpace($publicKey)) {
             throw "The embedded runtime signing public key is missing."
           }
@@ -303,40 +310,17 @@ jobs:
           release_tag: ${{ inputs.release_tag }}
           files: dist/neoagent-windows-${{ matrix.architecture }}-setup-*.exe
 
-      - name: Set up Node.js runtime
-        uses: actions/setup-node@v4
+      - name: Build web client for Windows runtime
+        uses: ./.github/actions/build-web
+
+      - name: Build Windows binaries
+        id: binaries
+        uses: ./.github/actions/build-binaries
         with:
-          node-version: 22
-
-      - name: Build bundled web client for Windows runtime
-        shell: pwsh
-        working-directory: ${{ github.workspace }}/flutter_app
-        run: |
-          $webOutput = Join-Path $env:GITHUB_WORKSPACE "server/public"
-          New-Item -ItemType Directory -Force -Path (Join-Path $webOutput "assets/shaders") | Out-Null
-          $buildId = node ../scripts/web_build_id.js
-          flutter build web --no-wasm-dry-run --output $webOutput --dart-define=NEOAGENT_BACKEND_URL= --dart-define=NEOAGENT_WEB_BUILD_ID=$buildId
-
-      - name: Install Windows backend dependencies
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-        run: npm ci --no-audit --no-fund
-
-      - name: Build standalone Windows CLI
-        if: inputs.release_tag != ''
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        env:
-          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ env.RUNTIME_SIGNING_PUBLIC_KEY }}
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $arch = node -p "process.arch"
-          if ($arch -ne "${{ matrix.architecture }}") {
-            throw "Expected ${{ matrix.architecture }} runner, received $arch."
-          }
-          node scripts/build_cli_sea.js --output "dist/neoagent-cli-windows-$arch-$version.exe"
+          platform: windows
+          architecture: ${{ matrix.architecture }}
+          version: ${{ steps.version.outputs.version }}
+          standalone: ${{ inputs.release_tag != '' }}
 
       - name: Sign standalone Windows CLI
         if: inputs.release_tag != '' && env.WINDOWS_SIGN_ENABLED == 'True'
@@ -355,11 +339,6 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "Standalone CLI signing failed." }
             }
 
-      - name: Prune Windows runtime dependencies
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        run: npm prune --omit=dev --no-audit --no-fund
-
       - name: Prepare portable Windows QEMU runtime
         shell: pwsh
         working-directory: ${{ github.workspace }}
@@ -369,20 +348,18 @@ jobs:
           if (-not (Test-Path $qemuBin)) { throw "QEMU installation directory was not found." }
           $env:Path = "$qemuBin;$env:Path"
           $qemuRuntime = Join-Path $env:RUNNER_TEMP "neoagent-qemu-windows-${{ matrix.architecture }}"
-          node scripts/stage_qemu_runtime.js --output $qemuRuntime
+          go run ./cmd/neoagent-release stage-qemu --output $qemuRuntime
           "QEMU_RUNTIME=$qemuRuntime" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Build Windows backend runtime
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $arch = node -p "process.arch"
-          $stage = Join-Path $env:RUNNER_TEMP "neoagent-runtime-windows-$arch"
-          $asset = Join-Path $env:GITHUB_WORKSPACE "dist/neoagent-runtime-windows-$arch-$version.zip"
-          node scripts/stage_runtime.js --output $stage --node (Get-Command node).Source --computer-runtime $env:QEMU_RUNTIME
-          Compress-Archive -Path "$stage\*" -DestinationPath $asset -CompressionLevel Optimal
-          node scripts/create_runtime_metadata.js --asset $asset --output "dist/neoagent-runtime-metadata-windows-$arch.json" --platform windows --architecture $arch
+      - name: Package Windows backend runtime
+        uses: ./.github/actions/package-runtime
+        with:
+          platform: windows
+          architecture: ${{ matrix.architecture }}
+          version: ${{ steps.version.outputs.version }}
+          binary: ${{ steps.binaries.outputs.binary }}
+          guest: ${{ steps.binaries.outputs.guest }}
+          computer-runtime: ${{ env.QEMU_RUNTIME }}
 
       - name: Upload Windows runtime
         uses: actions/upload-artifact@v4
@@ -424,6 +401,11 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+        with:
+          token: ${{ secrets.NEOLABS_GO_TOKEN }}
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -446,7 +428,7 @@ jobs:
       - name: Resolve runtime signing key
         working-directory: ${{ github.workspace }}
         run: |
-          PUBLIC_KEY="$(node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()")"
+          PUBLIC_KEY="$(go run ./cmd/neoagent-release signing-public-key)"
           echo "RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
 
       - name: Resolve macOS signing configuration
@@ -561,7 +543,10 @@ jobs:
             exit 1
           fi
           DIST_DIR="$GITHUB_WORKSPACE/dist"
-          ARCH="$(node -p process.arch)"
+          case "$(uname -m)" in
+            arm64) ARCH=arm64 ;;
+            *) ARCH=x64 ;;
+          esac
           if [ "$ARCH" != "${{ matrix.architecture }}" ]; then
             echo "Expected ${{ matrix.architecture }} runner, received $ARCH."
             exit 1
@@ -608,37 +593,17 @@ jobs:
           release_tag: ${{ inputs.release_tag }}
           files: dist/neoagent-macos-*.dmg
 
-      - name: Set up Node.js runtime
-        uses: actions/setup-node@v4
+      - name: Build web client for macOS runtime
+        uses: ./.github/actions/build-web
+
+      - name: Build macOS binaries
+        id: binaries
+        uses: ./.github/actions/build-binaries
         with:
-          node-version: 22
-
-      - name: Build bundled web client for macOS runtime
-        working-directory: ${{ github.workspace }}/flutter_app
-        run: |
-          BUILD_ID="$(node ../scripts/web_build_id.js)"
-          flutter build web \
-            --no-wasm-dry-run \
-            --output ../server/public \
-            --dart-define=NEOAGENT_BACKEND_URL= \
-            --dart-define=NEOAGENT_WEB_BUILD_ID="$BUILD_ID"
-
-      - name: Install macOS backend dependencies
-        working-directory: ${{ github.workspace }}
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-        run: npm ci --no-audit --no-fund
-
-      - name: Build standalone macOS CLI
-        if: inputs.release_tag != ''
-        working-directory: ${{ github.workspace }}
-        env:
-          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ env.RUNTIME_SIGNING_PUBLIC_KEY }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ARCH="$(node -p process.arch)"
-          node scripts/build_cli_sea.js \
-            --output "dist/neoagent-cli-macos-$ARCH-$VERSION"
+          platform: macos
+          architecture: ${{ matrix.architecture }}
+          version: ${{ steps.version.outputs.version }}
+          standalone: ${{ inputs.release_tag != '' }}
 
       - name: Sign standalone macOS CLI
         if: inputs.release_tag != '' && env.APPLE_SIGN_ENABLED == 'true'
@@ -656,35 +621,23 @@ jobs:
             codesign --verify --strict --verbose=4 "$CLI_PATH"
           done
 
-      - name: Prune macOS runtime dependencies
-        working-directory: ${{ github.workspace }}
-        run: npm prune --omit=dev --no-audit --no-fund
-
       - name: Prepare portable macOS QEMU runtime
         working-directory: ${{ github.workspace }}
         run: |
           brew install qemu
           QEMU_RUNTIME="$RUNNER_TEMP/neoagent-qemu-macos-${{ matrix.architecture }}"
-          node scripts/stage_qemu_runtime.js --output "$QEMU_RUNTIME"
+          go run ./cmd/neoagent-release stage-qemu --output "$QEMU_RUNTIME"
           echo "QEMU_RUNTIME=$QEMU_RUNTIME" >> "$GITHUB_ENV"
 
-      - name: Build macOS backend runtime
-        working-directory: ${{ github.workspace }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ARCH="$(node -p process.arch)"
-          STAGE="$RUNNER_TEMP/neoagent-runtime-macos-$ARCH"
-          ASSET="$GITHUB_WORKSPACE/dist/neoagent-runtime-macos-$ARCH-$VERSION.zip"
-          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)" --computer-runtime "$QEMU_RUNTIME"
-          (
-            cd "$STAGE"
-            zip -qry "$ASSET" .
-          )
-          node scripts/create_runtime_metadata.js \
-            --asset "$ASSET" \
-            --output "dist/neoagent-runtime-metadata-macos-$ARCH.json" \
-            --platform macos \
-            --architecture "$ARCH"
+      - name: Package macOS backend runtime
+        uses: ./.github/actions/package-runtime
+        with:
+          platform: macos
+          architecture: ${{ matrix.architecture }}
+          version: ${{ steps.version.outputs.version }}
+          binary: ${{ steps.binaries.outputs.binary }}
+          guest: ${{ steps.binaries.outputs.guest }}
+          computer-runtime: ${{ env.QEMU_RUNTIME }}
 
       - name: Upload macOS runtime
         uses: actions/upload-artifact@v4
@@ -717,6 +670,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+        with:
+          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Install Linux build dependencies
         run: |
@@ -761,7 +719,7 @@ jobs:
       - name: Resolve runtime signing key
         working-directory: ${{ github.workspace }}
         run: |
-          PUBLIC_KEY="$(node -p "require('./lib/setup/runtime_manifest').canonicalRuntimeSigningPublicKey()")"
+          PUBLIC_KEY="$(go run ./cmd/neoagent-release signing-public-key)"
           echo "RUNTIME_SIGNING_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
 
       - name: Build Linux app
@@ -924,68 +882,36 @@ jobs:
             dist/neoagent-arch-x86_64-*.pkg.tar.zst
             dist/neoagent-linux-x86_64-*.AppImage
 
-      - name: Set up Node.js runtime
-        uses: actions/setup-node@v4
+      - name: Build web client for Linux runtime
+        uses: ./.github/actions/build-web
+
+      - name: Build Linux binaries
+        id: binaries
+        uses: ./.github/actions/build-binaries
         with:
-          node-version: 22
-
-      - name: Build bundled web client for Linux runtime
-        working-directory: ${{ github.workspace }}/flutter_app
-        run: |
-          BUILD_ID="$(node ../scripts/web_build_id.js)"
-          flutter build web \
-            --no-wasm-dry-run \
-            --output ../server/public \
-            --dart-define=NEOAGENT_BACKEND_URL= \
-            --dart-define=NEOAGENT_WEB_BUILD_ID="$BUILD_ID"
-
-      - name: Install Linux backend dependencies
-        working-directory: ${{ github.workspace }}
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-        run: npm ci --no-audit --no-fund
-
-      - name: Build standalone Linux CLI
-        if: inputs.release_tag != ''
-        working-directory: ${{ github.workspace }}
-        env:
-          NEOAGENT_RUNTIME_SIGNING_PUBLIC_KEY: ${{ env.RUNTIME_SIGNING_PUBLIC_KEY }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ARCH="$(node -p process.arch)"
-          node scripts/build_cli_sea.js \
-            --output "dist/neoagent-cli-linux-$ARCH-$VERSION"
-
-      - name: Prune Linux runtime dependencies
-        working-directory: ${{ github.workspace }}
-        run: npm prune --omit=dev --no-audit --no-fund
+          platform: linux
+          architecture: x64
+          version: ${{ steps.version.outputs.version }}
+          standalone: ${{ inputs.release_tag != '' }}
 
       - name: Prepare portable Linux QEMU runtime
         working-directory: ${{ github.workspace }}
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf patchelf
-          QEMU_RUNTIME="$RUNNER_TEMP/neoagent-qemu-linux-$(node -p process.arch)"
-          node scripts/stage_qemu_runtime.js --output "$QEMU_RUNTIME"
+          QEMU_RUNTIME="$RUNNER_TEMP/neoagent-qemu-linux-x64"
+          go run ./cmd/neoagent-release stage-qemu --output "$QEMU_RUNTIME"
           echo "QEMU_RUNTIME=$QEMU_RUNTIME" >> "$GITHUB_ENV"
 
-      - name: Build Linux backend runtime
-        working-directory: ${{ github.workspace }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ARCH="$(node -p process.arch)"
-          STAGE="$RUNNER_TEMP/neoagent-runtime-linux-$ARCH"
-          ASSET="$GITHUB_WORKSPACE/dist/neoagent-runtime-linux-$ARCH-$VERSION.zip"
-          node scripts/stage_runtime.js --output "$STAGE" --node "$(command -v node)" --computer-runtime "$QEMU_RUNTIME"
-          (
-            cd "$STAGE"
-            zip -qry "$ASSET" .
-          )
-          node scripts/create_runtime_metadata.js \
-            --asset "$ASSET" \
-            --output "dist/neoagent-runtime-metadata-linux-$ARCH.json" \
-            --platform linux \
-            --architecture "$ARCH"
+      - name: Package Linux backend runtime
+        uses: ./.github/actions/package-runtime
+        with:
+          platform: linux
+          architecture: x64
+          version: ${{ steps.version.outputs.version }}
+          binary: ${{ steps.binaries.outputs.binary }}
+          guest: ${{ steps.binaries.outputs.guest }}
+          computer-runtime: ${{ env.QEMU_RUNTIME }}
 
       - name: Upload Linux runtime
         uses: actions/upload-artifact@v4

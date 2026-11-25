@@ -1,0 +1,12 @@
+[Unit]
+Description=Show the NeoAgent desktop on the VNC console
+After=lightdm.service neoagent-framebuffer-desktop.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'chvt 1 >/dev/null 2>&1 || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
+WantedBy=multi-user.target

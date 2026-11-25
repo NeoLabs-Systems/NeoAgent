@@ -21,7 +21,7 @@ description: Install NeoAgent, pick a setup mode, create the first account, and 
 | --- | --- | --- |
 | [Desktop app](#desktop-app) | macOS, Windows or Linux, no terminal | Nothing else |
 | [Docker](docker.md) | Servers and NAS boxes that already run containers | Docker |
-| [Repository installer](#repository-installer) | macOS and Linux servers | Git, Node.js 20.19 or newer, npm |
+| [Repository installer](#repository-installer) | macOS and Linux (x86_64) servers | `curl` |
 
 :::note npm packages
 NeoAgent is no longer published to the npm registry; use one of the paths above.
@@ -32,7 +32,7 @@ NeoAgent is no longer published to the npm registry; use one of the paths above.
 1. Download the installer from the [latest release](https://github.com/NeoLabs-Systems/NeoAgent/releases/latest): `.dmg` for macOS, `.exe` for Windows, `.AppImage`, `.deb` or an Arch `.pkg.tar.zst` for Linux.
 2. Open the app and choose **Set up NeoAgent on this computer**.
 3. Pick **Quickstart** or **Full setup**, and the **Stable** or **Beta** backend channel.
-4. Wait while the app downloads, verifies and starts a signed runtime. Node.js, npm and Git are not required.
+4. Wait while the app downloads, verifies and starts a signed runtime.
 5. Choose **Create your account**.
 
 - **Server already running elsewhere.** The same screen lists **Nearby NeoAgent servers** and offers **Enter an address manually**.
@@ -51,18 +51,13 @@ A bash script for macOS and Linux:
 bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/main/install.sh)
 ```
 
-1. Checks for `git`, `node` and `npm`.
-2. Asks for the install directory (default `~/NeoAgent`) and the release channel (`stable` or `beta`).
-3. Clones the repository, installs dependencies and links the `neoagent` command.
-4. Runs `neoagent install`, which asks for a [setup mode](#setup-modes) and starts NeoAgent as a background service.
+1. Asks for the release channel (`stable` or `beta`; set `NEOAGENT_RELEASE_CHANNEL` to skip the question).
+2. Downloads the `neoagent` binary for this computer from the newest release on that channel, checks its published SHA-256, and installs it to `~/.local/bin` (or `NEOAGENT_BIN_DIR`), adding that folder to `PATH` if needed.
+3. Runs `neoagent install`, which installs the signed runtime, asks for a [setup mode](#setup-modes) and starts NeoAgent as a background service.
 
-- **Existing data is kept.** A database or agent data under `~/.neoagent` (or `NEOAGENT_HOME`) is reused, not reset.
+- **Existing data is kept.** A database or agent data under `~/.neoagent` (or `NEOAGENT_HOME`) is backed up and reused, not reset. An older Node.js installation is switched over to the binary, and its service is put back if the new version does not start.
 - **Autostart.** A launchd agent on macOS, a systemd user service on Linux. Without either, run `neoagent start` after a reboot.
 - **Come back later.** `neoagent` on its own resumes an interrupted setup, installs if nothing is there, or opens a menu of common actions.
-
-:::warning Re-running the installer
-If the install directory already holds a NeoAgent checkout, the installer resets it to the release branch and discards local edits there.
-:::
 
 ## 🧩 Setup modes {#setup-modes}
 

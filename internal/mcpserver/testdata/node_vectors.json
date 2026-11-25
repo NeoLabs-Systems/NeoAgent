@@ -1,0 +1,128 @@
+{
+ "endpoints": [
+  {
+   "input": "https://example.com",
+   "ok": "https://example.com/"
+  },
+  {
+   "input": "HTTP://Example.COM:80/a/b?x=1#f",
+   "ok": "http://example.com/a/b?x=1#f"
+  },
+  {
+   "input": "https://example.com:443/mcp",
+   "ok": "https://example.com/mcp"
+  },
+  {
+   "input": "http://localhost:3000/sse",
+   "ok": "http://localhost:3000/sse"
+  },
+  {
+   "input": "https://example.com:8443",
+   "ok": "https://example.com:8443/"
+  },
+  {
+   "input": "  https://example.com/mcp  ",
+   "ok": "https://example.com/mcp"
+  },
+  {
+   "input": "ftp://example.com",
+   "error": "MCP server must use http or https. Local stdio/process MCP is disabled."
+  },
+  {
+   "input": "stdio://x",
+   "error": "MCP server must use http or https. Local stdio/process MCP is disabled."
+  },
+  {
+   "input": "npx something",
+   "error": "MCP server must be a valid remote http(s) URL."
+  },
+  {
+   "input": "",
+   "error": "MCP server must be a valid remote http(s) URL."
+  },
+  {
+   "input": "https://[::1]:9000/x",
+   "ok": "https://[::1]:9000/x"
+  },
+  {
+   "input": "https://user:pw@example.com/",
+   "ok": "https://user:pw@example.com/"
+  },
+  {
+   "input": "https://exa mple.com",
+   "error": "MCP server must be a valid remote http(s) URL."
+  },
+  {
+   "input": "https://example.com/a b",
+   "ok": "https://example.com/a%20b"
+  }
+ ],
+ "slugs": [
+  {
+   "name": "GitHub",
+   "id": 7,
+   "slug": "github"
+  },
+  {
+   "name": "My Server!",
+   "id": 7,
+   "slug": "my_server"
+  },
+  {
+   "name": "  x  ",
+   "id": 7,
+   "slug": "x"
+  },
+  {
+   "name": "__a__",
+   "id": 7,
+   "slug": "a"
+  },
+  {
+   "name": "Äpfel Über",
+   "id": 7,
+   "slug": "pfel_ber"
+  },
+  {
+   "name": "",
+   "id": 7,
+   "slug": "7"
+  },
+  {
+   "name": "a--b",
+   "id": 7,
+   "slug": "a_b"
+  },
+  {
+   "name": "123",
+   "id": 7,
+   "slug": "123"
+  }
+ ],
+ "errors": [
+  {
+   "message": "<!DOCTYPE html><html>HTTP 502 bad</html>",
+   "out": "Server returned HTTP 502 - the MCP endpoint may be down or misconfigured"
+  },
+  {
+   "message": "<html>nope</html>",
+   "out": "Server returned an HTML error page - the MCP endpoint may be down or misconfigured"
+  },
+  {
+   "message": "connect ECONNREFUSED 127.0.0.1:3000",
+   "out": "Connection refused at 127.0.0.1:3000 - is the MCP server running?"
+  },
+  {
+   "message": "ECONNREFUSED",
+   "out": "Connection refused - the MCP server is not reachable"
+  },
+  {
+   "message": "first line\nsecond line",
+   "out": "first line"
+  },
+  {
+   "message": "  padded  ",
+   "out": "padded"
+  }
+ ]
+}

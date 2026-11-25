@@ -1,0 +1,50 @@
+{
+  "key": "news",
+  "label": "World News",
+  "description": "Official news integration powered by GNews. Needs a GNews API key (free tier available).",
+  "icon": "news",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "headlines",
+      "label": "Headlines",
+      "description": "Top headlines from GNews, used by the World News task trigger."
+    }
+  ],
+  "connectPrompt": "Save a GNews API key to read top headlines and trigger tasks on major world news.",
+  "supportsMultipleAccounts": false,
+  "connectionMethod": "user_config",
+  "tools": [
+    {
+      "appId": "headlines",
+      "name": "news_get_headlines",
+      "access": "read",
+      "description": "Get the latest top news headlines, optionally filtered by keywords, category, language or country.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional keywords to filter headlines."
+          },
+          "category": {
+            "type": "string",
+            "description": "One of: general, world, nation, business, technology, entertainment, sports, science, health. Default world."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Two-letter language code, default en."
+          },
+          "country": {
+            "type": "string",
+            "description": "Optional two-letter country code."
+          },
+          "max": {
+            "type": "number",
+            "description": "Maximum articles to return (1-10), default 10."
+          }
+        }
+      }
+    }
+  ]
+}

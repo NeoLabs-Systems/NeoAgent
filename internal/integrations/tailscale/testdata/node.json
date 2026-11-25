@@ -1,0 +1,587 @@
+{
+ "agent": "97950a8c-71eb-4d79-bbda-0405681575f7",
+ "steps": [
+  {
+   "name": "env",
+   "replies": [],
+   "op": "env",
+   "result": {
+    "configured": true,
+    "missing": [],
+    "setupMode": "server",
+    "summary": "Sign in to your Tailscale account to connect."
+   },
+   "calls": []
+  },
+  {
+   "name": "begin bad app",
+   "replies": [],
+   "op": "begin",
+   "app": "x",
+   "error": "Unknown Tailscale app.",
+   "calls": []
+  },
+  {
+   "name": "begin invalid login url",
+   "replies": [
+    {
+     "loginUrl": "https://evil.example/a"
+    },
+    {}
+   ],
+   "op": "begin",
+   "app": "tailnet",
+   "error": "Tailscale returned an invalid sign-in URL.",
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "login",
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    },
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale/<op>/cancel",
+     "body": {},
+     "timeoutMs": 10000,
+     "maxResponseBytes": null
+    }
+   ]
+  },
+  {
+   "name": "begin",
+   "replies": [
+    {
+     "loginUrl": "https://login.tailscale.com/a/abc"
+    }
+   ],
+   "op": "begin",
+   "app": "tailnet",
+   "result": {
+    "status": "interactive_connect",
+    "sessionId": "<session>",
+    "loginUrl": "https://login.tailscale.com/a/abc",
+    "url": "/api/integrations/tailscale/connect/<session>"
+   },
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "login",
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    }
+   ]
+  },
+  {
+   "name": "session pending",
+   "replies": [
+    {
+     "status": "pending"
+    }
+   ],
+   "op": "session",
+   "result": {
+    "id": "<session>",
+    "provider": "tailscale",
+    "appId": "tailnet",
+    "status": "connecting",
+    "loginUrl": "https://login.tailscale.com/a/abc",
+    "connectionId": null,
+    "accountEmail": null,
+    "error": null
+   },
+   "calls": [
+    {
+     "userId": 1,
+     "method": "GET",
+     "path": "/integrations/tailscale/<op>/login-status",
+     "timeoutMs": 10000,
+     "maxResponseBytes": 2097152
+    }
+   ]
+  },
+  {
+   "name": "session connected",
+   "replies": [
+    {
+     "status": "connected",
+     "tailnet": "example.com",
+     "nodeId": "n1",
+     "state": "s1"
+    },
+    {}
+   ],
+   "op": "session",
+   "result": {
+    "id": "<session>",
+    "provider": "tailscale",
+    "appId": "tailnet",
+    "status": "connected",
+    "loginUrl": "https://login.tailscale.com/a/abc",
+    "connectionId": 10,
+    "accountEmail": "tailscale:example.com:n1",
+    "error": null
+   },
+   "calls": [
+    {
+     "userId": 1,
+     "method": "GET",
+     "path": "/integrations/tailscale/<op>/login-status",
+     "timeoutMs": 10000,
+     "maxResponseBytes": 2097152
+    },
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale/<op>/cancel",
+     "body": {},
+     "timeoutMs": 10000,
+     "maxResponseBytes": null
+    }
+   ]
+  },
+  {
+   "name": "stored connection",
+   "op": "stored",
+   "result": {
+    "user_id": 1,
+    "agent_id": "97950a8c-71eb-4d79-bbda-0405681575f7",
+    "provider_key": "tailscale",
+    "app_key": "tailnet",
+    "status": "connected",
+    "account_email": "tailscale:example.com:n1",
+    "scopes_json": "[]",
+    "credentials_json": {
+     "nodeId": "n1",
+     "state": "s1"
+    },
+    "metadata_json": "{\"nodeId\":\"n1\",\"tailnet\":\"example.com\",\"services\":[],\"access_mode\":\"read_only\"}"
+   }
+  },
+  {
+   "name": "services invalid",
+   "replies": [],
+   "op": "services",
+   "connection": "own",
+   "services": [
+    {
+     "peerId": "p1",
+     "port": 70000,
+     "methods": [
+      "GET"
+     ]
+    }
+   ],
+   "error": "Select a peer and a port from 1 to 65535.",
+   "calls": []
+  },
+  {
+   "name": "services bad path",
+   "replies": [],
+   "op": "services",
+   "connection": "own",
+   "services": [
+    {
+     "peerId": "p1",
+     "port": 443,
+     "path": "x",
+     "methods": [
+      "GET"
+     ]
+    }
+   ],
+   "error": "Provide an exact service path, including any query string.",
+   "calls": []
+  },
+  {
+   "name": "services bad method",
+   "replies": [],
+   "op": "services",
+   "connection": "own",
+   "services": [
+    {
+     "peerId": "p1",
+     "port": 443,
+     "path": "/",
+     "methods": [
+      "TRACE"
+     ]
+    }
+   ],
+   "error": "Select valid HTTP methods for each service operation.",
+   "calls": []
+  },
+  {
+   "name": "services",
+   "replies": [],
+   "op": "services",
+   "connection": "own",
+   "services": [
+    {
+     "peerId": " p1 ",
+     "port": "8443",
+     "scheme": "",
+     "path": "/api?x=1",
+     "methods": [
+      "GET",
+      "POST",
+      "GET"
+     ]
+    }
+   ],
+   "result": {
+    "services": [
+     {
+      "peerId": "p1",
+      "port": 8443,
+      "scheme": "https",
+      "path": "/api?x=1",
+      "methods": [
+       "GET",
+       "POST"
+      ]
+     }
+    ]
+   },
+   "calls": []
+  },
+  {
+   "name": "services unknown connection",
+   "replies": [],
+   "op": "services",
+   "connection": "other",
+   "services": [],
+   "error": "That Tailscale connection is not available to this agent.",
+   "calls": []
+  },
+  {
+   "name": "list peers",
+   "replies": [
+    {
+     "nodeId": "n1",
+     "state": "s2",
+     "result": {
+      "peers": [
+       {
+        "id": "p1"
+       }
+      ]
+     }
+    }
+   ],
+   "op": "exec",
+   "tool": "tailscale_list_peers",
+   "args": {},
+   "result": {
+    "peers": [
+     {
+      "id": "p1"
+     }
+    ],
+    "services": [
+     {
+      "peerId": "p1",
+      "port": 8443,
+      "scheme": "https",
+      "path": "/api?x=1",
+      "methods": [
+       "GET",
+       "POST"
+      ]
+     }
+    ]
+   },
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "list",
+      "state": "s1",
+      "nodeId": "n1",
+      "args": {},
+      "grants": [],
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    }
+   ]
+  },
+  {
+   "name": "ping not granted",
+   "replies": [],
+   "op": "exec",
+   "tool": "tailscale_ping",
+   "args": {
+    "peer_id": "p2",
+    "port": 443
+   },
+   "error": "This service operation has not been granted. Configure service access in the Tailscale integration.",
+   "calls": []
+  },
+  {
+   "name": "request read only",
+   "replies": [],
+   "op": "exec",
+   "tool": "tailscale_request",
+   "args": {
+    "peer_id": "p1",
+    "port": 8443,
+    "path": "/api?x=1"
+   },
+   "error": "Tailscale HTTP operations require read/write access.",
+   "calls": []
+  },
+  {
+   "name": "allow writes",
+   "op": "read_write"
+  },
+  {
+   "name": "request wrong method",
+   "replies": [],
+   "op": "exec",
+   "tool": "tailscale_request",
+   "args": {
+    "peer_id": "p1",
+    "port": 8443,
+    "path": "/api?x=1",
+    "method": "delete"
+   },
+   "error": "This service operation has not been granted. Configure service access in the Tailscale integration.",
+   "calls": []
+  },
+  {
+   "name": "request bad headers",
+   "replies": [],
+   "op": "exec",
+   "tool": "tailscale_request",
+   "args": {
+    "peer_id": "p1",
+    "port": 8443,
+    "path": "/api?x=1",
+    "headers": {
+     "a": 1
+    }
+   },
+   "error": "Invalid request headers.",
+   "calls": []
+  },
+  {
+   "name": "request",
+   "replies": [
+    {
+     "nodeId": "n1",
+     "state": "s3",
+     "result": {
+      "status": 200,
+      "body": "ok"
+     }
+    }
+   ],
+   "op": "exec",
+   "tool": "tailscale_request",
+   "args": {
+    "peer_id": "p1",
+    "port": 8443,
+    "path": "/api?x=1",
+    "method": "post",
+    "body": "x",
+    "headers": {
+     "x-a": "b"
+    }
+   },
+   "result": {
+    "status": 200,
+    "body": "ok"
+   },
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "request",
+      "state": "s2",
+      "nodeId": "n1",
+      "args": {
+       "peer_id": "p1",
+       "port": 8443,
+       "path": "/api?x=1",
+       "method": "post",
+       "body": "x",
+       "headers": {
+        "x-a": "b"
+       }
+      },
+      "grants": [
+       {
+        "peerId": "p1",
+        "port": 8443,
+        "scheme": "https",
+        "path": "/api?x=1",
+        "methods": [
+         "GET",
+         "POST"
+        ]
+       }
+      ],
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    }
+   ]
+  },
+  {
+   "name": "request runtime error",
+   "replies": [
+    {
+     "nodeId": "n1",
+     "state": "s4",
+     "error": "peer unreachable"
+    }
+   ],
+   "op": "exec",
+   "tool": "tailscale_ping",
+   "args": {
+    "peer_id": "p1",
+    "port": 8443
+   },
+   "error": "peer unreachable",
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "ping",
+      "state": "s3",
+      "nodeId": "n1",
+      "args": {
+       "peer_id": "p1",
+       "port": 8443
+      },
+      "grants": [
+       {
+        "peerId": "p1",
+        "port": 8443,
+        "scheme": "https",
+        "path": "/api?x=1",
+        "methods": [
+         "GET",
+         "POST"
+        ]
+       }
+      ],
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    }
+   ]
+  },
+  {
+   "name": "node changed",
+   "replies": [
+    {
+     "nodeId": "n2",
+     "state": "s5"
+    }
+   ],
+   "op": "exec",
+   "tool": "tailscale_list_peers",
+   "args": {},
+   "error": "Tailscale node identity changed.",
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "list",
+      "state": "s4",
+      "nodeId": "n1",
+      "args": {},
+      "grants": [],
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    }
+   ]
+  },
+  {
+   "name": "missing node",
+   "replies": [
+    {
+     "state": "s5"
+    }
+   ],
+   "op": "exec",
+   "tool": "tailscale_list_peers",
+   "args": {},
+   "error": "Tailscale node credentials are missing. Reconnect this integration account.",
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "list",
+      "state": "s4",
+      "nodeId": "n1",
+      "args": {},
+      "grants": [],
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    }
+   ]
+  },
+  {
+   "name": "credentials after calls",
+   "op": "credentials",
+   "result": {
+    "nodeId": "n1",
+    "state": "s4"
+   }
+  },
+  {
+   "name": "disconnect",
+   "replies": [
+    {}
+   ],
+   "op": "disconnect",
+   "result": null,
+   "calls": [
+    {
+     "userId": 1,
+     "method": "POST",
+     "path": "/integrations/tailscale",
+     "body": {
+      "action": "logout",
+      "nodeId": "n1",
+      "state": "s4",
+      "operationId": "<op>"
+     },
+     "timeoutMs": 60000,
+     "maxResponseBytes": 3145728
+    }
+   ]
+  }
+ ]
+}

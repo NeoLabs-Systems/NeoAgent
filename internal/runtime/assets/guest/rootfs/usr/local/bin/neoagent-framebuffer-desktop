@@ -1,0 +1,89 @@
+#!/bin/sh
+unbind_fbcon() {
+  echo 0 > /proc/sys/kernel/printk 2>/dev/null || true
+  for cons in /sys/class/vtconsole/vtcon*; do
+    if grep -qi frame "$cons/name" 2>/dev/null; then
+      echo 0 > "$cons/bind" 2>/dev/null || true
+    fi
+  done
+}
+
+modprobe virtio_gpu >/dev/null 2>&1 || true
+modprobe bochs >/dev/null 2>&1 || true
+i=0
+while [ "$i" -lt 8 ] && [ ! -e /dev/dri/card0 ]; do
+  i=$((i + 1))
+  sleep 1
+done
+for cons in /sys/class/vtconsole/vtcon*; do
+  if grep -qi frame "$cons/name" 2>/dev/null; then
+    echo 1 > "$cons/bind" 2>/dev/null || true
+  fi
+done
+
+systemctl stop getty@tty1.service >/dev/null 2>&1 || true
+systemctl stop lightdm.service >/dev/null 2>&1 || true
+install -d -m 0755 /etc/X11/xorg.conf.d
+rm -f /etc/X11/xorg.conf /etc/X11/xorg.conf.d/10-neoagent-display.conf
+if [ ! -e /dev/dri/card0 ]; then
+  unbind_fbcon
+  cat > /etc/X11/xorg.conf.d/10-neoagent-display.conf <<'FBDEV24'
+Section "Device"
+    Identifier "NeoAgentGPU"
+    Driver "fbdev"
+    Option "fbdev" "/dev/fb0"
+    Option "ShadowFB" "true"
+EndSection
+Section "Screen"
+    Identifier "NeoAgentScreen"
+    Device "NeoAgentGPU"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth 24
+    EndSubSection
+EndSection
+Section "ServerFlags"
+    Option "DontZap" "true"
+    Option "AutoAddGPU" "false"
+EndSection
+FBDEV24
+  cp /etc/X11/xorg.conf.d/10-neoagent-display.conf /etc/X11/xorg.conf
+fi
+pkill -x Xorg >/dev/null 2>&1 || true
+pkill -x X >/dev/null 2>&1 || true
+sleep 1
+xbin=$(command -v Xorg || command -v X || true)
+if [ -z "$xbin" ]; then
+  echo "Xorg is not installed" >&2
+  exit 1
+fi
+"$xbin" :0 vt1 -nolisten tcp >/var/log/neoagent-xorg-direct.log 2>&1 &
+xpid=$!
+i=0
+while [ "$i" -lt 20 ]; do
+  if [ -S /tmp/.X11-unix/X0 ]; then
+    break
+  fi
+  if ! kill -0 "$xpid" 2>/dev/null; then
+    echo "Xorg exited during startup" >&2
+    tail -n 40 /var/log/neoagent-xorg-direct.log >&2 || true
+    tail -n 40 /var/log/Xorg.0.log >&2 || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 1
+done
+if [ ! -S /tmp/.X11-unix/X0 ]; then
+  echo "Xorg did not create :0" >&2
+  tail -n 40 /var/log/neoagent-xorg-direct.log >&2 || true
+  exit 1
+fi
+chvt 1 >/dev/null 2>&1 || true
+session=openbox
+command -v openbox-session >/dev/null 2>&1 && session=openbox-session
+if command -v dbus-launch >/dev/null 2>&1; then
+  su - neo -c "DISPLAY=:0 dbus-launch --exit-with-session $session" >/tmp/neoagent-openbox.log 2>&1 &
+else
+  su - neo -c "DISPLAY=:0 $session" >/tmp/neoagent-openbox.log 2>&1 &
+fi
+wait "$xpid"

@@ -1,0 +1,122 @@
+{
+  "key": "whatsapp_personal",
+  "label": "WhatsApp",
+  "description": "Official personal WhatsApp integration with explicit per-account read-only or read/write access.",
+  "icon": "whatsapp",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "personal",
+      "label": "Personal WhatsApp",
+      "description": "Link your own WhatsApp account for private read and send tools, isolated from the agent-facing messaging bridge."
+    }
+  ],
+  "connectPrompt": "Link your personal WhatsApp account here to give the AI private read tools, send tools, or both. This connection is isolated from the separate messaging-platform WhatsApp bridge.",
+  "tools": [
+    {
+      "appId": "personal",
+      "name": "whatsapp_personal_get_profile",
+      "access": "read",
+      "description": "Get metadata about the linked personal WhatsApp account and its current sync state. When multiple personal WhatsApp accounts are connected, set connection_id or account_email to choose which one to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected personal WhatsApp account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected personal WhatsApp phone number identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "personal",
+      "name": "whatsapp_personal_list_chats",
+      "access": "read",
+      "description": "List cached chats synchronized for the linked personal WhatsApp account. When multiple personal WhatsApp accounts are connected, set connection_id or account_email to choose which one to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Maximum chats to return, default 25."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected personal WhatsApp account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected personal WhatsApp phone number identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "personal",
+      "name": "whatsapp_personal_get_messages",
+      "access": "read",
+      "description": "Read recent cached messages from a linked personal WhatsApp chat. When multiple personal WhatsApp accounts are connected, set connection_id or account_email to choose which one to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string",
+            "description": "WhatsApp JID or phone number for the chat to inspect."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum messages to return, default 20."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected personal WhatsApp account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected personal WhatsApp phone number identifier."
+          }
+        },
+        "required": [
+          "chat_id"
+        ]
+      }
+    },
+    {
+      "appId": "personal",
+      "name": "whatsapp_personal_send_message",
+      "access": "write",
+      "description": "Send a WhatsApp message from the linked personal account. When multiple personal WhatsApp accounts are connected, set connection_id or account_email to choose which one to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient WhatsApp JID or phone number."
+          },
+          "text": {
+            "type": "string",
+            "description": "Message body to send."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected personal WhatsApp account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected personal WhatsApp phone number identifier."
+          }
+        },
+        "required": [
+          "to",
+          "text"
+        ]
+      }
+    }
+  ]
+}

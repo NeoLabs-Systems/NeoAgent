@@ -1,0 +1,676 @@
+{
+ "snapshots": [
+  {
+   "env": {},
+   "user": 1,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500000,
+     "weekly": 10000000,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 3000,
+     "weekly": 3000
+    },
+    "remaining": {
+     "fourHour": 2497000,
+     "weekly": 9997000
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-01-01T15:00:00.000Z",
+     "weekly": "2099-01-08T11:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {},
+   "user": 2,
+   "snapshot": {
+    "limits": {
+     "fourHour": 500,
+     "weekly": 5000,
+     "fourHourIsCustom": true,
+     "weeklyIsCustom": true
+    },
+    "usage": {
+     "fourHour": 700,
+     "weekly": 700
+    },
+    "remaining": {
+     "fourHour": 0,
+     "weekly": 4300
+    },
+    "reached": {
+     "fourHour": true,
+     "weekly": false,
+     "any": true
+    },
+    "recoversAt": {
+     "fourHour": "2099-03-01T14:00:00.000Z",
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-03-01T15:00:00.000Z",
+     "weekly": "2099-03-08T11:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {},
+   "user": 3,
+   "snapshot": {
+    "limits": {
+     "fourHour": null,
+     "weekly": null,
+     "fourHourIsCustom": true,
+     "weeklyIsCustom": true
+    },
+    "usage": {
+     "fourHour": 9999999,
+     "weekly": 9999999
+    },
+    "remaining": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-04-01T13:00:00.000Z",
+     "weekly": "2099-04-08T09:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {},
+   "user": 4,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500000,
+     "weekly": 10000000,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 5,
+     "weekly": 5
+    },
+    "remaining": {
+     "fourHour": 2499995,
+     "weekly": 9999995
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-05-01T13:00:00.000Z",
+     "weekly": "2099-05-08T09:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {},
+   "user": 99,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500000,
+     "weekly": 10000000,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 0,
+     "weekly": 0
+    },
+    "remaining": {
+     "fourHour": 2500000,
+     "weekly": 10000000
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": null,
+     "weekly": null
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "2500",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "2900"
+   },
+   "user": 1,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500,
+     "weekly": 2900,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 3000,
+     "weekly": 3000
+    },
+    "remaining": {
+     "fourHour": 0,
+     "weekly": 0
+    },
+    "reached": {
+     "fourHour": true,
+     "weekly": true,
+     "any": true
+    },
+    "recoversAt": {
+     "fourHour": "2099-01-01T14:00:00.000Z",
+     "weekly": "2099-01-08T10:00:00.000Z"
+    },
+    "fullResetAt": {
+     "fourHour": "2099-01-01T15:00:00.000Z",
+     "weekly": "2099-01-08T11:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "2500",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "2900"
+   },
+   "user": 2,
+   "snapshot": {
+    "limits": {
+     "fourHour": 500,
+     "weekly": 5000,
+     "fourHourIsCustom": true,
+     "weeklyIsCustom": true
+    },
+    "usage": {
+     "fourHour": 700,
+     "weekly": 700
+    },
+    "remaining": {
+     "fourHour": 0,
+     "weekly": 4300
+    },
+    "reached": {
+     "fourHour": true,
+     "weekly": false,
+     "any": true
+    },
+    "recoversAt": {
+     "fourHour": "2099-03-01T14:00:00.000Z",
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-03-01T15:00:00.000Z",
+     "weekly": "2099-03-08T11:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "2500",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "2900"
+   },
+   "user": 3,
+   "snapshot": {
+    "limits": {
+     "fourHour": null,
+     "weekly": null,
+     "fourHourIsCustom": true,
+     "weeklyIsCustom": true
+    },
+    "usage": {
+     "fourHour": 9999999,
+     "weekly": 9999999
+    },
+    "remaining": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-04-01T13:00:00.000Z",
+     "weekly": "2099-04-08T09:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "2500",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "2900"
+   },
+   "user": 4,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500,
+     "weekly": 2900,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 5,
+     "weekly": 5
+    },
+    "remaining": {
+     "fourHour": 2495,
+     "weekly": 2895
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-05-01T13:00:00.000Z",
+     "weekly": "2099-05-08T09:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "2500",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "2900"
+   },
+   "user": 99,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500,
+     "weekly": 2900,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 0,
+     "weekly": 0
+    },
+    "remaining": {
+     "fourHour": 2500,
+     "weekly": 2900
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": null,
+     "weekly": null
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "abc",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "-5"
+   },
+   "user": 1,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500000,
+     "weekly": 10000000,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 3000,
+     "weekly": 3000
+    },
+    "remaining": {
+     "fourHour": 2497000,
+     "weekly": 9997000
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-01-01T15:00:00.000Z",
+     "weekly": "2099-01-08T11:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "abc",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "-5"
+   },
+   "user": 2,
+   "snapshot": {
+    "limits": {
+     "fourHour": 500,
+     "weekly": 5000,
+     "fourHourIsCustom": true,
+     "weeklyIsCustom": true
+    },
+    "usage": {
+     "fourHour": 700,
+     "weekly": 700
+    },
+    "remaining": {
+     "fourHour": 0,
+     "weekly": 4300
+    },
+    "reached": {
+     "fourHour": true,
+     "weekly": false,
+     "any": true
+    },
+    "recoversAt": {
+     "fourHour": "2099-03-01T14:00:00.000Z",
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-03-01T15:00:00.000Z",
+     "weekly": "2099-03-08T11:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "abc",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "-5"
+   },
+   "user": 3,
+   "snapshot": {
+    "limits": {
+     "fourHour": null,
+     "weekly": null,
+     "fourHourIsCustom": true,
+     "weeklyIsCustom": true
+    },
+    "usage": {
+     "fourHour": 9999999,
+     "weekly": 9999999
+    },
+    "remaining": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-04-01T13:00:00.000Z",
+     "weekly": "2099-04-08T09:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "abc",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "-5"
+   },
+   "user": 4,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500000,
+     "weekly": 10000000,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 5,
+     "weekly": 5
+    },
+    "remaining": {
+     "fourHour": 2499995,
+     "weekly": 9999995
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-05-01T13:00:00.000Z",
+     "weekly": "2099-05-08T09:00:00.000Z"
+    }
+   }
+  },
+  {
+   "env": {
+    "NEOAGENT_RATE_LIMIT_4H": "abc",
+    "NEOAGENT_RATE_LIMIT_WEEKLY": "-5"
+   },
+   "user": 99,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2500000,
+     "weekly": 10000000,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 0,
+     "weekly": 0
+    },
+    "remaining": {
+     "fourHour": 2500000,
+     "weekly": 10000000
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": null,
+     "weekly": null
+    }
+   }
+  }
+ ],
+ "enforce": [
+  {
+   "user": 1,
+   "bypass": false,
+   "ok": false,
+   "message": "Rate limit exceeded: You have used 3000 tokens in the last 4 hours (limit: 2000).",
+   "code": "RATE_LIMIT_EXCEEDED",
+   "statusCode": 429,
+   "window": "fourHour",
+   "after": {
+    "fourHour": 3000,
+    "weekly": 3000
+   }
+  },
+  {
+   "user": 1,
+   "bypass": false,
+   "ok": false,
+   "message": "Rate limit exceeded: You have used 3000 tokens in the last 4 hours (limit: 2000).",
+   "code": "RATE_LIMIT_EXCEEDED",
+   "statusCode": 429,
+   "window": "fourHour",
+   "after": {
+    "fourHour": 3000,
+    "weekly": 3000
+   }
+  },
+  {
+   "user": 2,
+   "bypass": false,
+   "ok": false,
+   "message": "Rate limit exceeded: You have used 700 tokens in the last 4 hours (limit: 500).",
+   "code": "RATE_LIMIT_EXCEEDED",
+   "statusCode": 429,
+   "window": "fourHour",
+   "after": {
+    "fourHour": 700,
+    "weekly": 700
+   }
+  },
+  {
+   "user": 2,
+   "bypass": false,
+   "ok": false,
+   "message": "Rate limit exceeded: You have used 700 tokens in the last 4 hours (limit: 500).",
+   "code": "RATE_LIMIT_EXCEEDED",
+   "statusCode": 429,
+   "window": "fourHour",
+   "after": {
+    "fourHour": 700,
+    "weekly": 700
+   }
+  },
+  {
+   "user": 3,
+   "bypass": false,
+   "ok": true,
+   "snapshot": {
+    "limits": {
+     "fourHour": null,
+     "weekly": null,
+     "fourHourIsCustom": true,
+     "weeklyIsCustom": true
+    },
+    "usage": {
+     "fourHour": 9999999,
+     "weekly": 9999999
+    },
+    "remaining": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "reached": {
+     "fourHour": false,
+     "weekly": false,
+     "any": false
+    },
+    "recoversAt": {
+     "fourHour": null,
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-04-01T13:00:00.000Z",
+     "weekly": "2099-04-08T09:00:00.000Z"
+    }
+   },
+   "bypassed": false,
+   "after": {
+    "fourHour": 10000000,
+    "weekly": 10000000
+   }
+  },
+  {
+   "user": 1,
+   "bypass": true,
+   "ok": true,
+   "snapshot": {
+    "limits": {
+     "fourHour": 2000,
+     "weekly": 100000,
+     "fourHourIsCustom": false,
+     "weeklyIsCustom": false
+    },
+    "usage": {
+     "fourHour": 3000,
+     "weekly": 3000
+    },
+    "remaining": {
+     "fourHour": 0,
+     "weekly": 97000
+    },
+    "reached": {
+     "fourHour": true,
+     "weekly": false,
+     "any": true
+    },
+    "recoversAt": {
+     "fourHour": "2099-01-01T15:00:00.000Z",
+     "weekly": null
+    },
+    "fullResetAt": {
+     "fourHour": "2099-01-01T15:00:00.000Z",
+     "weekly": "2099-01-08T11:00:00.000Z"
+    }
+   },
+   "bypassed": true,
+   "after": {
+    "fourHour": 3000,
+    "weekly": 3000
+   }
+  }
+ ],
+ "afterRelease": [
+  {
+   "fourHour": 3000,
+   "weekly": 3000
+  },
+  {
+   "fourHour": 700,
+   "weekly": 700
+  },
+  {
+   "fourHour": 9999999,
+   "weekly": 9999999
+  }
+ ],
+ "disabled": true
+}

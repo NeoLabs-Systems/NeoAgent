@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+    <focusLast>yes</focusLast>
+    <underMouse>no</underMouse>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+  <placement>
+    <policy>Smart</policy>
+    <center>yes</center>
+    <monitor>Mouse</monitor>
+  </placement>
+  <theme>
+    <name>NeoAgent</name>
+    <titleLayout>NLIMC</titleLayout>
+    <keepBorder>yes</keepBorder>
+    <animateIconify>no</animateIconify>
+    <font place="ActiveWindow"><name>sans</name><size>9</size><weight>Bold</weight></font>
+    <font place="InactiveWindow"><name>sans</name><size>9</size><weight>Bold</weight></font>
+    <font place="MenuHeader"><name>sans</name><size>9</size><weight>Bold</weight></font>
+    <font place="MenuItem"><name>sans</name><size>9</size><weight>Normal</weight></font>
+    <font place="ActiveOnScreenDisplay"><name>sans</name><size>9</size></font>
+    <font place="InactiveOnScreenDisplay"><name>sans</name><size>9</size></font>
+  </theme>
+  <desktops>
+    <number>1</number>
+    <firstdesk>1</firstdesk>
+    <popupTime>0</popupTime>
+  </desktops>
+  <resize>
+    <drawContents>yes</drawContents>
+    <popupShow>Nonpixel</popupShow>
+    <popupPosition>Center</popupPosition>
+  </resize>
+  <keyboard>
+    <chainQuitKey>C-g</chainQuitKey>
+    <keybind key="A-F4"><action name="Close" /></keybind>
+    <keybind key="A-F10"><action name="ToggleMaximize" /></keybind>
+    <keybind key="A-Tab">
+      <action name="NextWindow">
+        <finalactions><action name="Focus" /><action name="Raise" /></finalactions>
+      </action>
+    </keybind>
+    <keybind key="A-S-Tab">
+      <action name="PreviousWindow">
+        <finalactions><action name="Focus" /><action name="Raise" /></finalactions>
+      </action>
+    </keybind>
+    <keybind key="W-space"><action name="ShowMenu"><menu>root-menu</menu></action></keybind>
+    <keybind key="Super_L"><action name="ShowMenu"><menu>root-menu</menu></action></keybind>
+    <keybind key="W-t"><action name="Execute"><command>lxterminal --working-directory=/home/neo/workspace</command></action></keybind>
+    <keybind key="W-e"><action name="Execute"><command>pcmanfm /home/neo/workspace</command></action></keybind>
+    <keybind key="W-b"><action name="Execute"><command>chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check --restore-last-session --hide-crash-restore-bubble --disable-session-crashed-bubble --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --remote-allow-origins=*</command></action></keybind>
+  </keyboard>
+  <mouse>
+    <dragThreshold>3</dragThreshold>
+    <doubleClickTime>300</doubleClickTime>
+    <screenEdgeWarpTime>0</screenEdgeWarpTime>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Drag"><action name="Move" /></mousebind>
+      <mousebind button="A-Right" action="Drag"><action name="Resize" /></mousebind>
+    </context>
+    <context name="Titlebar">
+      <mousebind button="Left" action="Drag"><action name="Move" /></mousebind>
+      <mousebind button="Left" action="DoubleClick"><action name="ToggleMaximize" /></mousebind>
+      <mousebind button="Right" action="Press"><action name="ShowMenu"><menu>client-menu</menu></action></mousebind>
+    </context>
+    <context name="Titlebar Top Right Bottom Left TLCorner TRCorner BRCorner BLCorner">
+      <mousebind button="Left" action="Press"><action name="Focus" /><action name="Raise" /></mousebind>
+    </context>
+    <context name="Client">
+      <mousebind button="Left" action="Press"><action name="Focus" /><action name="Raise" /></mousebind>
+      <mousebind button="Middle" action="Press"><action name="Focus" /><action name="Raise" /></mousebind>
+      <mousebind button="Right" action="Press"><action name="Focus" /><action name="Raise" /></mousebind>
+    </context>
+    <context name="Icon">
+      <mousebind button="Left" action="Press"><action name="Focus" /><action name="Raise" /><action name="ShowMenu"><menu>client-menu</menu></action></mousebind>
+    </context>
+    <context name="Maximize">
+      <mousebind button="Left" action="Click"><action name="Focus" /><action name="Raise" /><action name="ToggleMaximize" /></mousebind>
+    </context>
+    <context name="Close">
+      <mousebind button="Left" action="Click"><action name="Focus" /><action name="Raise" /><action name="Close" /></mousebind>
+    </context>
+    <context name="Desktop">
+      <mousebind button="Right" action="Press"><action name="ShowMenu"><menu>root-menu</menu></action></mousebind>
+      <mousebind button="Left" action="Press"><action name="Focus" /></mousebind>
+    </context>
+    <context name="Root">
+      <mousebind button="Right" action="Press"><action name="ShowMenu"><menu>root-menu</menu></action></mousebind>
+    </context>
+  </mouse>
+  <menu>
+    <file>/etc/xdg/openbox/menu.xml</file>
+    <hideDelay>150</hideDelay>
+    <middle>no</middle>
+    <submenuShowDelay>100</submenuShowDelay>
+    <applicationIcons>yes</applicationIcons>
+    <manageDesktops>no</manageDesktops>
+  </menu>
+  <applications>
+    <application class="*">
+      <decor>yes</decor>
+      <maximized>false</maximized>
+    </application>
+    <application class="Chromium-browser">
+      <maximized>yes</maximized>
+    </application>
+    <application class="chromium">
+      <maximized>yes</maximized>
+    </application>
+  </applications>
+</openbox_config>

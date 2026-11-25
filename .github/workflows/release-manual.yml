@@ -20,8 +20,14 @@ permissions:
   id-token: write
 
 jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
   release:
     name: Bump version and publish manual release
+    needs: ci
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.bump.outputs.version }}
@@ -32,16 +38,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
         with:
-          node-version: 20
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.9'
+          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Configure Git identity
         run: |
@@ -59,14 +59,15 @@ jobs:
           fi
 
           LATEST_VERSION=${LATEST_TAG#v}
-          echo "Syncing package.json to latest known release ($LATEST_VERSION)..."
+          IFS=. read -r major minor patch <<< "${LATEST_VERSION%%-*}"
+          case "${{ github.event.inputs.version_bump }}" in
+            major) NEW_VERSION="$((major + 1)).0.0" ;;
+            minor) NEW_VERSION="${major}.$((minor + 1)).0" ;;
+            *) NEW_VERSION="${major}.${minor}.$((patch + 1))" ;;
+          esac
 
-          npm version "$LATEST_VERSION" --no-git-tag-version --allow-same-version
-          npm version "${{ github.event.inputs.version_bump }}" --no-git-tag-version
-
-          NEW_VERSION=$(node -p "require('./package.json').version")
-
-          git add package.json package-lock.json || true
+          go run ./cmd/neoagent-release set-version "$NEW_VERSION"
+          git add VERSION package.json
           git commit -m "chore(release): v${NEW_VERSION} [skip ci]"
           git tag "v${NEW_VERSION}" -m "chore(release): v${NEW_VERSION}"
 
@@ -77,19 +78,6 @@ jobs:
         run: |
           git push origin HEAD
           git push origin "${{ env.NEW_VERSION }}"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build bundled web client
-        run: NEOAGENT_BACKEND_URL='' npm run flutter:build:web
-
-      - name: Verify production web bundle
-        run: |
-          if rg -n "http://localhost:3333|127\\.0\\.0\\.1:3333" server/public/main.dart.js; then
-            echo "Bundled web client still points at localhost."
-            exit 1
-          fi
 
       - name: Create GitHub release
         env:
@@ -103,7 +91,7 @@ jobs:
       - name: Add download links to release notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release_download.js --tag "${{ env.NEW_VERSION }}"
+        run: go run ./cmd/neoagent-release release-download --tag "${{ env.NEW_VERSION }}"
 
       - name: Capture release sha
         id: capture_release_sha
@@ -134,6 +122,7 @@ jobs:
       contents: read
       packages: write
     uses: ./.github/workflows/_publish-docker-image.yml
+    secrets: inherit
     with:
       ref: ${{ needs.release.outputs.release_sha }}
       release_tag: ${{ needs.release.outputs.release_tag }}

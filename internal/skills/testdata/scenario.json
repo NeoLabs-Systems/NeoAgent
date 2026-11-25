@@ -1,0 +1,2627 @@
+{
+ "seed": [
+  {
+   "path": "alpha/SKILL.md",
+   "text": "---\nname: alpha\ndescription: Shared alpha skill\ncategory: ops\ntrigger: when alpha is needed\nsource: builtin\n---\n\nAlpha instructions.\nSecond line.\n"
+  },
+  {
+   "path": "alpha/scripts/run.sh",
+   "text": "#!/bin/sh\necho alpha\n"
+  },
+  {
+   "path": "alpha/notes/readme.txt",
+   "text": "bundled note\n"
+  },
+  {
+   "path": "notes.md",
+   "text": "---\nname: loose-notes\ndescription: A loose shared skill\nenabled: true\n---\nLoose body\n"
+  },
+  {
+   "path": "old/SKILL.md",
+   "text": "---\nname: retired\nstore_id: abc\n---\nretired store skill\n"
+  },
+  {
+   "path": "crlf/SKILL.md",
+   "text": "---\r\nname: crlf-skill\r\ndescription: windows file\r\n---\r\nbody\r\n"
+  }
+ ],
+ "remote": {
+  "https://skills.sh/api/search?q=pdf%20tools&limit=30": {
+   "status": 200,
+   "text": "{\"skills\":[{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"PDF Tools\",\"installs\":1200},{\"source\":\"acme/skills\",\"skillId\":\"ocr\",\"installs\":\"many\"},{\"source\":\"not a repo\",\"skillId\":\"bad\",\"name\":\"Bad\"},{\"source\":\"acme/skills\",\"name\":\"no id\"},{\"source\":\"acme/solo\",\"skillId\":\"solo\",\"name\":\"Solo\",\"installs\":5}]}"
+  },
+  "https://skills.sh/api/search?q=weird%20%26%20q!*'()&limit=30": {
+   "status": 200,
+   "text": "{\"skills\":\"nope\"}"
+  },
+  "https://skills.sh/api/search?q=boom&limit=30": {
+   "status": 500,
+   "text": "err"
+  },
+  "https://skills.sh/api/search?q=gone&limit=30": {
+   "status": 404,
+   "text": "err"
+  },
+  "https://skills.sh/": {
+   "status": 200,
+   "text": "<html>self.__next_f.push([1,\"{\\\"initialSkills\\\":[{\\\"source\\\":\\\"acme/skills\\\",\\\"skillId\\\":\\\"pdf\\\",\\\"name\\\":\\\"PDF Tools\\\",\\\"installs\\\":1200,\\\"weeklyInstalls\\\":[1,2,3],\\\"isOfficial\\\":true},{\\\"source\\\":\\\"acme/skills\\\",\\\"skillId\\\":\\\"pdf\\\",\\\"name\\\":\\\"dup\\\",\\\"installs\\\":5},{\\\"source\\\":\\\"bad source\\\",\\\"skillId\\\":\\\"x\\\",\\\"name\\\":\\\"bad\\\",\\\"installs\\\":1},{\\\"source\\\":\\\"acme/solo\\\",\\\"skillId\\\":\\\"solo\\\",\\\"name\\\":\\\"\\\",\\\"installs\\\":77,\\\"isOfficial\\\":false}]}\"])</html>"
+  },
+  "https://skills.sh/trending": {
+   "status": 200,
+   "text": "<html>no list here</html>"
+  },
+  "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1": {
+   "status": 200,
+   "text": "{\"tree\":[{\"path\":\"README.md\",\"type\":\"blob\",\"size\":10},{\"path\":\"skills\",\"type\":\"tree\",\"size\":0},{\"path\":\"skills/pdf/SKILL.md\",\"type\":\"blob\",\"size\":100},{\"path\":\"skills/pdf/scripts/extract.py\",\"type\":\"blob\",\"size\":20},{\"path\":\"skills/pdf/big.bin\",\"type\":\"blob\",\"size\":2097152},{\"path\":\"skills/pdf/ref guide.md\",\"type\":\"blob\",\"size\":12},{\"path\":\"skills/pdf/img/pic.png\",\"type\":\"blob\",\"size\":6},{\"path\":\"skills/other/SKILL.md\",\"type\":\"blob\",\"size\":50},{\"path\":\"tools/x/SKILL.md\",\"type\":\"blob\",\"size\":50},{\"path\":\"tools/x/data/f.json\",\"type\":\"blob\",\"size\":8}]}"
+  },
+  "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md": {
+   "status": 200,
+   "text": "---\nname: pdf\ndescription: \"Work with PDFs\"\n---\n\nPDF body 󠁁\n"
+  },
+  "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/scripts/extract.py": {
+   "status": 200,
+   "text": "print(\"extract 󠁂\")\n"
+  },
+  "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/ref%20guide.md": {
+   "status": 200,
+   "text": "# guide\n"
+  },
+  "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/img/pic.png": {
+   "status": 200,
+   "base64": "iVBOR/8A"
+  },
+  "https://raw.githubusercontent.com/acme/skills/HEAD/skills/other/SKILL.md": {
+   "status": 200,
+   "text": "---\nname: other\n---\nother body"
+  },
+  "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/SKILL.md": {
+   "status": 200,
+   "text": "---\nname: Nice Name\ndescription: |\n  line one\n  line two\n---\nnice body"
+  },
+  "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/data/f.json": {
+   "status": 200,
+   "text": "{\"a\":1}"
+  },
+  "https://api.github.com/repos/acme/solo/git/trees/HEAD?recursive=1": {
+   "status": 200,
+   "text": "{\"tree\":[{\"path\":\"SKILL.md\",\"type\":\"blob\",\"size\":20},{\"path\":\"docs/a.md\",\"type\":\"blob\",\"size\":3}]}"
+  },
+  "https://raw.githubusercontent.com/acme/solo/HEAD/SKILL.md": {
+   "status": 200,
+   "text": "---\nname: solo-from-repo\n---\n## NeoAgent Notes\nalready mapped"
+  },
+  "https://raw.githubusercontent.com/acme/solo/HEAD/docs/a.md": {
+   "status": 200,
+   "text": "doc"
+  },
+  "https://api.github.com/repos/acme/missing/git/trees/HEAD?recursive=1": {
+   "status": 404,
+   "text": "nope"
+  },
+  "https://api.github.com/repos/acme/limited/git/trees/HEAD?recursive=1": {
+   "status": 403,
+   "text": "rate"
+  },
+  "https://api.github.com/repos/acme/noname/git/trees/HEAD?recursive=1": {
+   "status": 200,
+   "text": "{\"tree\":[{\"path\":\"SKILL.md\",\"type\":\"blob\",\"size\":20}]}"
+  },
+  "https://raw.githubusercontent.com/acme/noname/HEAD/SKILL.md": {
+   "status": 200,
+   "text": "---\ndescription: no name\n---\nbody"
+  },
+  "https://api.github.com/repos/acme/plain/git/trees/HEAD?recursive=1": {
+   "status": 200,
+   "text": "{\"tree\":[{\"path\":\"SKILL.md\",\"type\":\"blob\",\"size\":20}]}"
+  },
+  "https://raw.githubusercontent.com/acme/plain/HEAD/SKILL.md": {
+   "status": 200,
+   "text": "no frontmatter at all"
+  }
+ },
+ "outbound": [
+  {
+   "url": "https://skills.sh/api/search?q=npx%20skills%20add%20nope%20--skill%20pdf&limit=30",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/api/search?q=pdf%20tools&limit=30",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/api/search?q=weird%20%26%20q!*'()&limit=30",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/api/search?q=boom&limit=30",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/api/search?q=gone&limit=30",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/api/search?q=pdf%20tools%2Czz&limit=30",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/trending",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/scripts/extract.py",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/ref%20guide.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/img/pic.png",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://skills.sh/api/search?q=pdf%20tools&limit=30",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/scripts/extract.py",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/ref%20guide.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/img/pic.png",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/other/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/data/f.json",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/solo/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/solo/HEAD/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/solo/HEAD/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/solo/HEAD/docs/a.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/skills/other/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/missing/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/limited/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/noname/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/noname/HEAD/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/noname/HEAD/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://api.github.com/repos/acme/plain/git/trees/HEAD?recursive=1",
+   "userAgent": "NeoAgent",
+   "accept": "application/vnd.github+json",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/plain/HEAD/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  },
+  {
+   "url": "https://raw.githubusercontent.com/acme/plain/HEAD/SKILL.md",
+   "userAgent": "NeoAgent",
+   "accept": "",
+   "authorization": ""
+  }
+ ],
+ "steps": [
+  {
+   "name": "anonymous list",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "anonymous skill",
+   "method": "GET",
+   "path": "/api/skills/alpha",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "anonymous create",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": null,
+   "body": "{\"content\":\"---\\nname: x\\ndescription: Does x\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "anonymous library",
+   "method": "GET",
+   "path": "/api/skills/builtin-libraries",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list shared skills",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha\",\"description\":\"Shared alpha skill\",\"enabled\":true,\"draft\":false,\"category\":\"ops\",\"trigger\":\"when alpha is needed\",\"source\":\"builtin\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/alpha/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"},{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/notes.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list trailing slash",
+   "method": "GET",
+   "path": "/api/skills/",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha\",\"description\":\"Shared alpha skill\",\"enabled\":true,\"draft\":false,\"category\":\"ops\",\"trigger\":\"when alpha is needed\",\"source\":\"builtin\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/alpha/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"},{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/notes.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "shared skill",
+   "method": "GET",
+   "path": "/api/skills/alpha",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"alpha\",\"content\":\"---\\nname: alpha\\ndescription: Shared alpha skill\\ncategory: ops\\ntrigger: when alpha is needed\\nsource: builtin\\n---\\n\\nAlpha instructions.\\nSecond line.\\n\",\"meta\":{\"name\":\"alpha\",\"description\":\"Shared alpha skill\",\"category\":\"ops\",\"trigger\":\"when alpha is needed\",\"source\":\"builtin\"},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "shared skill uppercase",
+   "method": "GET",
+   "path": "/api/skills/ALPHA",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"alpha\",\"content\":\"---\\nname: alpha\\ndescription: Shared alpha skill\\ncategory: ops\\ntrigger: when alpha is needed\\nsource: builtin\\n---\\n\\nAlpha instructions.\\nSecond line.\\n\",\"meta\":{\"name\":\"alpha\",\"description\":\"Shared alpha skill\",\"category\":\"ops\",\"trigger\":\"when alpha is needed\",\"source\":\"builtin\"},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "loose shared skill",
+   "method": "GET",
+   "path": "/api/skills/loose-notes",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"loose-notes\",\"content\":\"---\\nname: loose-notes\\ndescription: A loose shared skill\\nenabled: true\\n---\\nLoose body\\n\",\"meta\":{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":true},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "crlf shared skill",
+   "method": "GET",
+   "path": "/api/skills/crlf-skill",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "retired skill gone",
+   "method": "GET",
+   "path": "/api/skills/retired",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "missing skill",
+   "method": "GET",
+   "path": "/api/skills/nope",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "bob list",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha\",\"description\":\"Shared alpha skill\",\"enabled\":true,\"draft\":false,\"category\":\"ops\",\"trigger\":\"when alpha is needed\",\"source\":\"builtin\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/alpha/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"},{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/notes.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create basic",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: Hello World\\ndescription: Does Hello World\\ncategory: tools\\ntrigger: say hi\\nenabled: true\\ndraft: false\\nparameters: {\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"b\\\":1,\\\"a\\\":[1,{\\\"z\\\":null}]}}\\ntool: true\\ncommand: echo {text}\\nweird: [not json\\nnumber: 42\\nblank:\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"hello-world\",\"path\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create with filename",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: Other Name\\ndescription: Does Other Name\\ncategory: x\\n---\\n\\nBody text.\\n\",\"filename\":\"Custom File Name!\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"custom-file-name\",\"path\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create duplicate",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: hello-world\\ndescription: Does hello-world\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill 'hello-world' already exists\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create dup via filename",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: zzz\\ndescription: Does zzz\\n---\\n\\nBody text.\\n\",\"filename\":\"HELLO world\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill 'hello-world' already exists\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create without frontmatter",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"just text\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create without content",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create number content",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":5}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create no name",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\ndescription: x\\n---\\nbody\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill frontmatter must include name\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create false name",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: false\\n---\\nbody\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill frontmatter must include name\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create true name",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: true\\n---\\nbody\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"true\",\"path\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create bad command",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: bad-cmd\\ndescription: Does bad-cmd\\ncommand: rm -rf /; echo\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill command template contains invalid characters\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create command placeholders ok",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: good-cmd\\ndescription: Does good-cmd\\ncommand: grep {pattern} {file}\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"good-cmd\",\"path\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create pipe command",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: pipe-cmd\\ndescription: Does pipe-cmd\\ncommand: ls | wc\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill command template contains invalid characters\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create with colons and spaces",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\n  name :   Spacey Skill  \\ndescription: has: colons: inside\\n: orphan value\\nno colon line\\nkey with space: x\\n---\\n\\n\\n  indented body  \\n\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"spacey-skill\",\"path\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create json metadata values",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: json-meta\\ndescription: Does json-meta\\ntags: [\\\"a\\\",\\\"b\\\"]\\nobj: {\\\"k\\\":{\\\"n\\\":1,\\\"a\\\":2}}\\nempty: {}\\nlist: []\\ndot: 1.0\\nunicode: \\\"é\\\\u2028\\\"\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"json-meta\",\"path\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create html chars",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: html-chars\\ndescription: Does html-chars\\nnote: <b>&amp;</b>\\n---\\n\\na < b && c > d\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"html-chars\",\"path\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create empty body",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: empty-body\\n---\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"empty-body\",\"path\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create no trailing newline after front",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: tight\\n---body here\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"tight\",\"path\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create name with only symbols",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: !!!\\n---\\nbody\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill name is required\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create uppercase accent name",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: Ünï Cöde_Name\\ndescription: Does Ünï Cöde_Name\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"n-c-de-name\",\"path\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create creates shadow of shared",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: alpha\\ndescription: Does alpha\\ncategory: mine\\n---\\n\\nMy own alpha\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"alpha\",\"path\":\"<home>/agent-data/skills/users/1/alpha/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list after creates",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha\",\"description\":\"Does alpha\",\"enabled\":true,\"draft\":false,\"category\":\"mine\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/alpha/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does Hello World\",\"enabled\":true,\"draft\":false,\"category\":\"tools\",\"trigger\":\"say hi\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/notes.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "read created",
+   "method": "GET",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"hello-world\",\"content\":\"---\\nname: hello-world\\ndescription: Does Hello World\\ncategory: tools\\ntrigger: say hi\\nenabled: true\\ndraft: false\\nparameters: {\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"b\\\":1,\\\"a\\\":[1,{\\\"z\\\":null}]}}\\ntool: true\\ncommand: echo {text}\\nweird: [not json\\nnumber: 42\\nblank: \\n---\\n\\nBody text.\",\"meta\":{\"name\":\"hello-world\",\"description\":\"Does Hello World\",\"category\":\"tools\",\"trigger\":\"say hi\",\"enabled\":true,\"draft\":false,\"parameters\":{\"type\":\"object\",\"properties\":{\"b\":1,\"a\":[1,{\"z\":null}]}},\"tool\":true,\"command\":\"echo {text}\",\"weird\":\"[not json\",\"number\":\"42\",\"blank\":\"\"},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "read shadowing",
+   "method": "GET",
+   "path": "/api/skills/alpha",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"alpha\",\"content\":\"---\\nname: alpha\\ndescription: Does alpha\\ncategory: mine\\n---\\n\\nMy own alpha\",\"meta\":{\"name\":\"alpha\",\"description\":\"Does alpha\",\"category\":\"mine\",\"enabled\":true},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "toggle owned off",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{\"enabled\":false}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"hello-world\",\"path\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"versionId\":null}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "read after toggle",
+   "method": "GET",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"hello-world\",\"content\":\"---\\nname: hello-world\\ndescription: Does Hello World\\ncategory: tools\\ntrigger: say hi\\nenabled: false\\ndraft: false\\nparameters: {\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"b\\\":1,\\\"a\\\":[1,{\\\"z\\\":null}]}}\\ntool: true\\ncommand: echo {text}\\nweird: [not json\\nnumber: 42\\nblank: \\n---\\n\\nBody text.\",\"meta\":{\"name\":\"hello-world\",\"description\":\"Does Hello World\",\"category\":\"tools\",\"trigger\":\"say hi\",\"enabled\":false,\"draft\":false,\"parameters\":{\"type\":\"object\",\"properties\":{\"b\":1,\"a\":[1,{\"z\":null}]}},\"tool\":true,\"command\":\"echo {text}\",\"weird\":\"[not json\",\"number\":\"42\",\"blank\":\"\"},\"enabled\":false}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "toggle owned on",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{\"enabled\":true}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"hello-world\",\"path\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"versionId\":null}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "toggle shared off",
+   "method": "PUT",
+   "path": "/api/skills/loose-notes",
+   "user": 1,
+   "body": "{\"enabled\":false}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"loose-notes\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "shared after toggle",
+   "method": "GET",
+   "path": "/api/skills/loose-notes",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"loose-notes\",\"content\":\"---\\nname: loose-notes\\ndescription: A loose shared skill\\nenabled: true\\n---\\nLoose body\\n\",\"meta\":{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":false},\"enabled\":false}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list after toggle",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha\",\"description\":\"Does alpha\",\"enabled\":true,\"draft\":false,\"category\":\"mine\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/alpha/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does Hello World\",\"enabled\":true,\"draft\":false,\"category\":\"tools\",\"trigger\":\"say hi\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/notes.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "toggle missing",
+   "method": "PUT",
+   "path": "/api/skills/nope",
+   "user": 1,
+   "body": "{\"enabled\":true}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill 'nope' not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "enabled with content edits",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{\"enabled\":false,\"content\":\"---\\nname: hello-world\\ndescription: Does hello-world\\ncategory: edited\\n---\\n\\nEdited body\\n\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"hello-world\",\"path\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit owned",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: hello-world\\ndescription: Does hello-world\\ncategory: tools2\\ntrigger: again\\n---\\n\\nSecond body\\n\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"hello-world\",\"path\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit owned changes name key ignored",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: renamed-in-body\\ndescription: Does renamed-in-body\\ncategory: tools3\\n---\\n\\nThird body\\n\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"hello-world\",\"path\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "read edited",
+   "method": "GET",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"hello-world\",\"content\":\"---\\nname: hello-world\\ndescription: Does renamed-in-body\\ncategory: tools3\\n---\\n\\nThird body\",\"meta\":{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"category\":\"tools3\",\"enabled\":true},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit without content",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit bad frontmatter",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{\"content\":\"nope\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit bad command",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: x\\ndescription: Does x\\ncommand: a;b\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Skill command template contains invalid characters\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit missing skill",
+   "method": "PUT",
+   "path": "/api/skills/not-there",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: not-there\\ndescription: Does not-there\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill 'not-there' not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit shared forks with files",
+   "method": "PUT",
+   "path": "/api/skills/crlf-skill",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: crlf-skill\\ndescription: Does crlf-skill\\ncategory: forked\\n---\\n\\nForked body\\n\"}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill 'crlf-skill' not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit shared with bundled files",
+   "method": "PUT",
+   "path": "/api/skills/alpha",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: alpha\\ndescription: Does alpha\\ncategory: forked\\n---\\n\\nForked alpha\\n\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"alpha\",\"path\":\"<home>/agent-data/skills/users/1/alpha/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "read forked",
+   "method": "GET",
+   "path": "/api/skills/alpha",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"alpha\",\"content\":\"---\\nname: alpha\\ndescription: Does alpha\\ncategory: forked\\n---\\n\\nForked alpha\",\"meta\":{\"name\":\"alpha\",\"description\":\"Does alpha\",\"category\":\"forked\",\"enabled\":true},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit loose shared skill",
+   "method": "PUT",
+   "path": "/api/skills/loose-notes",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: loose-notes\\ndescription: Does loose-notes\\nx: 1\\n---\\n\\nForked loose\\n\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"loose-notes\",\"path\":\"<home>/agent-data/skills/users/1/loose-notes/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "create learning skill",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: learned\\ndescription: Does learned\\nlearning: {\\\"managed\\\":true,\\\"proposalId\\\":\\\"p1\\\",\\\"count\\\":3}\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"learned\",\"path\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit learning skill",
+   "method": "PUT",
+   "path": "/api/skills/learned",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: learned\\ndescription: Does learned\\ncategory: hand\\n---\\n\\nHand edited\\n\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"learned\",\"path\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "read learning skill",
+   "method": "GET",
+   "path": "/api/skills/learned",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"learned\",\"content\":\"---\\nname: learned\\ndescription: Does learned\\ncategory: hand\\nlearning: {\\\"managed\\\":false,\\\"proposalId\\\":\\\"p1\\\",\\\"count\\\":3,\\\"userEditedAt\\\":\\\"<ts>\\\"}\\n---\\n\\nHand edited\",\"meta\":{\"name\":\"learned\",\"description\":\"Does learned\",\"category\":\"hand\",\"learning\":{\"managed\":false,\"proposalId\":\"p1\",\"count\":3,\"userEditedAt\":\"<ts>\"},\"enabled\":true},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "edit learning not managed",
+   "method": "PUT",
+   "path": "/api/skills/learned",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: learned\\ndescription: Does learned\\ncategory: again\\n---\\n\\nAgain\\n\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"name\":\"learned\",\"path\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "bob cannot see alice skill",
+   "method": "GET",
+   "path": "/api/skills/hello-world",
+   "user": 2,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "bob cannot edit alice skill",
+   "method": "PUT",
+   "path": "/api/skills/hello-world",
+   "user": 2,
+   "body": "{\"content\":\"---\\nname: hello-world\\ndescription: Does hello-world\\n---\\n\\nBody text.\\n\"}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill 'hello-world' not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "bob delete alice skill",
+   "method": "DELETE",
+   "path": "/api/skills/hello-world",
+   "user": 2,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill 'hello-world' not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "bob list after",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha\",\"description\":\"Shared alpha skill\",\"enabled\":true,\"draft\":false,\"category\":\"ops\",\"trigger\":\"when alpha is needed\",\"source\":\"builtin\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/alpha/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"},{\"name\":\"loose-notes\",\"description\":\"A loose shared skill\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/notes.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":true,\"ownerType\":\"global\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "delete owned",
+   "method": "DELETE",
+   "path": "/api/skills/other-name",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill 'other-name' not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "deleted is gone",
+   "method": "GET",
+   "path": "/api/skills/other-name",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "delete again",
+   "method": "DELETE",
+   "path": "/api/skills/other-name",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill 'other-name' not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "delete shared hides",
+   "method": "DELETE",
+   "path": "/api/skills/loose-notes",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"deleted\":\"loose-notes\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "shared hidden",
+   "method": "GET",
+   "path": "/api/skills/loose-notes",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "delete shadowing copy",
+   "method": "DELETE",
+   "path": "/api/skills/alpha",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"deleted\":\"alpha\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "after deleting shadow",
+   "method": "GET",
+   "path": "/api/skills/alpha",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "recreate after delete",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: other-name\\ndescription: Does other-name\\n---\\n\\nagain\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"other-name\",\"path\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "bob still sees shared",
+   "method": "GET",
+   "path": "/api/skills/alpha",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"alpha\",\"content\":\"---\\nname: alpha\\ndescription: Shared alpha skill\\ncategory: ops\\ntrigger: when alpha is needed\\nsource: builtin\\n---\\n\\nAlpha instructions.\\nSecond line.\\n\",\"meta\":{\"name\":\"alpha\",\"description\":\"Shared alpha skill\",\"category\":\"ops\",\"trigger\":\"when alpha is needed\",\"source\":\"builtin\"},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list after deletes",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"enabled\":true,\"draft\":false,\"category\":\"tools3\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"learned\",\"description\":\"Does learned\",\"enabled\":true,\"draft\":false,\"category\":\"again\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"other-name\",\"description\":\"Does other-name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "metrics empty",
+   "method": "GET",
+   "path": "/api/skills/metrics/summary",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "seed metrics",
+   "sql": "INSERT INTO skill_metrics (user_id, agent_id, skill_name, invocation_count, success_count, failure_count, correction_count, total_tokens, last_used_at) VALUES\n  (1, NULL, 'a-keep', 10, 9, 1, 2, 500, '2026-11-01 10:00:00'),\n  (1, NULL, 'b-fail', 5, 2, 3, 0, 10, '2026-11-02 10:00:00'),\n  (1, NULL, 'c-dead', 10, 0, 0, 0, 0, NULL),\n  (1, NULL, 'd-unused', 0, 0, 0, 0, 0, NULL),\n  (1, NULL, 'e-small', 3, 1, 2, 0, 7, '2026-11-03 10:00:00'),\n  (1, NULL, 'f-third', 3, 1, 0, 0, 7, '2026-11-03 10:00:00'),\n  (2, NULL, 'bob-only', 1, 1, 0, 0, 1, '2026-11-03 10:00:00')"
+  },
+  {
+   "name": "metrics",
+   "method": "GET",
+   "path": "/api/skills/metrics/summary",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"skillName\":\"a-keep\",\"invocationCount\":10,\"successCount\":9,\"failureCount\":1,\"correctionCount\":2,\"totalTokens\":500,\"successRate\":0.9,\"lastUsedAt\":\"2026-11-01 10:00:00\",\"recommendation\":\"keep\"},{\"skillName\":\"c-dead\",\"invocationCount\":10,\"successCount\":0,\"failureCount\":0,\"correctionCount\":0,\"totalTokens\":0,\"successRate\":0,\"lastUsedAt\":null,\"recommendation\":\"disable_or_delete\"},{\"skillName\":\"b-fail\",\"invocationCount\":5,\"successCount\":2,\"failureCount\":3,\"correctionCount\":0,\"totalTokens\":10,\"successRate\":0.4,\"lastUsedAt\":\"2026-11-02 10:00:00\",\"recommendation\":\"improve_or_disable\"},{\"skillName\":\"e-small\",\"invocationCount\":3,\"successCount\":1,\"failureCount\":2,\"correctionCount\":0,\"totalTokens\":7,\"successRate\":0.3333333333333333,\"lastUsedAt\":\"2026-11-03 10:00:00\",\"recommendation\":\"keep\"},{\"skillName\":\"f-third\",\"invocationCount\":3,\"successCount\":1,\"failureCount\":0,\"correctionCount\":0,\"totalTokens\":7,\"successRate\":0.3333333333333333,\"lastUsedAt\":\"2026-11-03 10:00:00\",\"recommendation\":\"keep\"},{\"skillName\":\"d-unused\",\"invocationCount\":0,\"successCount\":0,\"failureCount\":0,\"correctionCount\":0,\"totalTokens\":0,\"successRate\":null,\"lastUsedAt\":null,\"recommendation\":\"review_unused\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "metrics bob",
+   "method": "GET",
+   "path": "/api/skills/metrics/summary",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"skillName\":\"bob-only\",\"invocationCount\":1,\"successCount\":1,\"failureCount\":0,\"correctionCount\":0,\"totalTokens\":1,\"successRate\":1,\"lastUsedAt\":\"2026-11-03 10:00:00\",\"recommendation\":\"keep\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "metrics anonymous",
+   "method": "GET",
+   "path": "/api/skills/metrics/summary",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "audit",
+   "method": "GET",
+   "path": "/api/skills/audit/summary",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"total\":2,\"issues\":[{\"skill\":\"a\",\"problem\":\"x\"}],\"ok\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "user skill named beta",
+   "method": "POST",
+   "path": "/api/skills",
+   "user": 1,
+   "body": "{\"content\":\"---\\nname: beta\\ndescription: Does beta\\n---\\n\\nmine first\\n\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"beta\",\"path\":\"<home>/agent-data/skills/users/1/beta/SKILL.md\",\"versionId\":\"<uuid>\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload library",
+   "method": "POST",
+   "path": "/api/skills/library?name=ignored-by-field",
+   "user": 1,
+   "multipart": {
+    "zip": "lib-main.zip",
+    "filename": "lib-main.zip",
+    "field": "archive",
+    "fields": {
+     "name": "Pack Name"
+    }
+   },
+   "fields": {
+    "name": "Pack Name"
+   },
+   "expect": {
+    "status": 201,
+    "raw": "{\"library\":\"pack-name\",\"installed\":[\"alpha-lib\"],\"skipped\":[{\"name\":\"beta\",\"reason\":\"You already have a skill with this name\"},{\"name\":\"alpha-lib\",\"reason\":\"Another skill in this zip has the same name\"},{\"name\":\"!!!\",\"reason\":\"No usable skill name\"}],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list after library",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha-lib\",\"description\":\"A folded description here\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/alpha-lib/SKILL.md\",\"skillsShId\":\"\",\"library\":\"pack-name\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"beta\",\"description\":\"Does beta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/beta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"enabled\":true,\"draft\":false,\"category\":\"tools3\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"learned\",\"description\":\"Does learned\",\"enabled\":true,\"draft\":false,\"category\":\"again\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"other-name\",\"description\":\"Does other-name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library skill",
+   "method": "GET",
+   "path": "/api/skills/alpha-lib",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"alpha-lib\",\"content\":\"---\\nname: alpha-lib\\ndescription: A folded description here\\nsource: library\\nlibrary: pack-name\\n---\\n\\n## NeoAgent Notes\\n\\nMap any generic tool references in this skill to NeoAgent equivalents:\\n- shell and scripts (terminal, bash, exec): `execute_command`\\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\\n- schedules (cronjob, cron): `create_task`\\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\\n\\nAlpha lib body hidden\\n\",\"meta\":{\"name\":\"alpha-lib\",\"description\":\"A folded description here\",\"source\":\"library\",\"library\":\"pack-name\",\"enabled\":true},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library nested example is not a skill",
+   "method": "GET",
+   "path": "/api/skills/demo",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"Skill not found\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload library again",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "lib-main.zip",
+    "filename": "my-pack.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "filename": "my-pack.zip",
+   "expect": {
+    "status": 200,
+    "raw": "{\"library\":\"my-pack\",\"installed\":[],\"skipped\":[{\"name\":\"alpha-lib\",\"reason\":\"You already have a skill with this name\"},{\"name\":\"beta\",\"reason\":\"You already have a skill with this name\"},{\"name\":\"alpha-lib\",\"reason\":\"Another skill in this zip has the same name\"},{\"name\":\"!!!\",\"reason\":\"No usable skill name\"}],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload v2 replaces",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "lib-main-v2.zip",
+    "filename": "my-pack.zip",
+    "field": "archive",
+    "fields": {
+     "name": "pack-name"
+    }
+   },
+   "filename": "my-pack.zip",
+   "fields": {
+    "name": "pack-name"
+   },
+   "expect": {
+    "status": 201,
+    "raw": "{\"library\":\"pack-name\",\"installed\":[\"alpha-lib\",\"gamma\"],\"skipped\":[],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list after v2",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha-lib\",\"description\":\"Changed\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/alpha-lib/SKILL.md\",\"skillsShId\":\"\",\"library\":\"pack-name\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"beta\",\"description\":\"Does beta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/beta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"gamma\",\"description\":\"new in v2\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/gamma/SKILL.md\",\"skillsShId\":\"\",\"library\":\"pack-name\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"enabled\":true,\"draft\":false,\"category\":\"tools3\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"learned\",\"description\":\"Does learned\",\"enabled\":true,\"draft\":false,\"category\":\"again\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"other-name\",\"description\":\"Does other-name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload name from query",
+   "method": "POST",
+   "path": "/api/skills/library?name=From%20Query",
+   "user": 1,
+   "multipart": {
+    "zip": "lib-main-v2.zip",
+    "filename": "q.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "filename": "q.zip",
+   "expect": {
+    "status": 200,
+    "raw": "{\"library\":\"from-query\",\"installed\":[],\"skipped\":[{\"name\":\"alpha-lib\",\"reason\":\"You already have a skill with this name\"},{\"name\":\"gamma\",\"reason\":\"You already have a skill with this name\"}],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload solo",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "solo.zip",
+    "filename": "solo.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "filename": "solo.zip",
+   "expect": {
+    "status": 201,
+    "raw": "{\"library\":\"\",\"installed\":[\"solo-skill\"],\"skipped\":[],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload solo again",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "solo.zip",
+    "filename": "solo.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "filename": "solo.zip",
+   "expect": {
+    "status": 200,
+    "raw": "{\"library\":\"\",\"installed\":[],\"skipped\":[{\"name\":\"solo-skill\",\"reason\":\"You already have a skill with this name\"}],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload no skills",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "empty.zip",
+    "filename": "empty.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "expect": {
+    "status": 422,
+    "raw": "{\"error\":\"No skills found. The zip needs folders that each contain a SKILL.md.\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload encrypted",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "encrypted.zip",
+    "filename": "encrypted.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Encrypted zip archives are not supported\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload method 9",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "method9.zip",
+    "filename": "method9.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Unsupported zip compression (method 9)\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload not a zip",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "notzip.zip",
+    "filename": "notzip.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"This file is not a zip archive\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload tiny",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "tiny.zip",
+    "filename": "tiny.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"This file is not a zip archive\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload wrong field",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "zip": "solo.zip",
+    "filename": "solo.zip",
+    "field": "file",
+    "fields": {}
+   },
+   "field": "file",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Unexpected field\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload nothing",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "multipart": {
+    "fields": {
+     "name": "x"
+    }
+   },
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"No zip file was uploaded\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload json instead",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"No zip file was uploaded\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "upload anonymous",
+   "method": "POST",
+   "path": "/api/skills/library",
+   "user": null,
+   "multipart": {
+    "zip": "solo.zip",
+    "filename": "solo.zip",
+    "field": "archive",
+    "fields": {}
+   },
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library off",
+   "method": "PUT",
+   "path": "/api/skills/library/pack-name",
+   "user": 1,
+   "body": "{\"enabled\":false}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"library\":\"pack-name\",\"count\":2}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list library off",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"alpha-lib\",\"description\":\"Changed\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/alpha-lib/SKILL.md\",\"skillsShId\":\"\",\"library\":\"pack-name\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"beta\",\"description\":\"Does beta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/beta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"gamma\",\"description\":\"new in v2\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/gamma/SKILL.md\",\"skillsShId\":\"\",\"library\":\"pack-name\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"enabled\":true,\"draft\":false,\"category\":\"tools3\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"learned\",\"description\":\"Does learned\",\"enabled\":true,\"draft\":false,\"category\":\"again\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"other-name\",\"description\":\"Does other-name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"solo-skill\",\"description\":\"just one\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"user\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/solo-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library on",
+   "method": "PUT",
+   "path": "/api/skills/library/pack-name",
+   "user": 1,
+   "body": "{\"enabled\":true}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"library\":\"pack-name\",\"count\":2}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library not boolean",
+   "method": "PUT",
+   "path": "/api/skills/library/pack-name",
+   "user": 1,
+   "body": "{\"enabled\":\"yes\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"enabled must be true or false\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library missing",
+   "method": "PUT",
+   "path": "/api/skills/library/nothing",
+   "user": 1,
+   "body": "{\"enabled\":true}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"No skill library named 'nothing'\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library bob",
+   "method": "PUT",
+   "path": "/api/skills/library/pack-name",
+   "user": 2,
+   "body": "{\"enabled\":false}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"No skill library named 'pack-name'\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library delete",
+   "method": "DELETE",
+   "path": "/api/skills/library/from-query",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"No skill library named 'from-query'\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library delete again",
+   "method": "DELETE",
+   "path": "/api/skills/library/from-query",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"No skill library named 'from-query'\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "library delete real",
+   "method": "DELETE",
+   "path": "/api/skills/library/pack-name",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"library\":\"pack-name\",\"deleted\":[\"alpha-lib\",\"gamma\"]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "list after library delete",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"beta\",\"description\":\"Does beta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/beta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"enabled\":true,\"draft\":false,\"category\":\"tools3\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"learned\",\"description\":\"Does learned\",\"enabled\":true,\"draft\":false,\"category\":\"again\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"other-name\",\"description\":\"Does other-name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"solo-skill\",\"description\":\"just one\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"user\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/solo-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "builtin list",
+   "method": "GET",
+   "path": "/api/skills/builtin-libraries",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"via\",\"title\":\"EE Workcenter\",\"description\":\"Electronics design with KiCad 10, ngspice and FreeRouting: board design as code, routing, ERC/DRC/simulation gates, procurement and verification. The skills drive the via workcenter's tools, so they need that repository on the machine.\",\"homepage\":\"https://github.com/ThyFriendlyFox/via/tree/main/.claude/skills\",\"license\":\"MIT\",\"revision\":\"7c77fc61eeafb558706568598add90e234b231da\",\"skills\":[{\"name\":\"attached-repos\",\"description\":\"Assigns a role to every repository attached to the session and sets the rules for working across them.\"},{\"name\":\"autoroute\",\"description\":\"Routes a board with FreeRouting headless; generated designs round-trip through Specctra DSN and SES automatically, hand-drawn boards supply the DSN.\"},{\"name\":\"blog-post\",\"description\":\"Writes a public blog post from the devlog, the changelog and the shipped roadmap items.\"},{\"name\":\"board-design\",\"description\":\"Writes a KiCad 10 schematic and board as a Python design file built from the installed libraries, routes it headless, and iterates until the gates are GREEN.\"},{\"name\":\"board-gates\",\"description\":\"Runs ERC, DRC, simulation, and fabrication export on a KiCad 10 project in order, then drives the fix loop until the board is GREEN.\"},{\"name\":\"kistack\",\"description\":\"Routes an agent to the vendored kistack KiCad skills (placement, layout, schematic, BOM, footprint, symbol, export, Gerber review, panelize) at the step where each helps, runs kistack's placement checks headless with `workcenter placement`, and says where this workcenter's rules override kistack's.\"},{\"name\":\"procurement\",\"description\":\"Turns a board's schematic into an orderable parts list - a real part, supplier number, price breaks and stock for every line, items off the board too - and totals the cost for a number of units.\"},{\"name\":\"simulate\",\"description\":\"Runs ngspice on the project's sim decks and checks measured values against the bounds in the matching expect file.\"},{\"name\":\"verification\",\"description\":\"Writes a board version's verification package (PROCESSES.md P28) - requirements from expected and unexpected conditions with sources and inspection clauses, a block diagram with a caption per mode, one writeup per ngspice deck with cited nodal analysis, calculations, and a traceability table that `workcenter verify` checks against a fresh run.\"}]}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "builtin install",
+   "method": "POST",
+   "path": "/api/skills/builtin-libraries/via",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"library\":\"via\",\"installed\":[\"attached-repos\",\"autoroute\",\"blog-post\",\"board-design\",\"board-gates\",\"kistack\",\"procurement\",\"simulate\",\"verification\"],\"skipped\":[],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "builtin reinstall",
+   "method": "POST",
+   "path": "/api/skills/builtin-libraries/via",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"library\":\"via\",\"installed\":[\"attached-repos\",\"autoroute\",\"blog-post\",\"board-design\",\"board-gates\",\"kistack\",\"procurement\",\"simulate\",\"verification\"],\"skipped\":[],\"removed\":[]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "builtin unknown",
+   "method": "POST",
+   "path": "/api/skills/builtin-libraries/nope",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"No built-in skill library named 'nope'\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "builtin library off",
+   "method": "PUT",
+   "path": "/api/skills/library/via",
+   "user": 1,
+   "body": "{\"enabled\":false}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"library\":\"via\",\"count\":9}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "builtin list after",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"attached-repos\",\"description\":\"Assigns a role to every repository attached to the session and sets the rules for working across them.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/attached-repos/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"autoroute\",\"description\":\"Routes a board with FreeRouting headless; generated designs round-trip through Specctra DSN and SES automatically, hand-drawn boards supply the DSN.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/autoroute/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"beta\",\"description\":\"Does beta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/beta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"blog-post\",\"description\":\"Writes a public blog post from the devlog, the changelog and the shipped roadmap items.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/blog-post/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"board-design\",\"description\":\"Writes a KiCad 10 schematic and board as a Python design file built from the installed libraries, routes it headless, and iterates until the gates are GREEN.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/board-design/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"board-gates\",\"description\":\"Runs ERC, DRC, simulation, and fabrication export on a KiCad 10 project in order, then drives the fix loop until the board is GREEN.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/board-gates/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"enabled\":true,\"draft\":false,\"category\":\"tools3\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"kistack\",\"description\":\"Routes an agent to the vendored kistack KiCad skills (placement, layout, schematic, BOM, footprint, symbol, export, Gerber review, panelize) at the step where each helps, runs kistack's placement checks headless with `workcenter placement`, and says where this workcenter's rules override kistack's.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/kistack/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"learned\",\"description\":\"Does learned\",\"enabled\":true,\"draft\":false,\"category\":\"again\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"other-name\",\"description\":\"Does other-name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"procurement\",\"description\":\"Turns a board's schematic into an orderable parts list - a real part, supplier number, price breaks and stock for every line, items off the board too - and totals the cost for a number of units.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/procurement/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"simulate\",\"description\":\"Runs ngspice on the project's sim decks and checks measured values against the bounds in the matching expect file.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/simulate/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"solo-skill\",\"description\":\"just one\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"user\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/solo-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"verification\",\"description\":\"Writes a board version's verification package (PROCESSES.md P28) - requirements from expected and unexpected conditions with sources and inspection clauses, a block diagram with a caption per mode, one writeup per ngspice deck with cited nodal analysis, calculations, and a traceability table that `workcenter verify` checks against a fresh run.\",\"enabled\":false,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"library\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/verification/SKILL.md\",\"skillsShId\":\"\",\"library\":\"via\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "builtin delete",
+   "method": "DELETE",
+   "path": "/api/skills/library/via",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"success\":true,\"library\":\"via\",\"deleted\":[\"attached-repos\",\"autoroute\",\"blog-post\",\"board-design\",\"board-gates\",\"kistack\",\"procurement\",\"simulate\",\"verification\"]}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search too short",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=a",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search empty",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search by command",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=npx%20skills%20add%20https%3A%2F%2Fgithub.com%2Facme%2Fskills.git%20--skill%20%22pdf%22",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\",\"installs\":null,\"installedName\":\"\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search by command bad repo",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=npx%20skills%20add%20nope%20--skill%20pdf",
+   "user": 1,
+   "expect": {
+    "status": 500,
+    "raw": "{\"error\":\"fetch failed\"}",
+    "outbound": [
+     "https://skills.sh/api/search?q=npx%20skills%20add%20nope%20--skill%20pdf&limit=30"
+    ]
+   }
+  },
+  {
+   "name": "search by url",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=https%3A%2F%2Fskills.sh%2Facme%2Fskills%2Fpdf%3Fx%3D1%23y",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\",\"installs\":null,\"installedName\":\"\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search by id",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=acme/skills/pdf",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\",\"installs\":null,\"installedName\":\"\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search remote",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=pdf%20tools",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"PDF Tools\",\"installs\":1200,\"installedName\":\"\"},{\"id\":\"acme/skills/ocr\",\"source\":\"acme/skills\",\"skillId\":\"ocr\",\"name\":\"ocr\",\"installs\":null,\"installedName\":\"\"},{\"id\":\"acme/solo/solo\",\"source\":\"acme/solo\",\"skillId\":\"solo\",\"name\":\"Solo\",\"installs\":5,\"installedName\":\"\"}]",
+    "outbound": [
+     "https://skills.sh/api/search?q=pdf%20tools&limit=30"
+    ]
+   }
+  },
+  {
+   "name": "search remote odd chars",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=weird%20%26%20q!*'()",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[]",
+    "outbound": [
+     "https://skills.sh/api/search?q=weird%20%26%20q!*'()&limit=30"
+    ]
+   }
+  },
+  {
+   "name": "search remote 500",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=boom",
+   "user": 1,
+   "expect": {
+    "status": 502,
+    "raw": "{\"error\":\"skills.sh returned 500\"}",
+    "outbound": [
+     "https://skills.sh/api/search?q=boom&limit=30"
+    ]
+   }
+  },
+  {
+   "name": "search remote 404",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=gone",
+   "user": 1,
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"skills.sh returned 404\"}",
+    "outbound": [
+     "https://skills.sh/api/search?q=gone&limit=30"
+    ]
+   }
+  },
+  {
+   "name": "search repeated q",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=pdf%20tools&q=zz",
+   "user": 1,
+   "expect": {
+    "status": 500,
+    "raw": "{\"error\":\"fetch failed\"}",
+    "outbound": [
+     "https://skills.sh/api/search?q=pdf%20tools%2Czz&limit=30"
+    ]
+   }
+  },
+  {
+   "name": "featured popular",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/featured",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"PDF Tools\",\"installs\":1200,\"official\":true,\"installedName\":\"\"},{\"id\":\"acme/solo/solo\",\"source\":\"acme/solo\",\"skillId\":\"solo\",\"name\":\"solo\",\"installs\":77,\"official\":false,\"installedName\":\"\"}]",
+    "outbound": [
+     "https://skills.sh/"
+    ]
+   }
+  },
+  {
+   "name": "featured popular again cached",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/featured?list=popular",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"PDF Tools\",\"installs\":1200,\"official\":true,\"installedName\":\"\"},{\"id\":\"acme/solo/solo\",\"source\":\"acme/solo\",\"skillId\":\"solo\",\"name\":\"solo\",\"installs\":77,\"official\":false,\"installedName\":\"\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "featured trending broken",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/featured?list=trending",
+   "user": 1,
+   "expect": {
+    "status": 500,
+    "raw": "{\"error\":\"skills.sh leaderboard had no skills\"}",
+    "outbound": [
+     "https://skills.sh/trending"
+    ]
+   }
+  },
+  {
+   "name": "featured unknown",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/featured?list=hot",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Unknown skills.sh list 'hot'\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search anonymous",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=pdf%20tools",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "sh install",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"PDF Tools\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"pdf\",\"fileCount\":4}",
+    "outbound": [
+     "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/scripts/extract.py",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/ref%20guide.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/img/pic.png"
+    ]
+   }
+  },
+  {
+   "name": "sh installed skill",
+   "method": "GET",
+   "path": "/api/skills/pdf",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"name\":\"pdf\",\"content\":\"---\\nname: pdf\\ndescription: Work with PDFs\\nsource: skills.sh\\nskills_sh_id: acme/skills/pdf\\n---\\n\\n## NeoAgent Notes\\n\\nMap any generic tool references in this skill to NeoAgent equivalents:\\n- shell and scripts (terminal, bash, exec): `execute_command`\\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\\n- schedules (cronjob, cron): `create_task`\\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\\n\\nPDF body \\n\",\"meta\":{\"name\":\"pdf\",\"description\":\"Work with PDFs\",\"source\":\"skills.sh\",\"skills_sh_id\":\"acme/skills/pdf\",\"enabled\":true},\"enabled\":true}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "search shows installed name",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/search?q=pdf%20tools",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"PDF Tools\",\"installs\":1200,\"installedName\":\"pdf\"},{\"id\":\"acme/skills/ocr\",\"source\":\"acme/skills\",\"skillId\":\"ocr\",\"name\":\"ocr\",\"installs\":null,\"installedName\":\"\"},{\"id\":\"acme/solo/solo\",\"source\":\"acme/solo\",\"skillId\":\"solo\",\"name\":\"Solo\",\"installs\":5,\"installedName\":\"\"}]",
+    "outbound": [
+     "https://skills.sh/api/search?q=pdf%20tools&limit=30"
+    ]
+   }
+  },
+  {
+   "name": "featured shows installed name",
+   "method": "GET",
+   "path": "/api/skills/skills-sh/featured",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":\"acme/skills/pdf\",\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"PDF Tools\",\"installs\":1200,\"official\":true,\"installedName\":\"pdf\"},{\"id\":\"acme/solo/solo\",\"source\":\"acme/solo\",\"skillId\":\"solo\",\"name\":\"solo\",\"installs\":77,\"official\":false,\"installedName\":\"\"}]",
+    "outbound": []
+   }
+  },
+  {
+   "name": "sh install again conflicts",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\"}",
+   "expect": {
+    "status": 409,
+    "raw": "{\"error\":\"Skill 'pdf' already exists\"}",
+    "outbound": [
+     "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/scripts/extract.py",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/ref%20guide.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/img/pic.png"
+    ]
+   }
+  },
+  {
+   "name": "sh install by dir",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/skills\",\"skillId\":\"nice-name\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"nice-name\",\"fileCount\":2}",
+    "outbound": [
+     "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/other/SKILL.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/SKILL.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/data/f.json"
+    ]
+   }
+  },
+  {
+   "name": "sh install single fallback",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/solo\",\"skillId\":\"unknown\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"success\":true,\"name\":\"solo-from-repo\",\"fileCount\":2}",
+    "outbound": [
+     "https://api.github.com/repos/acme/solo/git/trees/HEAD?recursive=1",
+     "https://raw.githubusercontent.com/acme/solo/HEAD/SKILL.md",
+     "https://raw.githubusercontent.com/acme/solo/HEAD/SKILL.md",
+     "https://raw.githubusercontent.com/acme/solo/HEAD/docs/a.md"
+    ]
+   }
+  },
+  {
+   "name": "sh install ghost",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/skills\",\"skillId\":\"ghost\"}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"No skill named 'ghost' found in acme/skills\"}",
+    "outbound": [
+     "https://api.github.com/repos/acme/skills/git/trees/HEAD?recursive=1",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/pdf/SKILL.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/skills/other/SKILL.md",
+     "https://raw.githubusercontent.com/acme/skills/HEAD/tools/x/SKILL.md"
+    ]
+   }
+  },
+  {
+   "name": "sh install missing repo",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/missing\",\"skillId\":\"x\"}",
+   "expect": {
+    "status": 404,
+    "raw": "{\"error\":\"api.github.com returned 404\"}",
+    "outbound": [
+     "https://api.github.com/repos/acme/missing/git/trees/HEAD?recursive=1"
+    ]
+   }
+  },
+  {
+   "name": "sh install rate limited",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/limited\",\"skillId\":\"x\"}",
+   "expect": {
+    "status": 502,
+    "raw": "{\"error\":\"api.github.com returned 403\"}",
+    "outbound": [
+     "https://api.github.com/repos/acme/limited/git/trees/HEAD?recursive=1"
+    ]
+   }
+  },
+  {
+   "name": "sh install no name",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/noname\",\"skillId\":\"x\"}",
+   "expect": {
+    "status": 422,
+    "raw": "{\"error\":\"Skill file has no frontmatter name\"}",
+    "outbound": [
+     "https://api.github.com/repos/acme/noname/git/trees/HEAD?recursive=1",
+     "https://raw.githubusercontent.com/acme/noname/HEAD/SKILL.md",
+     "https://raw.githubusercontent.com/acme/noname/HEAD/SKILL.md"
+    ]
+   }
+  },
+  {
+   "name": "sh install no frontmatter",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/plain\",\"skillId\":\"x\"}",
+   "expect": {
+    "status": 422,
+    "raw": "{\"error\":\"Skill file has no frontmatter name\"}",
+    "outbound": [
+     "https://api.github.com/repos/acme/plain/git/trees/HEAD?recursive=1",
+     "https://raw.githubusercontent.com/acme/plain/HEAD/SKILL.md",
+     "https://raw.githubusercontent.com/acme/plain/HEAD/SKILL.md"
+    ]
+   }
+  },
+  {
+   "name": "sh install bad source",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"not a repo\",\"skillId\":\"x\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"A skills.sh skill needs a GitHub repo and a skill id\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "sh install no skill id",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{\"source\":\"acme/skills\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"A skills.sh skill needs a GitHub repo and a skill id\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "sh install empty body",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"A skills.sh skill needs a GitHub repo and a skill id\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "sh install anonymous",
+   "method": "POST",
+   "path": "/api/skills/skills-sh/install",
+   "user": null,
+   "body": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\"}",
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}",
+    "outbound": []
+   }
+  },
+  {
+   "name": "final list",
+   "method": "GET",
+   "path": "/api/skills",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"name\":\"beta\",\"description\":\"Does beta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/beta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"custom-file-name\",\"description\":\"Does Other Name\",\"enabled\":true,\"draft\":false,\"category\":\"x\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/custom-file-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"empty-body\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/empty-body/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"good-cmd\",\"description\":\"Does good-cmd\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/good-cmd/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"hello-world\",\"description\":\"Does renamed-in-body\",\"enabled\":true,\"draft\":false,\"category\":\"tools3\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/hello-world/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"html-chars\",\"description\":\"Does html-chars\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/html-chars/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"json-meta\",\"description\":\"Does json-meta\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/json-meta/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"learned\",\"description\":\"Does learned\",\"enabled\":true,\"draft\":false,\"category\":\"again\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/learned/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"n-c-de-name\",\"description\":\"Does Ünï Cöde_Name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"nice-name\",\"description\":\"line one line two\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"skills.sh\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/nice-name/SKILL.md\",\"skillsShId\":\"acme/skills/nice-name\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"other-name\",\"description\":\"Does other-name\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/other-name/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"pdf\",\"description\":\"Work with PDFs\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"skills.sh\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/pdf/SKILL.md\",\"skillsShId\":\"acme/skills/pdf\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"solo-from-repo\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"skills.sh\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/solo-from-repo/SKILL.md\",\"skillsShId\":\"acme/solo/unknown\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"solo-skill\",\"description\":\"just one\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"user\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/solo-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"spacey-skill\",\"description\":\"has: colons: inside\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/spacey-skill/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"tight\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/tight/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"},{\"name\":\"true\",\"description\":\"\",\"enabled\":true,\"draft\":false,\"category\":\"general\",\"trigger\":\"\",\"source\":\"local\",\"autoCreated\":false,\"filePath\":\"<home>/agent-data/skills/users/1/true/SKILL.md\",\"skillsShId\":\"\",\"library\":\"\",\"readOnly\":false,\"ownerType\":\"user\"}]",
+    "outbound": []
+   }
+  }
+ ],
+ "snapshot": {
+  "skills": [
+   {
+    "id": 1,
+    "user_id": 1,
+    "name": "hello-world",
+    "description": "Does renamed-in-body",
+    "file_path": "<home>/agent-data/skills/users/1/hello-world/SKILL.md",
+    "metadata": "{\"category\":\"tools3\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 2,
+    "user_id": 1,
+    "name": "custom-file-name",
+    "description": "Does Other Name",
+    "file_path": "<home>/agent-data/skills/users/1/custom-file-name/SKILL.md",
+    "metadata": "{\"category\":\"x\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 3,
+    "user_id": 1,
+    "name": "true",
+    "description": "",
+    "file_path": "<home>/agent-data/skills/users/1/true/SKILL.md",
+    "metadata": "{}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 4,
+    "user_id": 1,
+    "name": "good-cmd",
+    "description": "Does good-cmd",
+    "file_path": "<home>/agent-data/skills/users/1/good-cmd/SKILL.md",
+    "metadata": "{\"command\":\"grep {pattern} {file}\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 5,
+    "user_id": 1,
+    "name": "spacey-skill",
+    "description": "has: colons: inside",
+    "file_path": "<home>/agent-data/skills/users/1/spacey-skill/SKILL.md",
+    "metadata": "{\"\":\"orphan value\",\"key with space\":\"x\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 6,
+    "user_id": 1,
+    "name": "json-meta",
+    "description": "Does json-meta",
+    "file_path": "<home>/agent-data/skills/users/1/json-meta/SKILL.md",
+    "metadata": "{\"tags\":[\"a\",\"b\"],\"obj\":{\"k\":{\"n\":1,\"a\":2}},\"empty\":{},\"list\":[],\"dot\":\"1.0\",\"unicode\":\"\\\"é\\\\u2028\\\"\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 7,
+    "user_id": 1,
+    "name": "html-chars",
+    "description": "Does html-chars",
+    "file_path": "<home>/agent-data/skills/users/1/html-chars/SKILL.md",
+    "metadata": "{\"note\":\"<b>&amp;</b>\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 8,
+    "user_id": 1,
+    "name": "empty-body",
+    "description": "",
+    "file_path": "<home>/agent-data/skills/users/1/empty-body/SKILL.md",
+    "metadata": "{}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 9,
+    "user_id": 1,
+    "name": "tight",
+    "description": "",
+    "file_path": "<home>/agent-data/skills/users/1/tight/SKILL.md",
+    "metadata": "{}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 10,
+    "user_id": 1,
+    "name": "n-c-de-name",
+    "description": "Does Ünï Cöde_Name",
+    "file_path": "<home>/agent-data/skills/users/1/n-c-de-name/SKILL.md",
+    "metadata": "{}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 13,
+    "user_id": 1,
+    "name": "learned",
+    "description": "Does learned",
+    "file_path": "<home>/agent-data/skills/users/1/learned/SKILL.md",
+    "metadata": "{\"category\":\"again\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 14,
+    "user_id": 1,
+    "name": "other-name",
+    "description": "Does other-name",
+    "file_path": "<home>/agent-data/skills/users/1/other-name/SKILL.md",
+    "metadata": "{}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 15,
+    "user_id": 1,
+    "name": "beta",
+    "description": "Does beta",
+    "file_path": "<home>/agent-data/skills/users/1/beta/SKILL.md",
+    "metadata": "{}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 19,
+    "user_id": 1,
+    "name": "solo-skill",
+    "description": "just one",
+    "file_path": "<home>/agent-data/skills/users/1/solo-skill/SKILL.md",
+    "metadata": "{\"source\":\"user\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 38,
+    "user_id": 1,
+    "name": "pdf",
+    "description": "Work with PDFs",
+    "file_path": "<home>/agent-data/skills/users/1/pdf/SKILL.md",
+    "metadata": "{\"source\":\"skills.sh\",\"skills_sh_id\":\"acme/skills/pdf\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 39,
+    "user_id": 1,
+    "name": "nice-name",
+    "description": "line one line two",
+    "file_path": "<home>/agent-data/skills/users/1/nice-name/SKILL.md",
+    "metadata": "{\"source\":\"skills.sh\",\"skills_sh_id\":\"acme/skills/nice-name\"}",
+    "enabled": 1,
+    "auto_created": 1
+   },
+   {
+    "id": 40,
+    "user_id": 1,
+    "name": "solo-from-repo",
+    "description": "",
+    "file_path": "<home>/agent-data/skills/users/1/solo-from-repo/SKILL.md",
+    "metadata": "{\"source\":\"skills.sh\",\"skills_sh_id\":\"acme/solo/unknown\"}",
+    "enabled": 1,
+    "auto_created": 1
+   }
+  ],
+  "overrides": [
+   {
+    "user_id": 1,
+    "skill_name": "alpha",
+    "enabled": null,
+    "hidden": 1
+   },
+   {
+    "user_id": 1,
+    "skill_name": "loose-notes",
+    "enabled": 0,
+    "hidden": 1
+   }
+  ],
+  "versions": [
+   {
+    "skill_id": "1",
+    "version": 1,
+    "name": "hello-world",
+    "content_md": "---\nname: hello-world\ndescription: Does Hello World\ncategory: tools\ntrigger: say hi\nenabled: true\ndraft: false\nparameters: {\"type\":\"object\",\"properties\":{\"b\":1,\"a\":[1,{\"z\":null}]}}\ntool: true\ncommand: echo {text}\nweird: [not json\nnumber: 42\nblank: \n---\n\nBody text.",
+    "metadata_json": "{\"category\":\"tools\",\"trigger\":\"say hi\",\"enabled\":true,\"draft\":false,\"parameters\":{\"type\":\"object\",\"properties\":{\"b\":1,\"a\":[1,{\"z\":null}]}},\"tool\":true,\"command\":\"echo {text}\",\"weird\":\"[not json\",\"number\":\"42\",\"blank\":\"\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "1",
+    "version": 2,
+    "name": "hello-world",
+    "content_md": "---\nname: hello-world\ndescription: Does hello-world\ncategory: edited\n---\n\nEdited body",
+    "metadata_json": "{\"category\":\"edited\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "1",
+    "version": 3,
+    "name": "hello-world",
+    "content_md": "---\nname: hello-world\ndescription: Does hello-world\ncategory: tools2\ntrigger: again\n---\n\nSecond body",
+    "metadata_json": "{\"category\":\"tools2\",\"trigger\":\"again\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "1",
+    "version": 4,
+    "name": "hello-world",
+    "content_md": "---\nname: hello-world\ndescription: Does renamed-in-body\ncategory: tools3\n---\n\nThird body",
+    "metadata_json": "{\"category\":\"tools3\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "10",
+    "version": 1,
+    "name": "n-c-de-name",
+    "content_md": "---\nname: n-c-de-name\ndescription: Does Ünï Cöde_Name\n---\n\nBody text.",
+    "metadata_json": "{}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "13",
+    "version": 1,
+    "name": "learned",
+    "content_md": "---\nname: learned\ndescription: Does learned\nlearning: {\"managed\":true,\"proposalId\":\"p1\",\"count\":3}\n---\n\nBody text.",
+    "metadata_json": "{\"learning\":{\"managed\":true,\"proposalId\":\"p1\",\"count\":3}}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "13",
+    "version": 2,
+    "name": "learned",
+    "content_md": "---\nname: learned\ndescription: Does learned\ncategory: hand\nlearning: {\"managed\":false,\"proposalId\":\"p1\",\"count\":3,\"userEditedAt\":\"<ts>\"}\n---\n\nHand edited",
+    "metadata_json": "{\"category\":\"hand\",\"learning\":{\"managed\":false,\"proposalId\":\"p1\",\"count\":3,\"userEditedAt\":\"<ts>\"}}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "13",
+    "version": 3,
+    "name": "learned",
+    "content_md": "---\nname: learned\ndescription: Does learned\ncategory: again\n---\n\nAgain",
+    "metadata_json": "{\"category\":\"again\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "14",
+    "version": 1,
+    "name": "other-name",
+    "content_md": "---\nname: other-name\ndescription: Does other-name\n---\n\nagain",
+    "metadata_json": "{}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "15",
+    "version": 1,
+    "name": "beta",
+    "content_md": "---\nname: beta\ndescription: Does beta\n---\n\nmine first",
+    "metadata_json": "{}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "19",
+    "version": 1,
+    "name": "solo-skill",
+    "content_md": "---\nname: solo-skill\ndescription: just one\nsource: user\n---\n\n## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nSolo body",
+    "metadata_json": "{\"source\":\"user\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "2",
+    "version": 1,
+    "name": "custom-file-name",
+    "content_md": "---\nname: custom-file-name\ndescription: Does Other Name\ncategory: x\n---\n\nBody text.",
+    "metadata_json": "{\"category\":\"x\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "3",
+    "version": 1,
+    "name": "true",
+    "content_md": "---\nname: true\ndescription: \n---\n\nbody",
+    "metadata_json": "{}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "38",
+    "version": 1,
+    "name": "pdf",
+    "content_md": "---\nname: pdf\ndescription: Work with PDFs\nsource: skills.sh\nskills_sh_id: acme/skills/pdf\n---\n\n## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nPDF body \n",
+    "metadata_json": "{\"source\":\"skills.sh\",\"skills_sh_id\":\"acme/skills/pdf\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "39",
+    "version": 1,
+    "name": "nice-name",
+    "content_md": "---\nname: nice-name\ndescription: line one line two\nsource: skills.sh\nskills_sh_id: acme/skills/nice-name\n---\n\n## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nnice body",
+    "metadata_json": "{\"source\":\"skills.sh\",\"skills_sh_id\":\"acme/skills/nice-name\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "4",
+    "version": 1,
+    "name": "good-cmd",
+    "content_md": "---\nname: good-cmd\ndescription: Does good-cmd\ncommand: grep {pattern} {file}\n---\n\nBody text.",
+    "metadata_json": "{\"command\":\"grep {pattern} {file}\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "40",
+    "version": 1,
+    "name": "solo-from-repo",
+    "content_md": "---\nname: solo-from-repo\ndescription: \nsource: skills.sh\nskills_sh_id: acme/solo/unknown\n---\n\n## NeoAgent Notes\nalready mapped",
+    "metadata_json": "{\"source\":\"skills.sh\",\"skills_sh_id\":\"acme/solo/unknown\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "5",
+    "version": 1,
+    "name": "spacey-skill",
+    "content_md": "---\nname: spacey-skill\ndescription: has: colons: inside\n: orphan value\nkey with space: x\n---\n\nindented body",
+    "metadata_json": "{\"\":\"orphan value\",\"key with space\":\"x\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "6",
+    "version": 1,
+    "name": "json-meta",
+    "content_md": "---\nname: json-meta\ndescription: Does json-meta\ntags: [\"a\",\"b\"]\nobj: {\"k\":{\"n\":1,\"a\":2}}\nempty: {}\nlist: []\ndot: 1.0\nunicode: \"é\\u2028\"\n---\n\nBody text.",
+    "metadata_json": "{\"tags\":[\"a\",\"b\"],\"obj\":{\"k\":{\"n\":1,\"a\":2}},\"empty\":{},\"list\":[],\"dot\":\"1.0\",\"unicode\":\"\\\"é\\\\u2028\\\"\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "7",
+    "version": 1,
+    "name": "html-chars",
+    "content_md": "---\nname: html-chars\ndescription: Does html-chars\nnote: <b>&amp;</b>\n---\n\na < b && c > d",
+    "metadata_json": "{\"note\":\"<b>&amp;</b>\"}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "8",
+    "version": 1,
+    "name": "empty-body",
+    "content_md": "---\nname: empty-body\ndescription: \n---\n\n",
+    "metadata_json": "{}",
+    "status": "validated"
+   },
+   {
+    "skill_id": "9",
+    "version": 1,
+    "name": "tight",
+    "content_md": "---\nname: tight\ndescription: \n---\n\nbody here",
+    "metadata_json": "{}",
+    "status": "validated"
+   }
+  ],
+  "files": {
+   "alpha/SKILL.md": "---\nname: alpha\ndescription: Shared alpha skill\ncategory: ops\ntrigger: when alpha is needed\nsource: builtin\n---\n\nAlpha instructions.\nSecond line.\n",
+   "alpha/notes/readme.txt": "bundled note\n",
+   "alpha/scripts/run.sh": "#!/bin/sh\necho alpha\n",
+   "crlf/SKILL.md": "---\r\nname: crlf-skill\r\ndescription: windows file\r\n---\r\nbody\r\n",
+   "notes.md": "---\nname: loose-notes\ndescription: A loose shared skill\nenabled: true\n---\nLoose body\n",
+   "users/1/beta/SKILL.md": "---\nname: beta\ndescription: Does beta\n---\n\nmine first",
+   "users/1/custom-file-name/SKILL.md": "---\nname: custom-file-name\ndescription: Does Other Name\ncategory: x\n---\n\nBody text.",
+   "users/1/empty-body/SKILL.md": "---\nname: empty-body\ndescription: \n---\n\n",
+   "users/1/good-cmd/SKILL.md": "---\nname: good-cmd\ndescription: Does good-cmd\ncommand: grep {pattern} {file}\n---\n\nBody text.",
+   "users/1/hello-world/SKILL.md": "---\nname: hello-world\ndescription: Does renamed-in-body\ncategory: tools3\n---\n\nThird body",
+   "users/1/html-chars/SKILL.md": "---\nname: html-chars\ndescription: Does html-chars\nnote: <b>&amp;</b>\n---\n\na < b && c > d",
+   "users/1/json-meta/SKILL.md": "---\nname: json-meta\ndescription: Does json-meta\ntags: [\"a\",\"b\"]\nobj: {\"k\":{\"n\":1,\"a\":2}}\nempty: {}\nlist: []\ndot: 1.0\nunicode: \"é\\u2028\"\n---\n\nBody text.",
+   "users/1/learned/SKILL.md": "---\nname: learned\ndescription: Does learned\ncategory: again\n---\n\nAgain",
+   "users/1/n-c-de-name/SKILL.md": "---\nname: n-c-de-name\ndescription: Does Ünï Cöde_Name\n---\n\nBody text.",
+   "users/1/nice-name/SKILL.md": "---\nname: nice-name\ndescription: line one line two\nsource: skills.sh\nskills_sh_id: acme/skills/nice-name\n---\n\n## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nnice body",
+   "users/1/nice-name/data/f.json": "{\"a\":1}",
+   "users/1/other-name/SKILL.md": "---\nname: other-name\ndescription: Does other-name\n---\n\nagain",
+   "users/1/pdf/SKILL.md": "---\nname: pdf\ndescription: Work with PDFs\nsource: skills.sh\nskills_sh_id: acme/skills/pdf\n---\n\n## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nPDF body \n",
+   "users/1/pdf/img/pic.png": "base64:iVBOR/8A",
+   "users/1/pdf/ref guide.md": "# guide\n",
+   "users/1/pdf/scripts/extract.py": "print(\"extract \")\n",
+   "users/1/solo-from-repo/SKILL.md": "---\nname: solo-from-repo\ndescription: \nsource: skills.sh\nskills_sh_id: acme/solo/unknown\n---\n\n## NeoAgent Notes\nalready mapped",
+   "users/1/solo-from-repo/docs/a.md": "doc",
+   "users/1/solo-skill/SKILL.md": "---\nname: solo-skill\ndescription: just one\nsource: user\n---\n\n## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nSolo body",
+   "users/1/solo-skill/extra/a.txt": "a",
+   "users/1/spacey-skill/SKILL.md": "---\nname: spacey-skill\ndescription: has: colons: inside\n: orphan value\nkey with space: x\n---\n\nindented body",
+   "users/1/tight/SKILL.md": "---\nname: tight\ndescription: \n---\n\nbody here",
+   "users/1/true/SKILL.md": "---\nname: true\ndescription: \n---\n\nbody"
+  }
+ }
+}

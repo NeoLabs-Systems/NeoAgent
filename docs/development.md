@@ -6,14 +6,13 @@ description: Set up a local checkout, follow the server conventions, and run the
 
 # Development and testing
 
-**Clone, run the backend in watch mode, test the suite you touched, and follow [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) for every change.**
+**Clone, run the server with its own data directory, test the package you touched, and follow [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) for every change.**
 
 ## Requirements
 
 | Tool | Version |
 |---|---|
-| Node.js | `>=20.19.0`; CI tests Node 20 and 22 |
-| npm | Ships with Node.js |
+| Go | The version in `go.mod` |
 | Flutter | Stable channel; CI pins 3.47.9 |
 | ESP-IDF | Only for wearable firmware |
 
@@ -22,96 +21,65 @@ description: Set up a local checkout, follow the server conventions, and run the
 ```bash
 git clone https://github.com/NeoLabs-Systems/NeoAgent.git
 cd NeoAgent
-npm ci
 export NEOAGENT_HOME="$HOME/.neoagent-dev"
-npm run dev:backend
+go run ./cmd/neoagent serve
 ```
 
-- **Separate data.** Without `NEOAGENT_HOME`, development shares `~/.neoagent` with a real install.
-- **Checkout `.env`.** A `.env` in the repository root is loaded before `NEOAGENT_HOME/.env` and copied there if that file is missing.
-
-:::warning `dev:backend` frees port 3333 by force
-`dev/backend.sh` runs `kill -9` on whatever listens on port 3333, including an installed NeoAgent service.
-:::
-
-## Dev scripts
-
-| Command | Runs |
-|---|---|
-| `npm run dev:backend` | `node --watch server/index.js` after freeing port 3333 (`dev/backend.sh prod` runs `npm start`) |
-| `npm run flutter:run:web` | Flutter web client in Chrome against `NEOAGENT_BACKEND_URL` (default `http://localhost:3333`) |
-| `npm run dev:web` | `flutter run -d chrome` on port 54009 with `NEOAGENT_BACKEND_URL=http://localhost:3333` |
-| `npm run dev:stack` | `dev:backend` and `dev:web` together, stopping a stale NeoAgent on the port first |
-| `npm run dev:test` | `npm test`, `node --check` on entry points, `flutter analyze` |
-| `npm start` | `node server/index.js` without watch |
-
-Point it at another backend with `NEOAGENT_BACKEND_URL=http://192.168.1.20:3333 npm run flutter:run:web`.
+- **Separate data.** Without `NEOAGENT_HOME`, development shares `~/.neoagent` with a real install. The server reads only `NEOAGENT_HOME/.env`.
+- **Foundation module.** Shared packages come from `github.com/NeoLabs-Systems/neolabs-go`. To change both at once, clone it next to this repository and run `go work init . ../neolabs-go` (`go.work` is ignored by Git).
+- **Web client.** Run it against the local server with `cd flutter_app && flutter run -d chrome --dart-define=NEOAGENT_BACKEND_URL=http://localhost:3333`; point `NEOAGENT_BACKEND_URL` at another server to use that one.
 
 :::danger Never build the web client locally
-These run `flutter build web` and overwrite `server/public`, which only the release pipeline builds:
-
-- `npm run flutter:build:web`
-- `npm run dev:build`
-- `neoagent rebuild-web`, and `neoagent install` from a checkout when Flutter is on `PATH`
-
-They also run `flutter upgrade` when Flutter is older than `REQUIRED_FLUTTER_VERSION` in `lib/install_helpers.js`, as does `neoagent update`.
+`flutter build web` overwrites `public/`, which only the release pipeline builds. `neoagent rebuild-web` runs it too, and runs `flutter upgrade` when Flutter is older than 3.47.9.
 :::
 
 ## Tests
 
 | Command | Runs |
 |---|---|
-| `npm run test:unit` | `test/backend/unit/*.test.js` |
-| `npm run test:integration` | `test/integration/*.test.js` |
-| `npm run test:security` | `test/security/*.test.js` |
-| `npm run test:contract` | `test/contract/*.test.js` |
-| `npm run test:e2e` | `test/e2e/*.test.js` |
-| `npm run test:ws` | `test/websocket/*.test.js` |
-| `npm run test:harness` | `test/harness_eval/*.test.js`: the scripted harness evals and the regression gate |
-| `npm run test:backend` (`npm test`) | The seven suites above, chained with `&&` |
-| `npm run flutter:test` | `test/flutter/unit` and `test/flutter/widget` |
-| `npm run flutter:test:unit`, `flutter:test:widget` | One Flutter folder |
-| `bash test/install/install_smoke_test.sh` | Repository install in temporary directories |
+| `go test ./internal/<package>/...` | One package while you work |
+| `go test -race ./...` | Every Go test; CI runs this |
+| `go vet ./...` and `gofmt -l cmd internal` | Vet and formatting, both required by CI |
+| `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | Staticcheck with `staticcheck.conf` |
+| `cd flutter_app && flutter test ../test/flutter/unit ../test/flutter/widget` | Flutter unit and widget tests |
 
-- **Harness evals.** `npm run eval:harness` runs fixed cases through the real run path with a scripted model: duplicate delivery, repeated tools, recovery, memory, coding, injection, and telemetry. Duplicate messages and security failures have no tolerance. `-- --live --model provider::id --repeat 3` gives a real model the tool-choice cases and requires every repeat to pass; compare harness versions on the same model and settings, or the result measures the model. `-- --update-baseline` stores a new baseline.
-- **Chained suites.** `test:backend` stops at the first failing suite; run the remaining suites one by one to see their results.
-- **App-local Flutter tests.** `flutter_app/test/` (call, launcher, loading, mascot) is outside `flutter:test`; run `flutter test` inside `flutter_app`.
+- **Recorded behaviour.** Many tests replay request/response scenarios and vectors in `testdata/`. A changed API response or prompt text fails them on purpose; update the recording together with the change.
+- **Temporary data.** Tests open a temporary SQLite database; never point a test or tool at `~/.neoagent`.
+- **Browser tests.** Tests that drive Chrome skip when no Chrome is installed.
+- **App-local Flutter tests.** `flutter_app/test/` (call, launcher, loading, mascot) runs with `flutter test` inside `flutter_app`.
 - **Analyzer.** `cd flutter_app && flutter analyze --no-pub` uses `analysis_options.yaml`.
-
-:::note One unit test needs an Alpine ISO
-- **Where it runs.** `test/backend/unit/qemu_ramfb_display.test.js` runs on arm64 hosts with `qemu-system-aarch64` and edk2 firmware; elsewhere it skips.
-- **What it needs.** `/tmp/neoagent-display-test/alpine-virt-aarch64.iso`; without it the test fails and `test:backend` stops.
-:::
 
 ## Other checks
 
 | Command | Checks |
 |---|---|
-| `npm run setup:contract:check` | `flutter_app/lib/src/setup_contract.g.dart` matches `lib/setup/contract.json` |
-| `npm run audit:ci` | `npm audit` of production dependencies at high severity |
-| `npm run docs:build` | Docusaurus build; broken links fail it |
+| `go run ./cmd/neoagent-release setup-contract --check` | `flutter_app/lib/src/setup_contract.g.dart` matches the setup contract |
+| `go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...` | Known vulnerabilities in reachable code |
+| `cd website && npm ci && npm run build` | Docusaurus build of `docs/`; broken links fail it |
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main`, `beta` and `dev`, and on pull requests to `beta`.
+`.github/workflows/ci.yml` runs on pushes to `main`, `beta` and `dev`, on pull requests to `beta`, and before every release.
 
 | Job | Steps |
 |---|---|
-| Backend tests | `npm ci`, `npm run test:backend` on Node 20 and 22 |
-| Flutter tests | `flutter pub get`, `flutter analyze --no-pub`, `npm run flutter:test` |
+| Go | gofmt, `go vet`, staticcheck, govulncheck, `go test -race`, static builds for every release target, setup contract check |
+| Flutter tests | `flutter pub get`, `flutter analyze --no-pub`, unit and widget tests |
+
+While `neolabs-go` is private, CI reads it with the `NEOLABS_GO_TOKEN` repository secret.
 
 ## Server conventions
 
 [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) is the full rule set; the essentials:
 
-- **Modules.** CommonJS only; every new server file starts with `'use strict';`.
-- **Layers.** Routes parse, call a service and respond; business logic lives in `server/services/`.
-- **Database.** Only through `server/db/database.js`, synchronous and parameterized; schema changes go through the [migration layer](persistence.md#schema-changes).
-- **Models.** LLM calls go through `server/services/ai/engine.js`; provider SDKs are imported only in `server/services/ai/providers/`.
-- **Tools.** Schemas and metadata in `server/services/ai/tools/definitions/`, code in `tools/handlers/`; large results pass through `compactToolResult()`.
-- **Paths and env.** Use `runtime/paths.js` constants and `runtime/env.js` helpers.
-- **Logging.** `server/utils/logger.js` with a `[ServiceName]` prefix; log secrets only as boolean presence.
-- **New env keys.** Add them to `.env.example` and to `logStartupConfig()` in `server/index.js`.
+- **Packages.** One package per domain in `internal/`; domains do not import each other and talk through small interfaces that `internal/wiring` satisfies.
+- **Layers.** Handlers parse, call a service and respond; business logic lives in the service.
+- **Database.** One SQLite handle, parameterized queries; schema changes go through the [migration layer](persistence.md#schema-changes).
+- **Models.** LLM calls go through `neolabs-go/llm` via `internal/ai/models`.
+- **Tools.** Schemas and metadata in `internal/ai/tools/definitions.json`, code in `internal/ai/handlers`; large results pass through result compaction.
+- **Config.** Read environment and paths through `internal/config`.
+- **Logging.** `slog`; log secrets only as boolean presence.
+- **New env keys.** Add them to `.env.example`.
 
 ## Flutter conventions
 

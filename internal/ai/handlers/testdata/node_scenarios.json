@@ -1,0 +1,502 @@
+[
+ {
+  "tool": "list_chats",
+  "args": {},
+  "result": {
+   "count": 4,
+   "chats": [
+    {
+     "platform": "discord",
+     "chat_id": "c9",
+     "name": "Guild",
+     "type": "dm"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "name": "Family Chat",
+     "type": "group"
+    },
+    {
+     "platform": "whatsapp",
+     "chat_id": "4915@s.whatsapp.net",
+     "name": null,
+     "type": "dm"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "100",
+     "name": null,
+     "type": "dm"
+    }
+   ]
+  }
+ },
+ {
+  "tool": "list_chats",
+  "args": {
+   "platform": " Telegram "
+  },
+  "result": {
+   "count": 2,
+   "chats": [
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "name": "Family Chat",
+     "type": "group"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "100",
+     "name": null,
+     "type": "dm"
+    }
+   ]
+  }
+ },
+ {
+  "tool": "read_messages",
+  "args": {},
+  "result": {
+   "count": 6,
+   "messages": [
+    {
+     "platform": "telegram",
+     "chat_id": "100",
+     "group_name": null,
+     "sender": "Ann",
+     "content": "hello there",
+     "timestamp": "2026-01-01 10:00:00"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "group_name": "Family Chat",
+     "sender": "Bob",
+     "content": "group talk",
+     "timestamp": "2026-01-01 11:00:00"
+    },
+    {
+     "platform": "web",
+     "chat_id": "w1",
+     "group_name": null,
+     "sender": null,
+     "content": "web msg",
+     "timestamp": "2026-01-01 13:00:00"
+    },
+    {
+     "platform": "whatsapp",
+     "chat_id": "4915@s.whatsapp.net",
+     "group_name": null,
+     "sender": null,
+     "content": "wa hi",
+     "timestamp": "2026-01-01 14:00:00"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "group_name": "Family Chat",
+     "sender": "Cy",
+     "content": "more family",
+     "timestamp": "2026-01-02 09:00:00"
+    },
+    {
+     "platform": "discord",
+     "chat_id": "c9",
+     "group_name": "  Guild  ",
+     "sender": null,
+     "content": "discord",
+     "timestamp": "2026-01-02 10:00:00"
+    }
+   ]
+  }
+ },
+ {
+  "tool": "read_messages",
+  "args": {
+   "platform": "telegram",
+   "limit": 1
+  },
+  "result": {
+   "count": 1,
+   "messages": [
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "group_name": "Family Chat",
+     "sender": "Cy",
+     "content": "more family",
+     "timestamp": "2026-01-02 09:00:00"
+    }
+   ]
+  }
+ },
+ {
+  "tool": "read_messages",
+  "args": {
+   "group_name": "family",
+   "limit": "5"
+  },
+  "result": {
+   "count": 2,
+   "messages": [
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "group_name": "Family Chat",
+     "sender": "Bob",
+     "content": "group talk",
+     "timestamp": "2026-01-01 11:00:00"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "group_name": "Family Chat",
+     "sender": "Cy",
+     "content": "more family",
+     "timestamp": "2026-01-02 09:00:00"
+    }
+   ]
+  }
+ },
+ {
+  "tool": "read_messages",
+  "args": {
+   "search": "hi",
+   "chat_id": " 4915@s.whatsapp.net "
+  },
+  "result": {
+   "count": 1,
+   "messages": [
+    {
+     "platform": "whatsapp",
+     "chat_id": "4915@s.whatsapp.net",
+     "group_name": null,
+     "sender": null,
+     "content": "wa hi",
+     "timestamp": "2026-01-01 14:00:00"
+    }
+   ]
+  }
+ },
+ {
+  "tool": "read_messages",
+  "args": {
+   "limit": 500,
+   "platform": ""
+  },
+  "result": {
+   "count": 6,
+   "messages": [
+    {
+     "platform": "telegram",
+     "chat_id": "100",
+     "group_name": null,
+     "sender": "Ann",
+     "content": "hello there",
+     "timestamp": "2026-01-01 10:00:00"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "group_name": "Family Chat",
+     "sender": "Bob",
+     "content": "group talk",
+     "timestamp": "2026-01-01 11:00:00"
+    },
+    {
+     "platform": "web",
+     "chat_id": "w1",
+     "group_name": null,
+     "sender": null,
+     "content": "web msg",
+     "timestamp": "2026-01-01 13:00:00"
+    },
+    {
+     "platform": "whatsapp",
+     "chat_id": "4915@s.whatsapp.net",
+     "group_name": null,
+     "sender": null,
+     "content": "wa hi",
+     "timestamp": "2026-01-01 14:00:00"
+    },
+    {
+     "platform": "telegram",
+     "chat_id": "-200",
+     "group_name": "Family Chat",
+     "sender": "Cy",
+     "content": "more family",
+     "timestamp": "2026-01-02 09:00:00"
+    },
+    {
+     "platform": "discord",
+     "chat_id": "c9",
+     "group_name": "  Guild  ",
+     "sender": null,
+     "content": "discord",
+     "timestamp": "2026-01-02 10:00:00"
+    }
+   ]
+  }
+ },
+ {
+  "tool": "mcp_list_servers",
+  "args": {},
+  "result": {
+   "servers": [
+    {
+     "id": 2,
+     "name": "alpha",
+     "command": "https://a.example/mcp",
+     "args": [],
+     "enabled": false,
+     "status": "stopped",
+     "toolCount": 0,
+     "error": null,
+     "consecutiveFails": 0,
+     "nextRetryAt": null
+    },
+    {
+     "id": 1,
+     "name": "zeta",
+     "command": "https://z.example/mcp",
+     "args": [
+      "--x"
+     ],
+     "enabled": true,
+     "status": "stopped",
+     "toolCount": 0,
+     "error": null,
+     "consecutiveFails": 0,
+     "nextRetryAt": null
+    }
+   ]
+  }
+ },
+ {
+  "tool": "mcp_remove_server",
+  "args": {
+   "server_id": 99
+  },
+  "result": {
+   "error": "No MCP server with id 99 found"
+  }
+ },
+ {
+  "tool": "mcp_remove_server",
+  "args": {
+   "server_id": 2
+  },
+  "result": {
+   "removed": true,
+   "id": 2,
+   "name": "alpha"
+  }
+ },
+ {
+  "tool": "mcp_list_servers",
+  "args": {},
+  "result": {
+   "servers": [
+    {
+     "id": 1,
+     "name": "zeta",
+     "command": "https://z.example/mcp",
+     "args": [
+      "--x"
+     ],
+     "enabled": true,
+     "status": "stopped",
+     "toolCount": 0,
+     "error": null,
+     "consecutiveFails": 0,
+     "nextRetryAt": null
+    }
+   ]
+  }
+ },
+ {
+  "tool": "mcp_add_server",
+  "args": {
+   "name": "x",
+   "command": "y"
+  },
+  "result": {
+   "error": "MCP manager not available"
+  }
+ },
+ {
+  "tool": "generate_table",
+  "args": {
+   "markdown_table": "|a|"
+  },
+  "result": {
+   "result": "|a|",
+   "instruction": "Table generated. Please output this table directly to the user in your next message."
+  }
+ },
+ {
+  "tool": "generate_graph",
+  "args": {},
+  "result": {
+   "result": "```mermaid\nundefined\n```",
+   "instruction": "Graph generated. Please output this mermaid block directly to the user in your next message."
+  }
+ },
+ {
+  "tool": "send_message",
+  "args": {
+   "to": "x",
+   "content": "y"
+  },
+  "result": {
+   "error": "Messaging not available"
+  }
+ },
+ {
+  "tool": "react_to_message",
+  "args": {
+   "emoji": "👍"
+  },
+  "result": {
+   "error": "This run has no incoming chat message to react to."
+  }
+ },
+ {
+  "tool": "call_user",
+  "args": {},
+  "result": {
+   "status": "unavailable",
+   "reason": "call_service_not_initialized",
+   "message": "The call_user tool is available, but the in-app call service is not initialized on this server."
+  }
+ },
+ {
+  "tool": "notify_user",
+  "args": {
+   "message": "  "
+  },
+  "result": {
+   "error": "message is required"
+  }
+ },
+ {
+  "tool": "create_task",
+  "args": {
+   "name": "t"
+  },
+  "result": {
+   "error": "Task runtime not available"
+  }
+ },
+ {
+  "tool": "list_skills",
+  "args": {},
+  "result": {
+   "error": "Skill runner not available"
+  }
+ },
+ {
+  "tool": "social_video_extract",
+  "args": {},
+  "result": {
+   "error": "Social video extraction service is unavailable."
+  }
+ },
+ {
+  "tool": "social_reach_read",
+  "args": {},
+  "result": {
+   "error": "Social reach service is unavailable."
+  }
+ },
+ {
+  "tool": "credential_fill_browser",
+  "args": {},
+  "result": {
+   "error": "Credential broker is unavailable."
+  }
+ },
+ {
+  "tool": "read_file",
+  "args": {},
+  "result": {
+   "error": "Workspace service is unavailable."
+  }
+ },
+ {
+  "tool": "write_file",
+  "args": {
+   "path": "x"
+  },
+  "result": {
+   "error": "Workspace service is unavailable."
+  }
+ },
+ {
+  "tool": "search_files",
+  "args": {
+   "query": "x"
+  },
+  "result": {
+   "error": "Workspace service is unavailable."
+  }
+ },
+ {
+  "tool": "repo_overview",
+  "args": {},
+  "result": {
+   "error": "This needs a computer to run commands on, and none is available."
+  }
+ },
+ {
+  "tool": "read_artifact",
+  "args": {},
+  "result": {
+   "error": "Artifact store is unavailable."
+  }
+ },
+ {
+  "tool": "code_navigate",
+  "args": {},
+  "result": {
+   "error": "Code navigation service is unavailable."
+  }
+ },
+ {
+  "tool": "query_structured_data",
+  "args": {},
+  "result": {
+   "error": "Structured data service is unavailable."
+  }
+ },
+ {
+  "tool": "execute_command",
+  "args": {
+   "command": "ls"
+  },
+  "result": {
+   "error": "Command execution is unavailable. No runtime manager found."
+  }
+ },
+ {
+  "tool": "share_web_page",
+  "args": {
+   "action": "nope"
+  },
+  "result": {
+   "error": "action must be share, stop or list."
+  }
+ },
+ {
+  "tool": "memory_update_core",
+  "args": {
+   "key": "bad",
+   "value": "x"
+  },
+  "result": {
+   "error": "Core memory key must be one of: user_profile, preferences, ai_personality."
+  }
+ }
+]

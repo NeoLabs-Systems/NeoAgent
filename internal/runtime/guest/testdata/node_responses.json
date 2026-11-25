@@ -1,0 +1,263 @@
+{
+ "workspaceFixture": true,
+ "recorded": [
+  {
+   "method": "GET",
+   "url": "/workspace/files?path=.",
+   "body": null,
+   "status": 200,
+   "response": "{\"path\":\"\",\"entries\":[{\"name\":\"Docs\",\"path\":\"Docs\",\"type\":\"directory\",\"size\":null,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"node_modules\",\"path\":\"node_modules\",\"type\":\"directory\",\"size\":null,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"src\",\"path\":\"src\",\"type\":\"directory\",\"size\":null,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"_under.txt\",\"path\":\"_under.txt\",\"type\":\"file\",\"size\":1,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"2nd.txt\",\"path\":\"2nd.txt\",\"type\":\"file\",\"size\":3,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"Alpha.txt\",\"path\":\"Alpha.txt\",\"type\":\"file\",\"size\":1,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"beta.txt\",\"path\":\"beta.txt\",\"type\":\"file\",\"size\":39,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"README.md\",\"path\":\"README.md\",\"type\":\"file\",\"size\":12,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"link.txt\",\"path\":\"link.txt\",\"type\":\"symlink\",\"size\":null,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"zeta.txt\",\"path\":\"zeta.txt\",\"type\":\"file\",\"size\":1,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"}]}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files?path=src",
+   "body": null,
+   "status": 200,
+   "response": "{\"path\":\"src\",\"entries\":[{\"name\":\"nested\",\"path\":\"src/nested\",\"type\":\"directory\",\"size\":null,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"},{\"name\":\"main.go\",\"path\":\"src/main.go\",\"type\":\"file\",\"size\":23,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"}]}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files?path=..%2F",
+   "body": null,
+   "status": 500,
+   "response": "{\"error\":\"Workspace path is outside the computer workspace.\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files?path=nope",
+   "body": null,
+   "status": 500,
+   "response": "{\"error\":\"Workspace path does not exist.\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files?path=README.md",
+   "body": null,
+   "status": 500,
+   "response": "{\"error\":\"Workspace path is not a directory.\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files/content?path=README.md",
+   "body": null,
+   "status": 200,
+   "response": "{\"path\":\"README.md\",\"content\":\"hello\\nworld\\n\",\"size\":12,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files/content?path=link.txt",
+   "body": null,
+   "status": 200,
+   "response": "{\"path\":\"link.txt\",\"content\":\"needle in beta\\nsecond line\\nneedle again\",\"size\":39,\"modifiedAt\":\"2026-01-02T03:04:05.678Z\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files/content?path=Docs",
+   "body": null,
+   "status": 500,
+   "response": "{\"error\":\"Workspace path is not a file.\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files/content?path=%2Fetc%2Fpasswd",
+   "body": null,
+   "status": 500,
+   "response": "{\"error\":\"Workspace path is outside the computer workspace.\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files/download?path=zeta.txt",
+   "body": null,
+   "status": 200,
+   "response": "{\"path\":\"zeta.txt\",\"filename\":\"zeta.txt\",\"contentType\":\"application/octet-stream\",\"encoding\":\"base64\",\"content\":\"eg==\",\"size\":1}"
+  },
+  {
+   "method": "POST",
+   "url": "/workspace/search",
+   "body": {
+    "query": "needle"
+   },
+   "status": 200,
+   "response": "{\"results\":[{\"path\":\"beta.txt\",\"line\":1,\"text\":\"needle in beta\"},{\"path\":\"beta.txt\",\"line\":3,\"text\":\"needle again\"},{\"path\":\"src/main.go\",\"line\":2,\"text\":\"// needle\"},{\"path\":\"src/nested/deep.txt\",\"line\":1,\"text\":\"deep needle\"}],\"truncated\":false}"
+  },
+  {
+   "method": "POST",
+   "url": "/workspace/search",
+   "body": {
+    "glob": "*.txt"
+   },
+   "status": 200,
+   "response": "{\"results\":[{\"path\":\"2nd.txt\",\"size\":3},{\"path\":\"Alpha.txt\",\"size\":1},{\"path\":\"_under.txt\",\"size\":1},{\"path\":\"beta.txt\",\"size\":39},{\"path\":\"zeta.txt\",\"size\":1},{\"path\":\"src/nested/deep.txt\",\"size\":11}],\"truncated\":false}"
+  },
+  {
+   "method": "POST",
+   "url": "/workspace/search",
+   "body": {
+    "query": "needle",
+    "path": "src",
+    "maxResults": 1
+   },
+   "status": 200,
+   "response": "{\"results\":[{\"path\":\"src/main.go\",\"line\":2,\"text\":\"// needle\"}],\"truncated\":true}"
+  },
+  {
+   "method": "POST",
+   "url": "/workspace/search",
+   "body": {
+    "filename": "ALPHA"
+   },
+   "status": 200,
+   "response": "{\"results\":[{\"path\":\"Alpha.txt\",\"size\":1}],\"truncated\":false}"
+  },
+  {
+   "method": "POST",
+   "url": "/files/read",
+   "body": {
+    "path": ""
+   },
+   "status": 200,
+   "response": "{\"error\":\"path is required\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/files/read",
+   "body": {
+    "path": "/etc/passwd"
+   },
+   "status": 200,
+   "response": "{\"error\":\"path is outside guest-agent readable roots\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/files/read",
+   "body": {
+    "path": "/screenshots/x.png"
+   },
+   "status": 200,
+   "response": "{\"error\":\"path is outside guest-agent readable roots\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/exec",
+   "body": {},
+   "status": 200,
+   "response": "{\"error\":\"command is required\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/exec/kill",
+   "body": {},
+   "status": 200,
+   "response": "{\"error\":\"pid is required\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/exec/kill",
+   "body": {
+    "pid": 99999999
+   },
+   "status": 200,
+   "response": "{\"error\":\"pid not managed\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/desktop/click",
+   "body": {
+    "x": "a",
+    "y": 2
+   },
+   "status": 500,
+   "response": "{\"error\":\"x and y must be finite coordinates.\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/desktop/press-key",
+   "body": {
+    "key": "a b"
+   },
+   "status": 500,
+   "response": "{\"error\":\"Desktop key is invalid.\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/desktop/drag",
+   "body": {
+    "startX": 1
+   },
+   "status": 500,
+   "response": "{\"error\":\"Drag coordinates are required.\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/desktop/launch-app",
+   "body": {
+    "app": "nothing"
+   },
+   "status": 500,
+   "response": "{\"error\":\"Application must be browser, files, terminal, or editor.\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/proxy/8/x",
+   "body": null,
+   "status": 502,
+   "response": "{\"error\":\"\"}"
+  },
+  {
+   "method": "PUT",
+   "url": "/workspace/files/content",
+   "body": {
+    "path": "out/new.txt",
+    "content": [
+     "a",
+     "b"
+    ]
+   },
+   "status": 200,
+   "response": "{\"success\":true,\"path\":\"out/new.txt\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files/content?path=out%2Fnew.txt",
+   "body": null,
+   "status": 200,
+   "response": "{\"path\":\"out/new.txt\",\"content\":\"a\\nb\",\"size\":3,\"modifiedAt\":\"2026-11-24T18:48:53.239Z\"}"
+  },
+  {
+   "method": "PUT",
+   "url": "/workspace/files/content",
+   "body": {
+    "path": "link.txt",
+    "content": {
+     "k": 1
+    }
+   },
+   "status": 200,
+   "response": "{\"success\":true,\"path\":\"link.txt\"}"
+  },
+  {
+   "method": "GET",
+   "url": "/workspace/files/content?path=beta.txt",
+   "body": null,
+   "status": 200,
+   "response": "{\"path\":\"beta.txt\",\"content\":\"{\\n  \\\"k\\\": 1\\n}\",\"size\":12,\"modifiedAt\":\"2026-11-24T18:48:53.245Z\"}"
+  },
+  {
+   "method": "PUT",
+   "url": "/workspace/files/content",
+   "body": {
+    "path": "../escape.txt",
+    "content": "x"
+   },
+   "status": 500,
+   "response": "{\"error\":\"Workspace path is outside the computer workspace.\"}"
+  },
+  {
+   "method": "POST",
+   "url": "/workspace/import",
+   "body": {},
+   "status": 400,
+   "response": "{\"error\":\"A valid workspace archive checksum is required.\"}"
+  }
+ ]
+}

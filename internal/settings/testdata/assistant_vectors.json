@@ -1,0 +1,1279 @@
+{
+ "models": [
+  {
+   "id": "openai::gpt-x",
+   "modelId": "gpt-x",
+   "label": "GPT X",
+   "provider": "openai",
+   "available": true
+  },
+  {
+   "id": "anthropic::claude-sonnet",
+   "modelId": "claude-sonnet",
+   "name": "Claude Sonnet",
+   "provider": "anthropic"
+  },
+  {
+   "id": "google::gemini-2.5-flash",
+   "modelId": "gemini-2.5-flash",
+   "provider": "google",
+   "available": true
+  },
+  {
+   "id": "x::gone",
+   "modelId": "gone",
+   "label": "Gone",
+   "provider": "x",
+   "available": false
+  }
+ ],
+ "decisions": [
+  {
+   "id": "neorouter::auto:default",
+   "modelId": "auto:default",
+   "label": "auto:default",
+   "provider": "neorouter",
+   "available": true
+  }
+ ],
+ "cases": [
+  {
+   "tool": "settings_read",
+   "args": {},
+   "result": {
+    "settings": [
+     {
+      "key": "default_chat_model",
+      "description": "Model that answers chats. \"auto\" lets the smart selector pick per message.",
+      "value": "auto",
+      "link": "https://agent.example/app/open/settings/models/chatModel",
+      "choices": [
+       {
+        "value": "auto",
+        "label": "Automatic"
+       },
+       {
+        "value": "openai::gpt-x",
+        "label": "GPT X (openai)"
+       },
+       {
+        "value": "anthropic::claude-sonnet",
+        "label": "Claude Sonnet (anthropic)"
+       },
+       {
+        "value": "google::gemini-2.5-flash",
+        "label": "gemini-2.5-flash (google)"
+       }
+      ]
+     },
+     {
+      "key": "system_one_model",
+      "description": "Fast model for behind-the-scenes decisions. \"off\" leaves them to the chat model.",
+      "value": "off",
+      "link": "https://agent.example/app/open/settings/models/systemOne",
+      "choices": [
+       {
+        "value": "auto",
+        "label": "Automatic"
+       },
+       {
+        "value": "off",
+        "label": "Off"
+       },
+       {
+        "value": "neorouter::auto:default",
+        "label": "auto:default (neorouter)"
+       }
+      ]
+     },
+     {
+      "key": "assistant_behavior_notes",
+      "description": "Standing persona and behavior instructions for this agent. Replaces the whole text, so include what should stay.",
+      "value": "",
+      "link": "https://agent.example/app/open/settings/behavior/persona",
+      "maxLength": 8000
+     },
+     {
+      "key": "voice_input_mode",
+      "description": "How voice conversations take input: hands-free or push-to-talk.",
+      "value": "hands_free",
+      "link": "https://agent.example/app/open/settings/voice/inputMode",
+      "choices": [
+       {
+        "value": "hands_free"
+       },
+       {
+        "value": "ptt"
+       }
+      ]
+     },
+     {
+      "key": "voice_live_provider",
+      "description": "Live voice provider. Empty follows the server default. Changing it resets the live model and voice.",
+      "value": "",
+      "link": "https://agent.example/app/open/settings/voice/liveProvider",
+      "choices": [
+       {
+        "value": "",
+        "label": "Server default"
+       },
+       {
+        "value": "openai",
+        "label": "OpenAI GPT-Live"
+       },
+       {
+        "value": "google",
+        "label": "Google Gemini Live"
+       },
+       {
+        "value": "neorouter_openai",
+        "label": "NeoRouter · GPT-Live"
+       },
+       {
+        "value": "neorouter_google",
+        "label": "NeoRouter · Gemini Live"
+       }
+      ]
+     },
+     {
+      "key": "voice_live_voice",
+      "description": "Voice the live voice provider speaks with. Empty uses the provider default.",
+      "value": "",
+      "link": "https://agent.example/app/open/settings/voice/liveVoice",
+      "choices": [
+       {
+        "value": "",
+        "label": "Provider default (marin)"
+       },
+       {
+        "value": "marin"
+       },
+       {
+        "value": "quartz"
+       },
+       {
+        "value": "ripple"
+       },
+       {
+        "value": "vesper"
+       },
+       {
+        "value": "willow"
+       },
+       {
+        "value": "stone"
+       },
+       {
+        "value": "gleam"
+       },
+       {
+        "value": "meridian"
+       },
+       {
+        "value": "bossa"
+       },
+       {
+        "value": "tempo"
+       },
+       {
+        "value": "beacon"
+       },
+       {
+        "value": "delta"
+       },
+       {
+        "value": "cinder"
+       }
+      ]
+     },
+     {
+      "key": "ui_language",
+      "description": "Language of the app interface, as a language code.",
+      "value": null,
+      "link": "https://agent.example/app/open/settings/general/language",
+      "choices": [
+       {
+        "value": "en"
+       },
+       {
+        "value": "de"
+       },
+       {
+        "value": "bg"
+       },
+       {
+        "value": "hr"
+       },
+       {
+        "value": "cs"
+       },
+       {
+        "value": "da"
+       },
+       {
+        "value": "nl"
+       },
+       {
+        "value": "et"
+       },
+       {
+        "value": "fi"
+       },
+       {
+        "value": "fr"
+       },
+       {
+        "value": "el"
+       },
+       {
+        "value": "hu"
+       },
+       {
+        "value": "ga"
+       },
+       {
+        "value": "it"
+       },
+       {
+        "value": "lv"
+       },
+       {
+        "value": "lt"
+       },
+       {
+        "value": "mt"
+       },
+       {
+        "value": "pl"
+       },
+       {
+        "value": "pt"
+       },
+       {
+        "value": "ro"
+       },
+       {
+        "value": "sk"
+       },
+       {
+        "value": "sl"
+       },
+       {
+        "value": "es"
+       },
+       {
+        "value": "sv"
+       }
+      ]
+     },
+     {
+      "key": "timezone",
+      "description": "IANA time zone (for example Europe/Berlin) for the assistant's clock and scheduled tasks. Stops following the device's zone.",
+      "value": null,
+      "link": "https://agent.example/app/open/settings/general/timeZone"
+     }
+    ],
+    "integrations": [
+     {
+      "key": "google",
+      "label": "Google",
+      "connected": true,
+      "available": true,
+      "link": "https://agent.example/app/open/integrations/google"
+     },
+     {
+      "key": "notion",
+      "label": "Notion",
+      "connected": false,
+      "available": false,
+      "link": "https://agent.example/app/open/integrations/notion"
+     }
+    ],
+    "places": {
+     "sections": {
+      "integrations": {
+       "summary": "Official integrations (Google, Microsoft, GitHub, Notion, Slack, ...): connect and manage accounts.",
+       "link": "https://agent.example/app/open/integrations"
+      },
+      "skills": {
+       "summary": "Installed skills.",
+       "link": "https://agent.example/app/open/skills"
+      },
+      "mcp": {
+       "summary": "MCP servers.",
+       "link": "https://agent.example/app/open/mcp"
+      },
+      "tasks": {
+       "summary": "Scheduled and triggered tasks.",
+       "link": "https://agent.example/app/open/tasks"
+      },
+      "memory": {
+       "summary": "Saved memories and core memory.",
+       "link": "https://agent.example/app/open/memory"
+      },
+      "devices": {
+       "summary": "Paired phones, computers and the wearable.",
+       "link": "https://agent.example/app/open/devices"
+      },
+      "health": {
+       "summary": "Synced health data.",
+       "link": "https://agent.example/app/open/health"
+      },
+      "runs": {
+       "summary": "Past agent runs and logs.",
+       "link": "https://agent.example/app/open/runs"
+      }
+     },
+     "settingsPages": {
+      "profile": {
+       "summary": "Display name, email, data export, data sharing, sign out, delete account.",
+       "anchors": [
+        "displayName",
+        "email",
+        "exportData",
+        "dataSharing",
+        "signOut",
+        "deleteAccount"
+       ],
+       "link": "https://agent.example/app/open/settings/profile"
+      },
+      "security": {
+       "summary": "Password, two-factor, security keys and passkeys, linked sign-in providers, active sessions, QR login.",
+       "anchors": [
+        "password",
+        "twoFactor",
+        "securityKeys",
+        "linkedProviders",
+        "sessions",
+        "qrLogin"
+       ],
+       "link": "https://agent.example/app/open/settings/security"
+      },
+      "usage": {
+       "summary": "Usage limits and token usage.",
+       "anchors": [
+        "limits",
+        "tokenUsage"
+       ],
+       "link": "https://agent.example/app/open/settings/usage"
+      },
+      "agents": {
+       "summary": "The user's agents (bots): create, rename, delegate, default agent.",
+       "anchors": [
+        "agentList"
+       ],
+       "link": "https://agent.example/app/open/settings/agents"
+      },
+      "permissions": {
+       "summary": "Tool permissions: which tool categories ask for approval, run, or are blocked.",
+       "anchors": [
+        "toolPermissions"
+       ],
+       "link": "https://agent.example/app/open/settings/permissions"
+      },
+      "computer": {
+       "summary": "Computer workspace (VM, browser, desktop), shell, Social Reach cookies.",
+       "anchors": [
+        "computerRuntime",
+        "shell",
+        "socialReach"
+       ],
+       "link": "https://agent.example/app/open/settings/computer"
+      },
+      "models": {
+       "summary": "Chat model, model pool, SystemOne models, per-task models, bring-your-own API keys.",
+       "anchors": [
+        "chatModel",
+        "modelPool",
+        "systemOne",
+        "apiKeys"
+       ],
+       "link": "https://agent.example/app/open/settings/models"
+      },
+      "behavior": {
+       "summary": "Persona and behavior notes, social behavior in group chats.",
+       "anchors": [
+        "persona",
+        "socialBehavior",
+        "turnTaking",
+        "minimumNeed",
+        "batchWindow"
+       ],
+       "link": "https://agent.example/app/open/settings/behavior"
+      },
+      "voice": {
+       "summary": "Voice input mode, live voice provider, model and voice, speech-to-text, voice reply model.",
+       "anchors": [
+        "inputMode",
+        "liveProvider",
+        "liveModel",
+        "liveVoice",
+        "speechToText",
+        "voiceReplyModel"
+       ],
+       "link": "https://agent.example/app/open/settings/voice"
+      },
+      "messaging": {
+       "summary": "Messaging platforms (WhatsApp, Telegram, Discord, Signal, Slack, webhooks): linking, group participation, delivery.",
+       "anchors": [
+        "channels",
+        "participation",
+        "delivery"
+       ],
+       "link": "https://agent.example/app/open/settings/messaging"
+      },
+      "general": {
+       "summary": "Theme, language, time zone, desktop window and hotkey, location and notification triggers, redo onboarding.",
+       "anchors": [
+        "theme",
+        "language",
+        "timeZone",
+        "closeWindow",
+        "hotkey",
+        "locationTriggers",
+        "notificationTriggers",
+        "onboarding"
+       ],
+       "link": "https://agent.example/app/open/settings/general"
+      },
+      "system": {
+       "summary": "Server updates and release channel. Desktop app only.",
+       "anchors": [
+        "server"
+       ],
+       "link": "https://agent.example/app/open/settings/system"
+      }
+     }
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_read",
+   "args": {
+    "keys": [
+     "default_chat_model",
+     "nope",
+     "voice_live_voice"
+    ],
+    "search": "gpt"
+   },
+   "result": {
+    "settings": [
+     {
+      "key": "default_chat_model",
+      "description": "Model that answers chats. \"auto\" lets the smart selector pick per message.",
+      "value": "auto",
+      "link": "https://agent.example/app/open/settings/models/chatModel",
+      "choices": [
+       {
+        "value": "openai::gpt-x",
+        "label": "GPT X (openai)"
+       }
+      ]
+     },
+     {
+      "key": "voice_live_voice",
+      "description": "Voice the live voice provider speaks with. Empty uses the provider default.",
+      "value": "",
+      "link": "https://agent.example/app/open/settings/voice/liveVoice",
+      "choices": []
+     }
+    ],
+    "integrations": [
+     {
+      "key": "google",
+      "label": "Google",
+      "connected": true,
+      "available": true,
+      "link": "https://agent.example/app/open/integrations/google"
+     },
+     {
+      "key": "notion",
+      "label": "Notion",
+      "connected": false,
+      "available": false,
+      "link": "https://agent.example/app/open/integrations/notion"
+     }
+    ],
+    "places": {
+     "sections": {
+      "integrations": {
+       "summary": "Official integrations (Google, Microsoft, GitHub, Notion, Slack, ...): connect and manage accounts.",
+       "link": "https://agent.example/app/open/integrations"
+      },
+      "skills": {
+       "summary": "Installed skills.",
+       "link": "https://agent.example/app/open/skills"
+      },
+      "mcp": {
+       "summary": "MCP servers.",
+       "link": "https://agent.example/app/open/mcp"
+      },
+      "tasks": {
+       "summary": "Scheduled and triggered tasks.",
+       "link": "https://agent.example/app/open/tasks"
+      },
+      "memory": {
+       "summary": "Saved memories and core memory.",
+       "link": "https://agent.example/app/open/memory"
+      },
+      "devices": {
+       "summary": "Paired phones, computers and the wearable.",
+       "link": "https://agent.example/app/open/devices"
+      },
+      "health": {
+       "summary": "Synced health data.",
+       "link": "https://agent.example/app/open/health"
+      },
+      "runs": {
+       "summary": "Past agent runs and logs.",
+       "link": "https://agent.example/app/open/runs"
+      }
+     },
+     "settingsPages": {
+      "profile": {
+       "summary": "Display name, email, data export, data sharing, sign out, delete account.",
+       "anchors": [
+        "displayName",
+        "email",
+        "exportData",
+        "dataSharing",
+        "signOut",
+        "deleteAccount"
+       ],
+       "link": "https://agent.example/app/open/settings/profile"
+      },
+      "security": {
+       "summary": "Password, two-factor, security keys and passkeys, linked sign-in providers, active sessions, QR login.",
+       "anchors": [
+        "password",
+        "twoFactor",
+        "securityKeys",
+        "linkedProviders",
+        "sessions",
+        "qrLogin"
+       ],
+       "link": "https://agent.example/app/open/settings/security"
+      },
+      "usage": {
+       "summary": "Usage limits and token usage.",
+       "anchors": [
+        "limits",
+        "tokenUsage"
+       ],
+       "link": "https://agent.example/app/open/settings/usage"
+      },
+      "agents": {
+       "summary": "The user's agents (bots): create, rename, delegate, default agent.",
+       "anchors": [
+        "agentList"
+       ],
+       "link": "https://agent.example/app/open/settings/agents"
+      },
+      "permissions": {
+       "summary": "Tool permissions: which tool categories ask for approval, run, or are blocked.",
+       "anchors": [
+        "toolPermissions"
+       ],
+       "link": "https://agent.example/app/open/settings/permissions"
+      },
+      "computer": {
+       "summary": "Computer workspace (VM, browser, desktop), shell, Social Reach cookies.",
+       "anchors": [
+        "computerRuntime",
+        "shell",
+        "socialReach"
+       ],
+       "link": "https://agent.example/app/open/settings/computer"
+      },
+      "models": {
+       "summary": "Chat model, model pool, SystemOne models, per-task models, bring-your-own API keys.",
+       "anchors": [
+        "chatModel",
+        "modelPool",
+        "systemOne",
+        "apiKeys"
+       ],
+       "link": "https://agent.example/app/open/settings/models"
+      },
+      "behavior": {
+       "summary": "Persona and behavior notes, social behavior in group chats.",
+       "anchors": [
+        "persona",
+        "socialBehavior",
+        "turnTaking",
+        "minimumNeed",
+        "batchWindow"
+       ],
+       "link": "https://agent.example/app/open/settings/behavior"
+      },
+      "voice": {
+       "summary": "Voice input mode, live voice provider, model and voice, speech-to-text, voice reply model.",
+       "anchors": [
+        "inputMode",
+        "liveProvider",
+        "liveModel",
+        "liveVoice",
+        "speechToText",
+        "voiceReplyModel"
+       ],
+       "link": "https://agent.example/app/open/settings/voice"
+      },
+      "messaging": {
+       "summary": "Messaging platforms (WhatsApp, Telegram, Discord, Signal, Slack, webhooks): linking, group participation, delivery.",
+       "anchors": [
+        "channels",
+        "participation",
+        "delivery"
+       ],
+       "link": "https://agent.example/app/open/settings/messaging"
+      },
+      "general": {
+       "summary": "Theme, language, time zone, desktop window and hotkey, location and notification triggers, redo onboarding.",
+       "anchors": [
+        "theme",
+        "language",
+        "timeZone",
+        "closeWindow",
+        "hotkey",
+        "locationTriggers",
+        "notificationTriggers",
+        "onboarding"
+       ],
+       "link": "https://agent.example/app/open/settings/general"
+      },
+      "system": {
+       "summary": "Server updates and release channel. Desktop app only.",
+       "anchors": [
+        "server"
+       ],
+       "link": "https://agent.example/app/open/settings/system"
+      }
+     }
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "chat_model",
+    "value": "gemini-2.5-flash"
+   },
+   "result": {
+    "success": true,
+    "key": "default_chat_model",
+    "previous": "auto",
+    "value": "google::gemini-2.5-flash",
+    "link": "https://agent.example/app/open/settings/models/chatModel"
+   },
+   "emitted": [
+    {
+     "event": "settings:changed",
+     "payload": {
+      "agentId": "a1",
+      "keys": [
+       "default_chat_model"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "model",
+    "value": "x"
+   },
+   "result": {
+    "success": false,
+    "error": "There is no setting \"model\" here. Use a key from expected.key (settings_read lists their values); anything not listed there is linked with settings_link instead.",
+    "expected": {
+     "key": "default_chat_model | system_one_model | assistant_behavior_notes | voice_input_mode | voice_live_provider | voice_live_voice | ui_language | timezone",
+     "value": "string, as listed by settings_read"
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "default_chat_model",
+    "value": "gemini 1.5 flash"
+   },
+   "result": {
+    "success": false,
+    "error": "\"gemini 1.5 flash\" is not an option for default_chat_model.",
+    "choices": [
+     {
+      "value": "google::gemini-2.5-flash",
+      "label": "gemini-2.5-flash (google)"
+     }
+    ]
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "timezone",
+    "value": " Europe/Berlin "
+   },
+   "result": {
+    "success": true,
+    "key": "timezone",
+    "previous": null,
+    "value": "Europe/Berlin",
+    "link": "https://agent.example/app/open/settings/general/timeZone"
+   },
+   "emitted": [
+    {
+     "event": "settings:changed",
+     "payload": {
+      "agentId": "a1",
+      "keys": [
+       "timezone"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "timezone",
+    "value": "Mars/Base"
+   },
+   "result": {
+    "success": false,
+    "error": "Unknown time zone."
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "voice_live_provider",
+    "value": "google"
+   },
+   "result": {
+    "success": true,
+    "key": "voice_live_provider",
+    "previous": "",
+    "value": "google",
+    "link": "https://agent.example/app/open/settings/voice/liveProvider"
+   },
+   "emitted": [
+    {
+     "event": "settings:changed",
+     "payload": {
+      "agentId": "a1",
+      "keys": [
+       "voice_live_provider"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "tool": "settings_read",
+   "args": {
+    "keys": [
+     "voice_live_voice",
+     "voice_live_provider",
+     "timezone"
+    ]
+   },
+   "result": {
+    "settings": [
+     {
+      "key": "voice_live_voice",
+      "description": "Voice the live voice provider speaks with. Empty uses the provider default.",
+      "value": "",
+      "link": "https://agent.example/app/open/settings/voice/liveVoice",
+      "choices": [
+       {
+        "value": "",
+        "label": "Provider default (Kore)"
+       },
+       {
+        "value": "Kore"
+       },
+       {
+        "value": "Puck"
+       },
+       {
+        "value": "Charon"
+       },
+       {
+        "value": "Fenrir"
+       },
+       {
+        "value": "Aoede"
+       },
+       {
+        "value": "Leda"
+       },
+       {
+        "value": "Orus"
+       },
+       {
+        "value": "Zephyr"
+       },
+       {
+        "value": "Callirrhoe"
+       },
+       {
+        "value": "Autonoe"
+       },
+       {
+        "value": "Enceladus"
+       },
+       {
+        "value": "Iapetus"
+       },
+       {
+        "value": "Umbriel"
+       },
+       {
+        "value": "Algieba"
+       },
+       {
+        "value": "Despina"
+       },
+       {
+        "value": "Erinome"
+       },
+       {
+        "value": "Algenib"
+       },
+       {
+        "value": "Rasalgethi"
+       },
+       {
+        "value": "Laomedeia"
+       },
+       {
+        "value": "Achernar"
+       },
+       {
+        "value": "Alnilam"
+       },
+       {
+        "value": "Schedar"
+       },
+       {
+        "value": "Gacrux"
+       },
+       {
+        "value": "Pulcherrima"
+       },
+       {
+        "value": "Achird"
+       },
+       {
+        "value": "Zubenelgenubi"
+       },
+       {
+        "value": "Vindemiatrix"
+       },
+       {
+        "value": "Sadachbia"
+       },
+       {
+        "value": "Sadaltager"
+       },
+       {
+        "value": "Sulafat"
+       }
+      ]
+     },
+     {
+      "key": "voice_live_provider",
+      "description": "Live voice provider. Empty follows the server default. Changing it resets the live model and voice.",
+      "value": "google",
+      "link": "https://agent.example/app/open/settings/voice/liveProvider",
+      "choices": [
+       {
+        "value": "",
+        "label": "Server default"
+       },
+       {
+        "value": "openai",
+        "label": "OpenAI GPT-Live"
+       },
+       {
+        "value": "google",
+        "label": "Google Gemini Live"
+       },
+       {
+        "value": "neorouter_openai",
+        "label": "NeoRouter · GPT-Live"
+       },
+       {
+        "value": "neorouter_google",
+        "label": "NeoRouter · Gemini Live"
+       }
+      ]
+     },
+     {
+      "key": "timezone",
+      "description": "IANA time zone (for example Europe/Berlin) for the assistant's clock and scheduled tasks. Stops following the device's zone.",
+      "value": "Europe/Berlin",
+      "link": "https://agent.example/app/open/settings/general/timeZone"
+     }
+    ],
+    "integrations": [
+     {
+      "key": "google",
+      "label": "Google",
+      "connected": true,
+      "available": true,
+      "link": "https://agent.example/app/open/integrations/google"
+     },
+     {
+      "key": "notion",
+      "label": "Notion",
+      "connected": false,
+      "available": false,
+      "link": "https://agent.example/app/open/integrations/notion"
+     }
+    ],
+    "places": {
+     "sections": {
+      "integrations": {
+       "summary": "Official integrations (Google, Microsoft, GitHub, Notion, Slack, ...): connect and manage accounts.",
+       "link": "https://agent.example/app/open/integrations"
+      },
+      "skills": {
+       "summary": "Installed skills.",
+       "link": "https://agent.example/app/open/skills"
+      },
+      "mcp": {
+       "summary": "MCP servers.",
+       "link": "https://agent.example/app/open/mcp"
+      },
+      "tasks": {
+       "summary": "Scheduled and triggered tasks.",
+       "link": "https://agent.example/app/open/tasks"
+      },
+      "memory": {
+       "summary": "Saved memories and core memory.",
+       "link": "https://agent.example/app/open/memory"
+      },
+      "devices": {
+       "summary": "Paired phones, computers and the wearable.",
+       "link": "https://agent.example/app/open/devices"
+      },
+      "health": {
+       "summary": "Synced health data.",
+       "link": "https://agent.example/app/open/health"
+      },
+      "runs": {
+       "summary": "Past agent runs and logs.",
+       "link": "https://agent.example/app/open/runs"
+      }
+     },
+     "settingsPages": {
+      "profile": {
+       "summary": "Display name, email, data export, data sharing, sign out, delete account.",
+       "anchors": [
+        "displayName",
+        "email",
+        "exportData",
+        "dataSharing",
+        "signOut",
+        "deleteAccount"
+       ],
+       "link": "https://agent.example/app/open/settings/profile"
+      },
+      "security": {
+       "summary": "Password, two-factor, security keys and passkeys, linked sign-in providers, active sessions, QR login.",
+       "anchors": [
+        "password",
+        "twoFactor",
+        "securityKeys",
+        "linkedProviders",
+        "sessions",
+        "qrLogin"
+       ],
+       "link": "https://agent.example/app/open/settings/security"
+      },
+      "usage": {
+       "summary": "Usage limits and token usage.",
+       "anchors": [
+        "limits",
+        "tokenUsage"
+       ],
+       "link": "https://agent.example/app/open/settings/usage"
+      },
+      "agents": {
+       "summary": "The user's agents (bots): create, rename, delegate, default agent.",
+       "anchors": [
+        "agentList"
+       ],
+       "link": "https://agent.example/app/open/settings/agents"
+      },
+      "permissions": {
+       "summary": "Tool permissions: which tool categories ask for approval, run, or are blocked.",
+       "anchors": [
+        "toolPermissions"
+       ],
+       "link": "https://agent.example/app/open/settings/permissions"
+      },
+      "computer": {
+       "summary": "Computer workspace (VM, browser, desktop), shell, Social Reach cookies.",
+       "anchors": [
+        "computerRuntime",
+        "shell",
+        "socialReach"
+       ],
+       "link": "https://agent.example/app/open/settings/computer"
+      },
+      "models": {
+       "summary": "Chat model, model pool, SystemOne models, per-task models, bring-your-own API keys.",
+       "anchors": [
+        "chatModel",
+        "modelPool",
+        "systemOne",
+        "apiKeys"
+       ],
+       "link": "https://agent.example/app/open/settings/models"
+      },
+      "behavior": {
+       "summary": "Persona and behavior notes, social behavior in group chats.",
+       "anchors": [
+        "persona",
+        "socialBehavior",
+        "turnTaking",
+        "minimumNeed",
+        "batchWindow"
+       ],
+       "link": "https://agent.example/app/open/settings/behavior"
+      },
+      "voice": {
+       "summary": "Voice input mode, live voice provider, model and voice, speech-to-text, voice reply model.",
+       "anchors": [
+        "inputMode",
+        "liveProvider",
+        "liveModel",
+        "liveVoice",
+        "speechToText",
+        "voiceReplyModel"
+       ],
+       "link": "https://agent.example/app/open/settings/voice"
+      },
+      "messaging": {
+       "summary": "Messaging platforms (WhatsApp, Telegram, Discord, Signal, Slack, webhooks): linking, group participation, delivery.",
+       "anchors": [
+        "channels",
+        "participation",
+        "delivery"
+       ],
+       "link": "https://agent.example/app/open/settings/messaging"
+      },
+      "general": {
+       "summary": "Theme, language, time zone, desktop window and hotkey, location and notification triggers, redo onboarding.",
+       "anchors": [
+        "theme",
+        "language",
+        "timeZone",
+        "closeWindow",
+        "hotkey",
+        "locationTriggers",
+        "notificationTriggers",
+        "onboarding"
+       ],
+       "link": "https://agent.example/app/open/settings/general"
+      },
+      "system": {
+       "summary": "Server updates and release channel. Desktop app only.",
+       "anchors": [
+        "server"
+       ],
+       "link": "https://agent.example/app/open/settings/system"
+      }
+     }
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "assistant_behavior_notes",
+    "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "result": {
+    "success": false,
+    "error": "assistant_behavior_notes is limited to 8000 characters."
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "assistant_behavior_notes",
+    "value": "Be brief."
+   },
+   "result": {
+    "success": true,
+    "key": "assistant_behavior_notes",
+    "previous": "",
+    "value": "Be brief.",
+    "link": "https://agent.example/app/open/settings/behavior/persona"
+   },
+   "emitted": [
+    {
+     "event": "settings:changed",
+     "payload": {
+      "agentId": "a1",
+      "keys": [
+       "assistant_behavior_notes"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "tool": "settings_update",
+   "args": {
+    "key": "ui_language",
+    "value": "de"
+   },
+   "result": {
+    "success": true,
+    "key": "ui_language",
+    "previous": null,
+    "value": "de",
+    "link": "https://agent.example/app/open/settings/general/language"
+   },
+   "emitted": [
+    {
+     "event": "settings:changed",
+     "payload": {
+      "agentId": "a1",
+      "keys": [
+       "ui_language"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "tool": "settings_update",
+   "args": {},
+   "result": {
+    "success": false,
+    "error": "There is no setting \"\" here. Use a key from expected.key (settings_read lists their values); anything not listed there is linked with settings_link instead.",
+    "expected": {
+     "key": "default_chat_model | system_one_model | assistant_behavior_notes | voice_input_mode | voice_live_provider | voice_live_voice | ui_language | timezone",
+     "value": "string, as listed by settings_read"
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_link",
+   "args": {
+    "section": "settings",
+    "page": "security",
+    "focus": "twoFactor"
+   },
+   "result": {
+    "url": "https://agent.example/app/open/settings/security/twoFactor"
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_link",
+   "args": {
+    "section": "integrations",
+    "focus": "notion"
+   },
+   "result": {
+    "url": "https://agent.example/app/open/integrations/notion"
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_link",
+   "args": {
+    "section": "integrations",
+    "focus": "slack"
+   },
+   "result": {
+    "success": false,
+    "error": "Unknown integration \"slack\". Use one of: google, notion.",
+    "expected": {
+     "section": "settings | integrations | skills | mcp | tasks | memory | devices | health | runs",
+     "page": "settings page when section is settings: profile | security | usage | agents | permissions | computer | models | behavior | voice | messaging | general | system",
+     "focus": "optional: an anchor of that settings page, or an integration key"
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_link",
+   "args": {
+    "section": "settings",
+    "page": "nope"
+   },
+   "result": {
+    "success": false,
+    "error": "Unknown settings page \"nope\". Use one of: profile, security, usage, agents, permissions, computer, models, behavior, voice, messaging, general, system.",
+    "expected": {
+     "section": "settings | integrations | skills | mcp | tasks | memory | devices | health | runs",
+     "page": "settings page when section is settings: profile | security | usage | agents | permissions | computer | models | behavior | voice | messaging | general | system",
+     "focus": "optional: an anchor of that settings page, or an integration key"
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_link",
+   "args": {
+    "section": "settings",
+    "page": "voice",
+    "focus": "x"
+   },
+   "result": {
+    "success": false,
+    "error": "The voice page has no \"x\". Use one of: inputMode, liveProvider, liveModel, liveVoice, speechToText, voiceReplyModel.",
+    "expected": {
+     "section": "settings | integrations | skills | mcp | tasks | memory | devices | health | runs",
+     "page": "settings page when section is settings: profile | security | usage | agents | permissions | computer | models | behavior | voice | messaging | general | system",
+     "focus": "optional: an anchor of that settings page, or an integration key"
+    }
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_link",
+   "args": {
+    "section": "memory"
+   },
+   "result": {
+    "url": "https://agent.example/app/open/memory"
+   },
+   "emitted": []
+  },
+  {
+   "tool": "settings_link",
+   "args": {
+    "section": "bogus"
+   },
+   "result": {
+    "success": false,
+    "error": "Unknown app section \"bogus\". Use one of: settings, integrations, skills, mcp, tasks, memory, devices, health, runs.",
+    "expected": {
+     "section": "settings | integrations | skills | mcp | tasks | memory | devices | health | runs",
+     "page": "settings page when section is settings: profile | security | usage | agents | permissions | computer | models | behavior | voice | messaging | general | system",
+     "focus": "optional: an anchor of that settings page, or an integration key"
+    }
+   },
+   "emitted": []
+  }
+ ]
+}

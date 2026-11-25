@@ -1,0 +1,299 @@
+{
+  "key": "phone",
+  "label": "Phone sharing",
+  "description": "Calendars, contacts, and Android alarms shared by the NeoAgent phone app.",
+  "icon": "phone",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "calendar",
+      "label": "Calendar",
+      "description": "Every calendar on the phone (Google, Outlook, iCloud, Exchange), shared by the NeoAgent app."
+    },
+    {
+      "id": "contacts",
+      "label": "Contacts",
+      "description": "The contacts on the phone, shared by the NeoAgent app."
+    },
+    {
+      "id": "alarms",
+      "label": "Alarms",
+      "description": "The next alarm clock registered on an Android phone."
+    }
+  ],
+  "connectPrompt": "Open NeoAgent on your phone to connect it.",
+  "supportsMultipleAccounts": true,
+  "connectionMethod": "device",
+  "tools": [
+    {
+      "appId": "alarms",
+      "name": "phone_list_alarms",
+      "access": "read",
+      "description": "List the next shared Android alarm and recently due alarms. When multiple Alarms accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Alarms account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Alarms account email or identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "calendar",
+      "name": "phone_list_calendars",
+      "access": "read",
+      "description": "List the calendars on the connected phone and whether each can be written to. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "calendar",
+      "name": "phone_list_events",
+      "access": "read",
+      "description": "List events from the phone's calendars. Defaults to the next 7 days. Covers 30 days back to 90 days ahead. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "description": "Inclusive ISO lower bound."
+          },
+          "end": {
+            "type": "string",
+            "description": "Exclusive ISO upper bound."
+          },
+          "query": {
+            "type": "string",
+            "description": "Text to find in title, location, notes or attendees."
+          },
+          "calendar_id": {
+            "type": "string",
+            "description": "Only this calendar, from phone_list_calendars."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "calendar",
+      "name": "phone_create_event",
+      "access": "write",
+      "description": "Create an event on the phone. It syncs on to the calendar's account (Google, Outlook, iCloud). When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "description": "Writable calendar from phone_list_calendars. Defaults to the primary one."
+          },
+          "title": {
+            "type": "string",
+            "description": "Event title."
+          },
+          "start": {
+            "type": "string",
+            "description": "Start as an ISO datetime, or YYYY-MM-DD for all-day events."
+          },
+          "end": {
+            "type": "string",
+            "description": "End as an ISO datetime, or YYYY-MM-DD for all-day events."
+          },
+          "all_day": {
+            "type": "boolean",
+            "description": "All-day event."
+          },
+          "location": {
+            "type": "string",
+            "description": "Location."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "title",
+          "start",
+          "end"
+        ]
+      }
+    },
+    {
+      "appId": "calendar",
+      "name": "phone_update_event",
+      "access": "write",
+      "description": "Change an event on the phone. Only the fields given change. When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "eventId from phone_list_events."
+          },
+          "title": {
+            "type": "string",
+            "description": "Event title."
+          },
+          "start": {
+            "type": "string",
+            "description": "Start as an ISO datetime, or YYYY-MM-DD for all-day events."
+          },
+          "end": {
+            "type": "string",
+            "description": "End as an ISO datetime, or YYYY-MM-DD for all-day events."
+          },
+          "all_day": {
+            "type": "boolean",
+            "description": "All-day event."
+          },
+          "location": {
+            "type": "string",
+            "description": "Location."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    {
+      "appId": "calendar",
+      "name": "phone_delete_event",
+      "access": "write",
+      "description": "Delete an event from the phone (every occurrence of a repeating event). When multiple Calendar accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "eventId from phone_list_events."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Calendar account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Calendar account email or identifier."
+          }
+        },
+        "required": [
+          "event_id"
+        ]
+      }
+    },
+    {
+      "appId": "contacts",
+      "name": "phone_search_contacts",
+      "access": "read",
+      "description": "Find contacts on the phone by name, email, phone number or organization. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Text to look for. Empty lists the first contacts."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum contacts (1-100), default 25."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "appId": "contacts",
+      "name": "phone_create_contact",
+      "access": "write",
+      "description": "Add a contact to the phone. When multiple Contacts accounts are connected, set connection_id or account_email to choose which account to use.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number."
+          },
+          "organization": {
+            "type": "string",
+            "description": "Organization."
+          },
+          "connection_id": {
+            "type": "number",
+            "description": "Optional connected Contacts account ID."
+          },
+          "account_email": {
+            "type": "string",
+            "description": "Optional connected Contacts account email or identifier."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    }
+  ]
+}

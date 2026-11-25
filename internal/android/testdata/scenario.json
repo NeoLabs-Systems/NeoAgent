@@ -1,0 +1,2167 @@
+{
+ "steps": [
+  {
+   "name": "anonymous status",
+   "method": "GET",
+   "path": "/api/android/status",
+   "user": null,
+   "status": 401,
+   "response": "{\"error\":\"Unauthorized\"}",
+   "adb": []
+  },
+  {
+   "name": "status",
+   "method": "GET",
+   "path": "/api/android/status",
+   "user": 1,
+   "status": 200,
+   "response": "{\"bootstrapped\":true,\"starting\":false,\"startupPhase\":null,\"lastStartError\":null,\"adbSerial\":\"emulator-5554\",\"devices\":[{\"serial\":\"emulator-5554\",\"status\":\"device\",\"emulator\":true}]}",
+   "adb": [
+    "-s emulator-5554 shell getprop sys.boot_completed"
+   ]
+  },
+  {
+   "name": "devices",
+   "method": "GET",
+   "path": "/api/android/devices",
+   "user": 1,
+   "status": 200,
+   "response": "{\"devices\":[{\"serial\":\"emulator-5652\",\"status\":\"device\",\"emulator\":true}]}",
+   "adb": [
+    "-s emulator-5554 shell getprop sys.boot_completed"
+   ]
+  },
+  {
+   "name": "screenshot",
+   "method": "POST",
+   "path": "/api/android/screenshot",
+   "user": 1,
+   "body": "{}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/1.png\"}",
+   "adb": [
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "ui-dump with nodes",
+   "method": "POST",
+   "path": "/api/android/ui-dump",
+   "user": 1,
+   "body": "{}",
+   "status": 200,
+   "response": "{\"xml\":\"<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation=\\\"0\\\"><node index=\\\"0\\\" text=\\\"\\\" resource-id=\\\"\\\" class=\\\"android.widget.FrameLayout\\\" package=\\\"com.a\\\" content-desc=\\\"\\\" clickable=\\\"false\\\" enabled=\\\"true\\\" focusable=\\\"false\\\" long-clickable=\\\"false\\\" bounds=\\\"[0,0][1080,2400]\\\"><node index=\\\"0\\\" text=\\\"Settings\\\" resource-id=\\\"com.a:id/settings\\\" class=\\\"android.widget.TextView\\\" package=\\\"com.a\\\" content-desc=\\\"Open &quot;settings&quot;\\\" clickable=\\\"true\\\" enabled=\\\"true\\\" focusable=\\\"true\\\" long-clickable=\\\"false\\\" bounds=\\\"[100,200][300,260]\\\" /><node index=\\\"1\\\" text=\\\"Fish &amp; Chips &lt;b&gt;\\\" resource-id=\\\"com.a:id/food\\\" class=\\\"android.widget.Button\\\" package=\\\"com.a\\\" content-desc=\\\"\\\" clickable=\\\"true\\\" enabled=\\\"false\\\" focusable=\\\"true\\\" long-clickable=\\\"false\\\" bounds=\\\"[10,1000][11,1001]\\\" /><node index=\\\"2\\\" text=\\\"Search\\\" resource-id=\\\"com.a:id/search\\\" class=\\\"android.widget.EditText\\\" package=\\\"com.a\\\" content-desc=\\\"Search box\\\" clickable=\\\"true\\\" enabled=\\\"true\\\" focusable=\\\"true\\\" long-clickable=\\\"true\\\" bounds=\\\"[50,300][1030,400]\\\" /><node index=\\\"3\\\" text=\\\"Settings\\\" resource-id=\\\"com.b:id/settings2\\\" class=\\\"android.widget.TextView\\\" package=\\\"com.b\\\" content-desc=\\\"\\\" clickable=\\\"false\\\" enabled=\\\"true\\\" focusable=\\\"false\\\" long-clickable=\\\"false\\\" bounds=\\\"[0,0][0,0]\\\" /></node></hierarchy>\\n\",\"devicePath\":\"/sdcard/window_dump.xml\",\"nodeCount\":5,\"nodes\":[{\"text\":\"\",\"resourceId\":\"\",\"description\":\"\",\"className\":\"android.widget.FrameLayout\",\"packageName\":\"com.a\",\"clickable\":false,\"enabled\":true,\"bounds\":{\"left\":0,\"top\":0,\"right\":1080,\"bottom\":2400,\"width\":1080,\"height\":2400,\"centerX\":540,\"centerY\":1200}},{\"text\":\"Settings\",\"resourceId\":\"com.a:id/settings\",\"description\":\"Open \\\"settings\\\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":100,\"top\":200,\"right\":300,\"bottom\":260,\"width\":200,\"height\":60,\"centerX\":200,\"centerY\":230}},{\"text\":\"Fish & Chips <b>\",\"resourceId\":\"com.a:id/food\",\"description\":\"\",\"className\":\"android.widget.Button\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":false,\"bounds\":{\"left\":10,\"top\":1000,\"right\":11,\"bottom\":1001,\"width\":1,\"height\":1,\"centerX\":11,\"centerY\":1001}},{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}},{\"text\":\"Settings\",\"resourceId\":\"com.b:id/settings2\",\"description\":\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.b\",\"clickable\":false,\"enabled\":true,\"bounds\":{\"left\":0,\"top\":0,\"right\":0,\"bottom\":0,\"width\":0,\"height\":0,\"centerX\":0,\"centerY\":0}}]}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "ui-dump without nodes",
+   "method": "POST",
+   "path": "/api/android/ui-dump",
+   "user": 1,
+   "body": "{\"includeNodes\":false}",
+   "status": 200,
+   "response": "{\"xml\":\"<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation=\\\"0\\\"><node index=\\\"0\\\" text=\\\"\\\" resource-id=\\\"\\\" class=\\\"android.widget.FrameLayout\\\" package=\\\"com.a\\\" content-desc=\\\"\\\" clickable=\\\"false\\\" enabled=\\\"true\\\" focusable=\\\"false\\\" long-clickable=\\\"false\\\" bounds=\\\"[0,0][1080,2400]\\\"><node index=\\\"0\\\" text=\\\"Settings\\\" resource-id=\\\"com.a:id/settings\\\" class=\\\"android.widget.TextView\\\" package=\\\"com.a\\\" content-desc=\\\"Open &quot;settings&quot;\\\" clickable=\\\"true\\\" enabled=\\\"true\\\" focusable=\\\"true\\\" long-clickable=\\\"false\\\" bounds=\\\"[100,200][300,260]\\\" /><node index=\\\"1\\\" text=\\\"Fish &amp; Chips &lt;b&gt;\\\" resource-id=\\\"com.a:id/food\\\" class=\\\"android.widget.Button\\\" package=\\\"com.a\\\" content-desc=\\\"\\\" clickable=\\\"true\\\" enabled=\\\"false\\\" focusable=\\\"true\\\" long-clickable=\\\"false\\\" bounds=\\\"[10,1000][11,1001]\\\" /><node index=\\\"2\\\" text=\\\"Search\\\" resource-id=\\\"com.a:id/search\\\" class=\\\"android.widget.EditText\\\" package=\\\"com.a\\\" content-desc=\\\"Search box\\\" clickable=\\\"true\\\" enabled=\\\"true\\\" focusable=\\\"true\\\" long-clickable=\\\"true\\\" bounds=\\\"[50,300][1030,400]\\\" /><node index=\\\"3\\\" text=\\\"Settings\\\" resource-id=\\\"com.b:id/settings2\\\" class=\\\"android.widget.TextView\\\" package=\\\"com.b\\\" content-desc=\\\"\\\" clickable=\\\"false\\\" enabled=\\\"true\\\" focusable=\\\"false\\\" long-clickable=\\\"false\\\" bounds=\\\"[0,0][0,0]\\\" /></node></hierarchy>\\n\",\"devicePath\":\"/sdcard/window_dump.xml\",\"nodeCount\":5}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "observe",
+   "method": "POST",
+   "path": "/api/android/observe",
+   "user": 1,
+   "body": "{}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/2.png\",\"uiDumpPath\":\"/sdcard/window_dump.xml\",\"nodeCount\":5,\"nodes\":[{\"text\":\"\",\"resourceId\":\"\",\"description\":\"\",\"className\":\"android.widget.FrameLayout\",\"packageName\":\"com.a\",\"clickable\":false,\"enabled\":true,\"bounds\":{\"left\":0,\"top\":0,\"right\":1080,\"bottom\":2400,\"width\":1080,\"height\":2400,\"centerX\":540,\"centerY\":1200}},{\"text\":\"Settings\",\"resourceId\":\"com.a:id/settings\",\"description\":\"Open \\\"settings\\\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":100,\"top\":200,\"right\":300,\"bottom\":260,\"width\":200,\"height\":60,\"centerX\":200,\"centerY\":230}},{\"text\":\"Fish & Chips <b>\",\"resourceId\":\"com.a:id/food\",\"description\":\"\",\"className\":\"android.widget.Button\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":false,\"bounds\":{\"left\":10,\"top\":1000,\"right\":11,\"bottom\":1001,\"width\":1,\"height\":1,\"centerX\":11,\"centerY\":1001}},{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}},{\"text\":\"Settings\",\"resourceId\":\"com.b:id/settings2\",\"description\":\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.b\",\"clickable\":false,\"enabled\":true,\"bounds\":{\"left\":0,\"top\":0,\"right\":0,\"bottom\":0,\"width\":0,\"height\":0,\"centerX\":0,\"centerY\":0}}]}",
+   "adb": [
+    "-s emulator-5554 exec-out screencap -p",
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "observe without nodes",
+   "method": "POST",
+   "path": "/api/android/observe",
+   "user": 1,
+   "body": "{\"includeNodes\":false}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/3.png\",\"uiDumpPath\":\"/sdcard/window_dump.xml\",\"nodeCount\":5}",
+   "adb": [
+    "-s emulator-5554 exec-out screencap -p",
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "apps",
+   "method": "GET",
+   "path": "/api/android/apps",
+   "user": 1,
+   "status": 200,
+   "response": "{\"packages\":[\"com.a\",\"com.b\"]}",
+   "adb": [
+    "-s emulator-5554 shell pm list packages -3"
+   ]
+  },
+  {
+   "name": "apps with system",
+   "method": "GET",
+   "path": "/api/android/apps?includeSystem=true",
+   "user": 1,
+   "status": 200,
+   "response": "{\"packages\":[\"android\",\"com.a\"]}",
+   "adb": [
+    "-s emulator-5554 shell pm list packages"
+   ]
+  },
+  {
+   "name": "open-app",
+   "method": "POST",
+   "path": "/api/android/open-app",
+   "user": 1,
+   "body": "{\"packageName\":\"com.a\"}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/4.png\"}",
+   "adb": [
+    "-s emulator-5554 shell monkey -p 'com.a' -c android.intent.category.LAUNCHER 1",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "open-app with activity",
+   "method": "POST",
+   "path": "/api/android/open-app",
+   "user": 1,
+   "body": "{\"packageName\":\"com.a\",\"activity\":\".Main$Inner\"}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/5.png\"}",
+   "adb": [
+    "-s emulator-5554 shell am start -n 'com.a/.Main$Inner'",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "open-app bad package",
+   "method": "POST",
+   "path": "/api/android/open-app",
+   "user": 1,
+   "body": "{\"packageName\":\"com.a; rm -rf /\"}",
+   "status": 500,
+   "response": "{\"error\":\"Invalid package name\"}",
+   "adb": []
+  },
+  {
+   "name": "open-app bad activity",
+   "method": "POST",
+   "path": "/api/android/open-app",
+   "user": 1,
+   "body": "{\"packageName\":\"com.a\",\"activity\":\"a b\"}",
+   "status": 500,
+   "response": "{\"error\":\"Invalid Android activity name\"}",
+   "adb": []
+  },
+  {
+   "name": "open-intent https",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"data\":\"https://8.8.8.8/path?q=it's\"}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/6.png\"}",
+   "adb": [
+    "-s emulator-5554 shell am start -a 'android.intent.action.VIEW' -d 'https://8.8.8.8/path?q=it'\\''s'",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "open-intent geo with extras",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"action\":\"android.intent.action.VIEW\",\"uri\":\"geo:0,0?q=Berlin\",\"packageName\":\"com.maps\",\"component\":\"com.maps/.Main\",\"mimeType\":\"text/plain\",\"extras\":{\"alpha\":\"one two\",\"beta\":\"it's\"}}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/7.png\"}",
+   "adb": [
+    "-s emulator-5554 shell am start -a 'android.intent.action.VIEW' -d 'geo:0,0?q=Berlin' -p 'com.maps' -n 'com.maps/.Main' -t 'text/plain' --es 'alpha' 'one two' --es 'beta' 'it'\\''s'",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "open-intent blocked scheme",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"data\":\"file:///etc/passwd\"}",
+   "status": 403,
+   "response": "{\"error\":\"The file: scheme is not allowed for Android intents.\"}",
+   "adb": []
+  },
+  {
+   "name": "open-intent private address",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"url\":\"http://192.168.1.1/\"}",
+   "status": 403,
+   "response": "{\"error\":\"192.168.1.1 is a local or private network address, which is not reachable from here.\"}",
+   "adb": []
+  },
+  {
+   "name": "open-intent no scheme",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"data\":\"nonsense\"}",
+   "status": 403,
+   "response": "{\"error\":\"\\\"nonsense\\\" is not a valid URI. Include a scheme, e.g. https:// or geo:\"}",
+   "adb": []
+  },
+  {
+   "name": "open-intent bad scheme",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"data\":\"1abc://x\"}",
+   "status": 403,
+   "response": "{\"error\":\"\\\"1abc://x\\\" is not a valid URI. Include a scheme, e.g. https:// or geo:\"}",
+   "adb": []
+  },
+  {
+   "name": "open-intent bad action falls back",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"action\":\"bad action\"}",
+   "status": 200,
+   "response": "{\"screenshotPath\":\"/api/artifacts/8.png\"}",
+   "adb": [
+    "-s emulator-5554 shell am start -a 'android.intent.action.VIEW'",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "open-intent bad extra name",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"extras\":{\"bad name\":\"x\"}}",
+   "status": 500,
+   "response": "{\"error\":\"Invalid Android intent extra name: bad name\"}",
+   "adb": []
+  },
+  {
+   "name": "open-intent bad mime",
+   "method": "POST",
+   "path": "/api/android/open-intent",
+   "user": 1,
+   "body": "{\"mimeType\":\"nope\"}",
+   "status": 500,
+   "response": "{\"error\":\"Invalid Android MIME type\"}",
+   "adb": []
+  },
+  {
+   "name": "tap coordinates",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"x\":10.6,\"y\":\"20\"}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"x\":11,\"y\":20},\"screenshotPath\":\"/api/artifacts/9.png\"}",
+   "adb": [
+    "-s emulator-5554 shell input tap 11 20",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "tap text",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"text\":\"Settings\"}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Settings\",\"resourceId\":\"com.a:id/settings\",\"description\":\"Open \\\"settings\\\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":100,\"top\":200,\"right\":300,\"bottom\":260,\"width\":200,\"height\":60,\"centerX\":200,\"centerY\":230}},\"screenshotPath\":\"/api/artifacts/10.png\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 200 230",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "tap resource id",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"resourceId\":\"com.a:id/search\"}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}},\"screenshotPath\":\"/api/artifacts/11.png\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 540 350",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "tap description",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"description\":\"search box\"}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}},\"screenshotPath\":\"/api/artifacts/12.png\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 540 350",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "tap clickable only",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"clickable\":true}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Settings\",\"resourceId\":\"com.a:id/settings\",\"description\":\"Open \\\"settings\\\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":100,\"top\":200,\"right\":300,\"bottom\":260,\"width\":200,\"height\":60,\"centerX\":200,\"centerY\":230}},\"screenshotPath\":\"/api/artifacts/13.png\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 200 230",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "tap text in description",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"text\":\"settings\\\"\"}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Settings\",\"resourceId\":\"com.a:id/settings\",\"description\":\"Open \\\"settings\\\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":100,\"top\":200,\"right\":300,\"bottom\":260,\"width\":200,\"height\":60,\"centerX\":200,\"centerY\":230}},\"screenshotPath\":\"/api/artifacts/14.png\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 200 230",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "tap entity text",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"text\":\"fish & chips <b>\"}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Fish & Chips <b>\",\"resourceId\":\"com.a:id/food\",\"description\":\"\",\"className\":\"android.widget.Button\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":false,\"bounds\":{\"left\":10,\"top\":1000,\"right\":11,\"bottom\":1001,\"width\":1,\"height\":1,\"centerX\":11,\"centerY\":1001}},\"screenshotPath\":\"/api/artifacts/15.png\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 11 1001",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "tap unmatched",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"text\":\"nonexistent\"}",
+   "status": 500,
+   "response": "{\"error\":\"No Android UI element matched {\\\"text\\\":\\\"nonexistent\\\"}.\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "tap zero-size match",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"resourceId\":\"settings2\"}",
+   "status": 500,
+   "response": "{\"error\":\"The matched Android UI element has no tappable bounds.\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "tap nothing",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{}",
+   "status": 500,
+   "response": "{\"error\":\"Provide x and y coordinates or a UI selector.\"}",
+   "adb": []
+  },
+  {
+   "name": "tap only x",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"x\":5}",
+   "status": 500,
+   "response": "{\"error\":\"Both x and y coordinates are required.\"}",
+   "adb": []
+  },
+  {
+   "name": "tap negative",
+   "method": "POST",
+   "path": "/api/android/tap",
+   "user": 1,
+   "body": "{\"x\":-5,\"y\":5}",
+   "status": 500,
+   "response": "{\"error\":\"x must be a non-negative number.\"}",
+   "adb": []
+  },
+  {
+   "name": "long-press",
+   "method": "POST",
+   "path": "/api/android/long-press",
+   "user": 1,
+   "body": "{\"x\":1,\"y\":2,\"durationMs\":5}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"x\":1,\"y\":2}}",
+   "adb": [
+    "-s emulator-5554 shell input swipe 1 2 1 2 100"
+   ]
+  },
+  {
+   "name": "long-press selector",
+   "method": "POST",
+   "path": "/api/android/long-press",
+   "user": 1,
+   "body": "{\"text\":\"Search\",\"durationMs\":900}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}}}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input swipe 540 350 540 350 900"
+   ]
+  },
+  {
+   "name": "type plain",
+   "method": "POST",
+   "path": "/api/android/type",
+   "user": 1,
+   "body": "{\"text\":\"hello world 100%\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input text 'hello%sworld%s100%%'"
+   ]
+  },
+  {
+   "name": "type with selector",
+   "method": "POST",
+   "path": "/api/android/type",
+   "user": 1,
+   "body": "{\"text\":\"it's\",\"textSelector\":\"Search\",\"clear\":true,\"pressEnter\":true}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}}}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 540 350",
+    "-s emulator-5554 shell input keyevent KEYCODE_MOVE_END; for i in $(seq 1 200); do input keyevent KEYCODE_DEL; done",
+    "-s emulator-5554 shell input text 'it'\\''s'",
+    "-s emulator-5554 shell input keyevent KEYCODE_ENTER"
+   ]
+  },
+  {
+   "name": "type with resource id",
+   "method": "POST",
+   "path": "/api/android/type",
+   "user": 1,
+   "body": "{\"text\":\"x\",\"resourceId\":\"com.a:id/search\"}",
+   "status": 200,
+   "response": "{\"success\":true,\"target\":{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}}}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 shell input tap 540 350",
+    "-s emulator-5554 shell input text 'x'"
+   ]
+  },
+  {
+   "name": "type empty",
+   "method": "POST",
+   "path": "/api/android/type",
+   "user": 1,
+   "body": "{\"text\":\"\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": []
+  },
+  {
+   "name": "type number",
+   "method": "POST",
+   "path": "/api/android/type",
+   "user": 1,
+   "body": "{\"text\":12.5}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input text '12.5'"
+   ]
+  },
+  {
+   "name": "type missing text",
+   "method": "POST",
+   "path": "/api/android/type",
+   "user": 1,
+   "body": "{}",
+   "status": 500,
+   "response": "{\"error\":\"Text is required.\"}",
+   "adb": []
+  },
+  {
+   "name": "type unmatched selector",
+   "method": "POST",
+   "path": "/api/android/type",
+   "user": 1,
+   "body": "{\"text\":\"x\",\"description\":\"zzz\"}",
+   "status": 500,
+   "response": "{\"error\":\"No Android UI element matched {\\\"description\\\":\\\"zzz\\\"}.\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "swipe",
+   "method": "POST",
+   "path": "/api/android/swipe",
+   "user": 1,
+   "body": "{\"x1\":1,\"y1\":2,\"x2\":3,\"y2\":4}",
+   "status": 200,
+   "response": "{\"success\":true,\"screenshotPath\":\"/api/artifacts/16.png\"}",
+   "adb": [
+    "-s emulator-5554 shell input swipe 1 2 3 4 300",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "swipe with duration",
+   "method": "POST",
+   "path": "/api/android/swipe",
+   "user": 1,
+   "body": "{\"x1\":1,\"y1\":2,\"x2\":3,\"y2\":4,\"durationMs\":1}",
+   "status": 200,
+   "response": "{\"success\":true,\"screenshotPath\":\"/api/artifacts/17.png\"}",
+   "adb": [
+    "-s emulator-5554 shell input swipe 1 2 3 4 50",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "swipe missing",
+   "method": "POST",
+   "path": "/api/android/swipe",
+   "user": 1,
+   "body": "{\"x1\":1}",
+   "status": 500,
+   "response": "{\"error\":\"y1 must be a non-negative number.\"}",
+   "adb": []
+  },
+  {
+   "name": "press-key \"back\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"back\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input keyevent KEYCODE_BACK"
+   ]
+  },
+  {
+   "name": "press-key \"HOME\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"HOME\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input keyevent KEYCODE_HOME"
+   ]
+  },
+  {
+   "name": "press-key \"volume_up\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"volume_up\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input keyevent KEYCODE_VOLUME_UP"
+   ]
+  },
+  {
+   "name": "press-key \"KEYCODE_A\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"KEYCODE_A\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input keyevent KEYCODE_A"
+   ]
+  },
+  {
+   "name": "press-key \"keycode_b\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"keycode_b\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input keyevent KEYCODE_B"
+   ]
+  },
+  {
+   "name": "press-key \"66\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"66\"}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 shell input keyevent 66"
+   ]
+  },
+  {
+   "name": "press-key \"a\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"a\"}",
+   "status": 500,
+   "response": "{\"error\":\"Unsupported Android key: a\"}",
+   "adb": []
+  },
+  {
+   "name": "press-key \"\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"\"}",
+   "status": 500,
+   "response": "{\"error\":\"Unsupported Android key: (empty)\"}",
+   "adb": []
+  },
+  {
+   "name": "press-key \"bad key\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"bad key\"}",
+   "status": 500,
+   "response": "{\"error\":\"Unsupported Android key: bad key\"}",
+   "adb": []
+  },
+  {
+   "name": "press-key \"KEYCODE_\"",
+   "method": "POST",
+   "path": "/api/android/press-key",
+   "user": 1,
+   "body": "{\"key\":\"KEYCODE_\"}",
+   "status": 500,
+   "response": "{\"error\":\"Unsupported Android key: KEYCODE_\"}",
+   "adb": []
+  },
+  {
+   "name": "wait-for found",
+   "method": "POST",
+   "path": "/api/android/wait-for",
+   "user": 1,
+   "body": "{\"text\":\"Settings\",\"intervalMs\":100}",
+   "status": 200,
+   "response": "{\"found\":true,\"ready\":true,\"node\":{\"text\":\"Settings\",\"resourceId\":\"com.a:id/settings\",\"description\":\"Open \\\"settings\\\"\",\"className\":\"android.widget.TextView\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":100,\"top\":200,\"right\":300,\"bottom\":260,\"width\":200,\"height\":60,\"centerX\":200,\"centerY\":230}},\"screenshotPath\":\"/api/artifacts/18.png\"}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "wait-for found without screenshot",
+   "method": "POST",
+   "path": "/api/android/wait-for",
+   "user": 1,
+   "body": "{\"resourceId\":\"search\",\"screenshot\":false}",
+   "status": 200,
+   "response": "{\"found\":true,\"ready\":true,\"node\":{\"text\":\"Search\",\"resourceId\":\"com.a:id/search\",\"description\":\"Search box\",\"className\":\"android.widget.EditText\",\"packageName\":\"com.a\",\"clickable\":true,\"enabled\":true,\"bounds\":{\"left\":50,\"top\":300,\"right\":1030,\"bottom\":400,\"width\":980,\"height\":100,\"centerX\":540,\"centerY\":350}}}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "wait-for timeout",
+   "method": "POST",
+   "path": "/api/android/wait-for",
+   "user": 1,
+   "body": "{\"text\":\"never\",\"timeoutMs\":100,\"intervalMs\":100}",
+   "status": 200,
+   "response": "{\"found\":false,\"ready\":false,\"timeoutMs\":100}",
+   "adb": [
+    "-s emulator-5554 shell uiautomator dump /sdcard/window_dump.xml",
+    "-s emulator-5554 shell cat '/sdcard/window_dump.xml'"
+   ]
+  },
+  {
+   "name": "wait-for no selector",
+   "method": "POST",
+   "path": "/api/android/wait-for",
+   "user": 1,
+   "body": "{}",
+   "status": 500,
+   "response": "{\"error\":\"android_wait_for requires at least one UI selector.\"}",
+   "adb": []
+  },
+  {
+   "name": "shell",
+   "method": "POST",
+   "path": "/api/android/shell",
+   "user": 1,
+   "body": "{\"command\":\"echo hi\"}",
+   "status": 200,
+   "response": "\"hi\\n\"",
+   "adb": [
+    "-s emulator-5554 shell echo hi"
+   ]
+  },
+  {
+   "name": "shell with screenshot",
+   "method": "POST",
+   "path": "/api/android/shell",
+   "user": 1,
+   "body": "{\"command\":\"echo hi\",\"screenshot\":true}",
+   "status": 200,
+   "response": "{\"output\":\"hi\\n\",\"screenshotPath\":\"/api/artifacts/19.png\"}",
+   "adb": [
+    "-s emulator-5554 shell echo hi",
+    "-s emulator-5554 exec-out screencap -p"
+   ]
+  },
+  {
+   "name": "shell failing",
+   "method": "POST",
+   "path": "/api/android/shell",
+   "user": 1,
+   "body": "{\"command\":\"fail\"}",
+   "status": 500,
+   "response": "{\"error\":\"boom\"}",
+   "adb": [
+    "-s emulator-5554 shell fail"
+   ]
+  },
+  {
+   "name": "shell empty",
+   "method": "POST",
+   "path": "/api/android/shell",
+   "user": 1,
+   "body": "{\"command\":\"  \"}",
+   "status": 500,
+   "response": "{\"error\":\"Android shell command is required.\"}",
+   "adb": []
+  },
+  {
+   "name": "install apk",
+   "method": "POST",
+   "path": "/api/android/install-apk",
+   "user": 1,
+   "upload": {
+    "field": "apk",
+    "filename": "My App (1).apk",
+    "content": "PK-not-really-an-apk"
+   },
+   "status": 200,
+   "response": "{\"success\":true,\"output\":\"Performing Streamed Install\\nSuccess\\n\",\"filename\":\"My App (1).apk\",\"size\":20}",
+   "adb": [
+    "-s emulator-5554 install -r <apk>"
+   ]
+  },
+  {
+   "name": "install wrong extension",
+   "method": "POST",
+   "path": "/api/android/install-apk",
+   "user": 1,
+   "upload": {
+    "field": "apk",
+    "filename": "notes.txt",
+    "content": "hello"
+   },
+   "status": 400,
+   "response": "{\"error\":\"Only .apk or .apks files can be installed.\"}",
+   "adb": []
+  },
+  {
+   "name": "install without file",
+   "method": "POST",
+   "path": "/api/android/install-apk",
+   "user": 1,
+   "body": "{}",
+   "status": 400,
+   "response": "{\"error\":\"No APK or APK bundle was uploaded.\"}",
+   "adb": []
+  },
+  {
+   "name": "stop",
+   "method": "POST",
+   "path": "/api/android/stop",
+   "user": 1,
+   "body": "{}",
+   "status": 200,
+   "response": "{\"success\":true}",
+   "adb": [
+    "-s emulator-5554 emu kill"
+   ]
+  },
+  {
+   "name": "status after stop",
+   "method": "GET",
+   "path": "/api/android/status",
+   "user": 1,
+   "status": 200,
+   "response": "{\"bootstrapped\":false,\"starting\":false,\"startupPhase\":null,\"lastStartError\":null,\"adbSerial\":null,\"devices\":[]}",
+   "adb": []
+  },
+  {
+   "name": "shell after stop",
+   "method": "POST",
+   "path": "/api/android/shell",
+   "user": 1,
+   "body": "{\"command\":\"echo hi\"}",
+   "status": 500,
+   "response": "{\"error\":\"No emulator running\"}",
+   "adb": []
+  },
+  {
+   "name": "screenshot after stop",
+   "method": "POST",
+   "path": "/api/android/screenshot",
+   "user": 1,
+   "body": "{}",
+   "status": 500,
+   "response": "{\"error\":\"No emulator running\"}",
+   "adb": []
+  }
+ ],
+ "state": {
+  "userId": "1",
+  "bootstrapped": false,
+  "starting": false,
+  "startupPhase": null,
+  "lastStartError": null,
+  "pid": null,
+  "adbSerial": null
+ },
+ "vectors": {
+  "ports": [
+   {
+    "id": "1",
+    "hash": 49,
+    "port": 5652
+   },
+   {
+    "id": "2",
+    "hash": 50,
+    "port": 5654
+   },
+   {
+    "id": "42",
+    "hash": 1662,
+    "port": 5678
+   },
+   {
+    "id": "1000",
+    "hash": 1507423,
+    "port": 5616
+   },
+   {
+    "id": "default",
+    "hash": 1544803905,
+    "port": 5556
+   },
+   {
+    "id": "user_1",
+    "hash": -836030275,
+    "port": 5676
+   },
+   {
+    "id": "a-b",
+    "hash": 94710,
+    "port": 5662
+   },
+   {
+    "id": "ABCDEFGHIJKLMNOP-xyz_0123456789",
+    "hash": 351906768,
+    "port": 5586
+   },
+   {
+    "id": "zzzzzzzzzzzzzzzzzzzzzzzzzz",
+    "hash": -670734784,
+    "port": 5554
+   }
+  ],
+  "shellEscape": [
+   {
+    "input": "it's",
+    "output": "it'\\''s"
+   },
+   {
+    "input": "''",
+    "output": "'\\'''\\''"
+   },
+   {
+    "input": "plain",
+    "output": "plain"
+   },
+   {
+    "input": "a'b'c",
+    "output": "a'\\''b'\\''c"
+   },
+   {
+    "input": "",
+    "output": ""
+   }
+  ],
+  "bounds": [
+   {
+    "input": "[1,2][3,4]",
+    "bounds": {
+     "left": 1,
+     "top": 2,
+     "right": 3,
+     "bottom": 4,
+     "width": 2,
+     "height": 2,
+     "centerX": 2,
+     "centerY": 3
+    }
+   },
+   {
+    "input": "[0,0][0,0]",
+    "bounds": {
+     "left": 0,
+     "top": 0,
+     "right": 0,
+     "bottom": 0,
+     "width": 0,
+     "height": 0,
+     "centerX": 0,
+     "centerY": 0
+    }
+   },
+   {
+    "input": "[5,5][2,2]",
+    "bounds": {
+     "left": 5,
+     "top": 5,
+     "right": 2,
+     "bottom": 2,
+     "width": 0,
+     "height": 0,
+     "centerX": 4,
+     "centerY": 4
+    }
+   },
+   {
+    "input": "garbage",
+    "bounds": {
+     "left": 0,
+     "top": 0,
+     "right": 0,
+     "bottom": 0,
+     "width": 0,
+     "height": 0,
+     "centerX": 0,
+     "centerY": 0
+    }
+   },
+   {
+    "input": "",
+    "bounds": {
+     "left": 0,
+     "top": 0,
+     "right": 0,
+     "bottom": 0,
+     "width": 0,
+     "height": 0,
+     "centerX": 0,
+     "centerY": 0
+    }
+   },
+   {
+    "input": "[1,2][4,9]",
+    "bounds": {
+     "left": 1,
+     "top": 2,
+     "right": 4,
+     "bottom": 9,
+     "width": 3,
+     "height": 7,
+     "centerX": 3,
+     "centerY": 6
+    }
+   },
+   {
+    "input": "[1,1][2,2]",
+    "bounds": {
+     "left": 1,
+     "top": 1,
+     "right": 2,
+     "bottom": 2,
+     "width": 1,
+     "height": 1,
+     "centerX": 2,
+     "centerY": 2
+    }
+   }
+  ],
+  "dumps": [
+   {
+    "xml": "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation=\"0\"><node index=\"0\" text=\"\" resource-id=\"\" class=\"android.widget.FrameLayout\" package=\"com.a\" content-desc=\"\" clickable=\"false\" enabled=\"true\" focusable=\"false\" long-clickable=\"false\" bounds=\"[0,0][1080,2400]\"><node index=\"0\" text=\"Settings\" resource-id=\"com.a:id/settings\" class=\"android.widget.TextView\" package=\"com.a\" content-desc=\"Open &quot;settings&quot;\" clickable=\"true\" enabled=\"true\" focusable=\"true\" long-clickable=\"false\" bounds=\"[100,200][300,260]\" /><node index=\"1\" text=\"Fish &amp; Chips &lt;b&gt;\" resource-id=\"com.a:id/food\" class=\"android.widget.Button\" package=\"com.a\" content-desc=\"\" clickable=\"true\" enabled=\"false\" focusable=\"true\" long-clickable=\"false\" bounds=\"[10,1000][11,1001]\" /><node index=\"2\" text=\"Search\" resource-id=\"com.a:id/search\" class=\"android.widget.EditText\" package=\"com.a\" content-desc=\"Search box\" clickable=\"true\" enabled=\"true\" focusable=\"true\" long-clickable=\"true\" bounds=\"[50,300][1030,400]\" /><node index=\"3\" text=\"Settings\" resource-id=\"com.b:id/settings2\" class=\"android.widget.TextView\" package=\"com.b\" content-desc=\"\" clickable=\"false\" enabled=\"true\" focusable=\"false\" long-clickable=\"false\" bounds=\"[0,0][0,0]\" /></node></hierarchy>\n",
+    "nodes": [
+     {
+      "text": "",
+      "resourceId": "",
+      "description": "",
+      "className": "android.widget.FrameLayout",
+      "packageName": "com.a",
+      "clickable": false,
+      "enabled": true,
+      "bounds": {
+       "left": 0,
+       "top": 0,
+       "right": 1080,
+       "bottom": 2400,
+       "width": 1080,
+       "height": 2400,
+       "centerX": 540,
+       "centerY": 1200
+      }
+     },
+     {
+      "text": "Settings",
+      "resourceId": "com.a:id/settings",
+      "description": "Open \"settings\"",
+      "className": "android.widget.TextView",
+      "packageName": "com.a",
+      "clickable": true,
+      "enabled": true,
+      "bounds": {
+       "left": 100,
+       "top": 200,
+       "right": 300,
+       "bottom": 260,
+       "width": 200,
+       "height": 60,
+       "centerX": 200,
+       "centerY": 230
+      }
+     },
+     {
+      "text": "Fish & Chips <b>",
+      "resourceId": "com.a:id/food",
+      "description": "",
+      "className": "android.widget.Button",
+      "packageName": "com.a",
+      "clickable": true,
+      "enabled": false,
+      "bounds": {
+       "left": 10,
+       "top": 1000,
+       "right": 11,
+       "bottom": 1001,
+       "width": 1,
+       "height": 1,
+       "centerX": 11,
+       "centerY": 1001
+      }
+     },
+     {
+      "text": "Search",
+      "resourceId": "com.a:id/search",
+      "description": "Search box",
+      "className": "android.widget.EditText",
+      "packageName": "com.a",
+      "clickable": true,
+      "enabled": true,
+      "bounds": {
+       "left": 50,
+       "top": 300,
+       "right": 1030,
+       "bottom": 400,
+       "width": 980,
+       "height": 100,
+       "centerX": 540,
+       "centerY": 350
+      }
+     },
+     {
+      "text": "Settings",
+      "resourceId": "com.b:id/settings2",
+      "description": "",
+      "className": "android.widget.TextView",
+      "packageName": "com.b",
+      "clickable": false,
+      "enabled": true,
+      "bounds": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0,
+       "width": 0,
+       "height": 0,
+       "centerX": 0,
+       "centerY": 0
+      }
+     }
+    ],
+    "picks": [
+     {
+      "selector": {
+       "text": "settings"
+      },
+      "node": {
+       "text": "Settings",
+       "resourceId": "com.a:id/settings",
+       "description": "Open \"settings\"",
+       "className": "android.widget.TextView",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 100,
+        "top": 200,
+        "right": 300,
+        "bottom": 260,
+        "width": 200,
+        "height": 60,
+        "centerX": 200,
+        "centerY": 230
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "Settings",
+       "clickable": true
+      },
+      "node": {
+       "text": "Settings",
+       "resourceId": "com.a:id/settings",
+       "description": "Open \"settings\"",
+       "className": "android.widget.TextView",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 100,
+        "top": 200,
+        "right": 300,
+        "bottom": 260,
+        "width": 200,
+        "height": 60,
+        "centerX": 200,
+        "centerY": 230
+       }
+      }
+     },
+     {
+      "selector": {
+       "resourceId": "settings"
+      },
+      "node": {
+       "text": "Settings",
+       "resourceId": "com.a:id/settings",
+       "description": "Open \"settings\"",
+       "className": "android.widget.TextView",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 100,
+        "top": 200,
+        "right": 300,
+        "bottom": 260,
+        "width": 200,
+        "height": 60,
+        "centerX": 200,
+        "centerY": 230
+       }
+      }
+     },
+     {
+      "selector": {
+       "resourceId": "com.a:id/settings"
+      },
+      "node": {
+       "text": "Settings",
+       "resourceId": "com.a:id/settings",
+       "description": "Open \"settings\"",
+       "className": "android.widget.TextView",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 100,
+        "top": 200,
+        "right": 300,
+        "bottom": 260,
+        "width": 200,
+        "height": 60,
+        "centerX": 200,
+        "centerY": 230
+       }
+      }
+     },
+     {
+      "selector": {
+       "description": "search"
+      },
+      "node": {
+       "text": "Search",
+       "resourceId": "com.a:id/search",
+       "description": "Search box",
+       "className": "android.widget.EditText",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 50,
+        "top": 300,
+        "right": 1030,
+        "bottom": 400,
+        "width": 980,
+        "height": 100,
+        "centerX": 540,
+        "centerY": 350
+       }
+      }
+     },
+     {
+      "selector": {
+       "className": "android.widget.Button"
+      },
+      "node": {
+       "text": "Fish & Chips <b>",
+       "resourceId": "com.a:id/food",
+       "description": "",
+       "className": "android.widget.Button",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": false,
+       "bounds": {
+        "left": 10,
+        "top": 1000,
+        "right": 11,
+        "bottom": 1001,
+        "width": 1,
+        "height": 1,
+        "centerX": 11,
+        "centerY": 1001
+       }
+      }
+     },
+     {
+      "selector": {
+       "packageName": "COM.B"
+      },
+      "node": {
+       "text": "Settings",
+       "resourceId": "com.b:id/settings2",
+       "description": "",
+       "className": "android.widget.TextView",
+       "packageName": "com.b",
+       "clickable": false,
+       "enabled": true,
+       "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0,
+        "centerX": 0,
+        "centerY": 0
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "a"
+      },
+      "node": {
+       "text": "Search",
+       "resourceId": "com.a:id/search",
+       "description": "Search box",
+       "className": "android.widget.EditText",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 50,
+        "top": 300,
+        "right": 1030,
+        "bottom": 400,
+        "width": 980,
+        "height": 100,
+        "centerX": 540,
+        "centerY": 350
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "A",
+       "packageName": "p"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "<b>"
+      },
+      "node": {
+       "text": "Fish & Chips <b>",
+       "resourceId": "com.a:id/food",
+       "description": "",
+       "className": "android.widget.Button",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": false,
+       "bounds": {
+        "left": 10,
+        "top": 1000,
+        "right": 11,
+        "bottom": 1001,
+        "width": 1,
+        "height": 1,
+        "centerX": 11,
+        "centerY": 1001
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "  "
+      },
+      "node": {
+       "text": "",
+       "resourceId": "",
+       "description": "",
+       "className": "android.widget.FrameLayout",
+       "packageName": "com.a",
+       "clickable": false,
+       "enabled": true,
+       "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 1080,
+        "bottom": 2400,
+        "width": 1080,
+        "height": 2400,
+        "centerX": 540,
+        "centerY": 1200
+       }
+      }
+     },
+     {
+      "selector": {
+       "resourceId": " "
+      },
+      "node": {
+       "text": "",
+       "resourceId": "",
+       "description": "",
+       "className": "android.widget.FrameLayout",
+       "packageName": "com.a",
+       "clickable": false,
+       "enabled": true,
+       "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 1080,
+        "bottom": 2400,
+        "width": 1080,
+        "height": 2400,
+        "centerX": 540,
+        "centerY": 1200
+       }
+      }
+     },
+     {
+      "selector": {
+       "clickable": true
+      },
+      "node": {
+       "text": "Settings",
+       "resourceId": "com.a:id/settings",
+       "description": "Open \"settings\"",
+       "className": "android.widget.TextView",
+       "packageName": "com.a",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 100,
+        "top": 200,
+        "right": 300,
+        "bottom": 260,
+        "width": 200,
+        "height": 60,
+        "centerX": 200,
+        "centerY": 230
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "nothing"
+      },
+      "node": null
+     },
+     {
+      "selector": {},
+      "node": {
+       "text": "",
+       "resourceId": "",
+       "description": "",
+       "className": "android.widget.FrameLayout",
+       "packageName": "com.a",
+       "clickable": false,
+       "enabled": true,
+       "bounds": {
+        "left": 0,
+        "top": 0,
+        "right": 1080,
+        "bottom": 2400,
+        "width": 1080,
+        "height": 2400,
+        "centerX": 540,
+        "centerY": 1200
+       }
+      }
+     }
+    ]
+   },
+   {
+    "xml": "<node text=\"&amp;lt; &amp;quot; &quot;x&quot; &apos;y&apos; &#10;&#13;&#39; &amp;amp;\" bounds=\"[1,2][4,9]\" /><node bounds=\"[5,5][2,2]\" clickable=\"true\"/><node text=\"no bounds\"/><node bounds=\"[0,0][3,3\" text=\"bad\"/>",
+    "nodes": [
+     {
+      "text": "&lt; &quot; \"x\" 'y' \n\r' &amp;",
+      "resourceId": "",
+      "description": "",
+      "className": "",
+      "packageName": "",
+      "clickable": false,
+      "enabled": true,
+      "bounds": {
+       "left": 1,
+       "top": 2,
+       "right": 4,
+       "bottom": 9,
+       "width": 3,
+       "height": 7,
+       "centerX": 3,
+       "centerY": 6
+      }
+     },
+     {
+      "text": "",
+      "resourceId": "",
+      "description": "",
+      "className": "",
+      "packageName": "",
+      "clickable": true,
+      "enabled": true,
+      "bounds": {
+       "left": 5,
+       "top": 5,
+       "right": 2,
+       "bottom": 2,
+       "width": 0,
+       "height": 0,
+       "centerX": 4,
+       "centerY": 4
+      }
+     },
+     {
+      "text": "no bounds",
+      "resourceId": "",
+      "description": "",
+      "className": "",
+      "packageName": "",
+      "clickable": false,
+      "enabled": true,
+      "bounds": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0,
+       "width": 0,
+       "height": 0,
+       "centerX": 0,
+       "centerY": 0
+      }
+     },
+     {
+      "text": "bad",
+      "resourceId": "",
+      "description": "",
+      "className": "",
+      "packageName": "",
+      "clickable": false,
+      "enabled": true,
+      "bounds": {
+       "left": 0,
+       "top": 0,
+       "right": 0,
+       "bottom": 0,
+       "width": 0,
+       "height": 0,
+       "centerX": 0,
+       "centerY": 0
+      }
+     }
+    ],
+    "picks": [
+     {
+      "selector": {
+       "text": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "Settings",
+       "clickable": true
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "com.a:id/settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "description": "search"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "className": "android.widget.Button"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "packageName": "COM.B"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "a"
+      },
+      "node": {
+       "text": "&lt; &quot; \"x\" 'y' \n\r' &amp;",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": false,
+       "enabled": true,
+       "bounds": {
+        "left": 1,
+        "top": 2,
+        "right": 4,
+        "bottom": 9,
+        "width": 3,
+        "height": 7,
+        "centerX": 3,
+        "centerY": 6
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "A",
+       "packageName": "p"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "<b>"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "  "
+      },
+      "node": {
+       "text": "",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 5,
+        "top": 5,
+        "right": 2,
+        "bottom": 2,
+        "width": 0,
+        "height": 0,
+        "centerX": 4,
+        "centerY": 4
+       }
+      }
+     },
+     {
+      "selector": {
+       "resourceId": " "
+      },
+      "node": {
+       "text": "&lt; &quot; \"x\" 'y' \n\r' &amp;",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": false,
+       "enabled": true,
+       "bounds": {
+        "left": 1,
+        "top": 2,
+        "right": 4,
+        "bottom": 9,
+        "width": 3,
+        "height": 7,
+        "centerX": 3,
+        "centerY": 6
+       }
+      }
+     },
+     {
+      "selector": {
+       "clickable": true
+      },
+      "node": {
+       "text": "",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 5,
+        "top": 5,
+        "right": 2,
+        "bottom": 2,
+        "width": 0,
+        "height": 0,
+        "centerX": 4,
+        "centerY": 4
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "nothing"
+      },
+      "node": null
+     },
+     {
+      "selector": {},
+      "node": {
+       "text": "&lt; &quot; \"x\" 'y' \n\r' &amp;",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": false,
+       "enabled": true,
+       "bounds": {
+        "left": 1,
+        "top": 2,
+        "right": 4,
+        "bottom": 9,
+        "width": 3,
+        "height": 7,
+        "centerX": 3,
+        "centerY": 6
+       }
+      }
+     }
+    ]
+   },
+   {
+    "xml": "<node text=\"a\" class=\"X\" package=\"p\" enabled=\"false\" bounds=\"[7,7][8,8]\"></node><node text=\"A\" enabled=\"true\" bounds=\"[7,7][9,9]\" clickable=\"true\"></node>",
+    "nodes": [
+     {
+      "text": "a",
+      "resourceId": "",
+      "description": "",
+      "className": "X",
+      "packageName": "p",
+      "clickable": false,
+      "enabled": false,
+      "bounds": {
+       "left": 7,
+       "top": 7,
+       "right": 8,
+       "bottom": 8,
+       "width": 1,
+       "height": 1,
+       "centerX": 8,
+       "centerY": 8
+      }
+     },
+     {
+      "text": "A",
+      "resourceId": "",
+      "description": "",
+      "className": "",
+      "packageName": "",
+      "clickable": true,
+      "enabled": true,
+      "bounds": {
+       "left": 7,
+       "top": 7,
+       "right": 9,
+       "bottom": 9,
+       "width": 2,
+       "height": 2,
+       "centerX": 8,
+       "centerY": 8
+      }
+     }
+    ],
+    "picks": [
+     {
+      "selector": {
+       "text": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "Settings",
+       "clickable": true
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "com.a:id/settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "description": "search"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "className": "android.widget.Button"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "packageName": "COM.B"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "a"
+      },
+      "node": {
+       "text": "A",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 7,
+        "top": 7,
+        "right": 9,
+        "bottom": 9,
+        "width": 2,
+        "height": 2,
+        "centerX": 8,
+        "centerY": 8
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "A",
+       "packageName": "p"
+      },
+      "node": {
+       "text": "a",
+       "resourceId": "",
+       "description": "",
+       "className": "X",
+       "packageName": "p",
+       "clickable": false,
+       "enabled": false,
+       "bounds": {
+        "left": 7,
+        "top": 7,
+        "right": 8,
+        "bottom": 8,
+        "width": 1,
+        "height": 1,
+        "centerX": 8,
+        "centerY": 8
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "<b>"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "  "
+      },
+      "node": {
+       "text": "A",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 7,
+        "top": 7,
+        "right": 9,
+        "bottom": 9,
+        "width": 2,
+        "height": 2,
+        "centerX": 8,
+        "centerY": 8
+       }
+      }
+     },
+     {
+      "selector": {
+       "resourceId": " "
+      },
+      "node": {
+       "text": "A",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 7,
+        "top": 7,
+        "right": 9,
+        "bottom": 9,
+        "width": 2,
+        "height": 2,
+        "centerX": 8,
+        "centerY": 8
+       }
+      }
+     },
+     {
+      "selector": {
+       "clickable": true
+      },
+      "node": {
+       "text": "A",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 7,
+        "top": 7,
+        "right": 9,
+        "bottom": 9,
+        "width": 2,
+        "height": 2,
+        "centerX": 8,
+        "centerY": 8
+       }
+      }
+     },
+     {
+      "selector": {
+       "text": "nothing"
+      },
+      "node": null
+     },
+     {
+      "selector": {},
+      "node": {
+       "text": "A",
+       "resourceId": "",
+       "description": "",
+       "className": "",
+       "packageName": "",
+       "clickable": true,
+       "enabled": true,
+       "bounds": {
+        "left": 7,
+        "top": 7,
+        "right": 9,
+        "bottom": 9,
+        "width": 2,
+        "height": 2,
+        "centerX": 8,
+        "centerY": 8
+       }
+      }
+     }
+    ]
+   },
+   {
+    "xml": "",
+    "nodes": [],
+    "picks": [
+     {
+      "selector": {
+       "text": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "Settings",
+       "clickable": true
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "com.a:id/settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "description": "search"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "className": "android.widget.Button"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "packageName": "COM.B"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "a"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "A",
+       "packageName": "p"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "<b>"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "  "
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": " "
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "clickable": true
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "nothing"
+      },
+      "node": null
+     },
+     {
+      "selector": {},
+      "node": null
+     }
+    ]
+   },
+   {
+    "xml": "no nodes here",
+    "nodes": [],
+    "picks": [
+     {
+      "selector": {
+       "text": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "Settings",
+       "clickable": true
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": "com.a:id/settings"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "description": "search"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "className": "android.widget.Button"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "packageName": "COM.B"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "a"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "A",
+       "packageName": "p"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "<b>"
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "  "
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "resourceId": " "
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "clickable": true
+      },
+      "node": null
+     },
+     {
+      "selector": {
+       "text": "nothing"
+      },
+      "node": null
+     },
+     {
+      "selector": {},
+      "node": null
+     }
+    ]
+   }
+  ]
+ }
+}

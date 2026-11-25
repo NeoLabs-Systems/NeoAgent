@@ -1,0 +1,25 @@
+<!-- neoagent-download:start -->
+
+<p align="center">
+  <strong>Download NeoAgent v3.8.1-beta.1</strong>
+</p>
+
+<p align="center">
+  <a href="https://x/a b"><img alt="macOS Apple Silicon" src="https://img.shields.io/badge/macOS-Apple_Silicon-1c2117?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/tag/v3.8.1-beta.1"><img alt="macOS Intel" src="https://img.shields.io/badge/macOS-building-6b7280?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/tag/v3.8.1-beta.1"><img alt="Windows x64 installer" src="https://img.shields.io/badge/Windows-building-6b7280?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/tag/v3.8.1-beta.1"><img alt="Windows ARM64 installer" src="https://img.shields.io/badge/Windows-building-6b7280?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/tag/v3.8.1-beta.1"><img alt="Linux AppImage" src="https://img.shields.io/badge/Linux-building-6b7280?style=for-the-badge&logo=linux&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/tag/v3.8.1-beta.1"><img alt="Linux Debian / Ubuntu" src="https://img.shields.io/badge/Linux-building-6b7280?style=for-the-badge&logo=debian&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/tag/v3.8.1-beta.1"><img alt="Linux Arch" src="https://img.shields.io/badge/Linux-building-6b7280?style=for-the-badge&logo=archlinux&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/download/v3.8.1-beta.1/neoagent-android-3.8.1.apk"><img alt="Android APK" src="https://img.shields.io/badge/Android-APK-3ddc84?style=for-the-badge&logo=android&logoColor=white"></a>
+  <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/download/v3.8.1-beta.1/neoagent-android-launcher-3.8.1.apk"><img alt="Android Launcher APK" src="https://img.shields.io/badge/Android-Launcher-3ddc84?style=for-the-badge&logo=android&logoColor=white"></a>
+</p>
+
+<p align="center"><sub>Ready apps download in one click. Remaining platforms attach as soon as their builds finish.</sub></p>
+
+---
+
+<!-- neoagent-download:end -->
+
+body

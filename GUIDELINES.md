@@ -2,94 +2,102 @@
 
 ## Project Overview
 
-NeoAgent is a Node.js/Express backend + Flutter frontend personal AI agent. It supports multiple AI providers, SQLite storage, WebSocket real-time communication, and integrations with WhatsApp, Discord, Telegram, Google, Microsoft, Slack, Figma, Notion, and more.
+NeoAgent is a Go backend + Flutter frontend personal AI agent. It supports multiple AI providers, SQLite storage, socket.io real-time communication, and integrations with WhatsApp, Discord, Telegram, Google, Microsoft, Slack, Figma, Notion, and more.
+
+Generic building blocks shared by the NeoLabs apps (sessions, auth, sealed secrets, rate limits, SSRF-safe HTTP, LLM provider clients, the CLI shell, realtime) live in the separate module [`github.com/NeoLabs-Systems/neolabs-go`](https://github.com/NeoLabs-Systems/neolabs-go). NeoAgent-specific code (its tables, routes, prompts, tools) lives here.
 
 ### Directory Map
 
 ```
-server/          Express HTTP server, all backend logic
-  config/        Static configuration (origins, deployment flags)
-  db/            SQLite via better-sqlite3
-  http/          Middleware, routes registration, socket setup, static serving
-  routes/        One file per feature domain (tasks.js, agents.js, etc.)
-  services/      Business logic, grouped by domain
-    ai/          LLM engine, providers, tool runner, history, compaction
-    agents/      Agent profile manager
-    skills/      Skill runtime, learning, skills.sh and library installs
-    tasks/       Task scheduling, execution, security
-    integrations/ OAuth flows and integration runtimes
-  utils/         Shared server-side helpers
-runtime/         Startup paths, env resolution, release channel
-lib/             Install helpers and migration logic
-flutter_app/     Cross-platform Flutter client (web, Android, macOS, Windows, Linux)
-  lib/src/       Feature-specific Dart source files
-scripts/         Build and release utility scripts
+cmd/
+  neoagent/          The single binary: server (`neoagent serve`) and CLI (install, update, ...)
+  neoagent-guest/    Agent that runs inside each cloud computer (Linux)
+  neoagent-release/  Release tooling used by CI (runtime archives, manifests, setup contract)
+internal/
+  config/            Environment and paths (NEOAGENT_HOME, data dir, web dir)
+  schema/            The database schema: baseline.sql plus ordered Go steps
+  httpserver/        HTTP server, security headers, origin checks, static clients
+  wiring/            Builds every domain and connects them through small interfaces
+  agent/             Agent runs: orchestration, delivery, resume, sub-agents
+  ai/                The agent loop, prompts, tool definitions, models, compaction
+    handlers/        Tool implementations
+  <domain>/          One package per feature domain (memory, tasks, messaging, ...)
+flutter_app/         Cross-platform Flutter client (web, Android, iOS, macOS, Windows, Linux)
+public/              Flutter web build output, served at /app (generated)
+landing/             Static landing page
+website/             Docusaurus site that renders docs/
+docs/                User and developer documentation
+firmware/            ESP32 wearable firmware
 ```
 
 ---
 
 ## Core Principles
 
-- **No duplication.** Before adding a helper, search `server/utils/`, `runtime/`, and the relevant service directory. Reuse what exists.
+- **No duplication.** Before adding a helper, search the domain package, `internal/`, and `neolabs-go`. Reuse what exists.
 - **No premature abstraction.** Three similar lines is fine. Abstract only when a fourth copy would appear.
 - **No speculative features.** Implement exactly what the task requires. No extra fallbacks, feature flags, or backwards-compat shims for callers that don't yet exist.
-- **No dead code.** Remove unused exports, variables, and branches. Do not leave commented-out blocks behind.
-- **Readable over clever.** Prefer direct, boring code. Avoid chained `.reduce`, nested ternaries, or dense one-liners that obscure intent.
+- **No dead code.** Remove unused functions, variables, and branches. Do not leave commented-out blocks behind.
+- **Readable over clever.** Prefer direct, boring code.
+- **Generic goes to the foundation.** If a building block knows nothing about NeoAgent's schema or product, it belongs in `neolabs-go` (with tests) so the other apps can use it.
 
 ---
 
-## Node.js / Server
+## Go / Server
 
-### Module system
+### Packages
 
-- CommonJS (`require` / `module.exports`) throughout the server. Do not introduce ES `import`/`export` in server files.
-- Every new server file starts with `'use strict';`.
+- One package per domain under `internal/`. A domain exposes `New(Config)` (dependencies as fields, no globals, no `init()` side effects), `Routes(mux *http.ServeMux)` with Go 1.22 patterns such as `"GET /api/memory/memories"`, and optional `Start(ctx)` / `Stop()` for background work.
+- **Domains do not import each other.** A domain that needs another one declares the narrow interface it uses in its own package (consumer side); `internal/wiring` satisfies it. Keep `cmd/neoagent` thin: it builds config and calls `wiring.Build`.
+- Handlers handle HTTP only: parse the request, call the service, write the response with `httpx.WriteJSON`. Business logic lives in the service.
+- Split files that grow past ~400 lines along real seams.
 
-### File layout
+### API compatibility
 
-- **Routes** (`server/routes/<domain>.js`) handle only HTTP concerns: parse the request, call a service, return a response. No business logic.
-- **Services** (`server/services/<domain>/`) own all business logic. If a file grows past ~300 lines, split it.
-- **Utils** (`server/utils/`) are pure helpers with no side effects and no service imports.
+- The Flutter client, wearables, and existing installs depend on the API: keep routes, status codes, error texts, key order, `null` versus omitted keys, and date formats stable. Error texts are part of the contract (staticcheck ST1005 is off for that reason).
+- Every request that changes behaviour visible to clients needs a test that pins the response.
 
 ### Database
 
-- All DB access goes through `server/db/database.js`. Never instantiate a second `Database`.
-- Use the `better-sqlite3` synchronous API. No async wrappers or callbacks.
-- All queries use parameterized statements. No string interpolation into SQL.
-- Schema changes belong in `lib/schema_migrations.js`: idempotent startup migrations in `runSchemaMigrations()`, one-shot data changes appended to `VERSIONED_MIGRATIONS`. No `ALTER TABLE` or `CREATE TABLE` inline in service files. (`lib/migrations.js` is the OpenClaw/Hermes import command; the readers and writer live in `lib/importers/`.)
+- One SQLite database (`modernc.org/sqlite`, pure Go), opened once through `dbx`. Never open a second handle to the same file from a domain.
+- All queries use parameters. No string interpolation into SQL.
+- The schema is `internal/schema/baseline.sql` plus ordered steps in `schema.Steps()`. A schema change is a new step; never edit the baseline or create tables inline in a domain.
+- Opening a database runs the steps. Tests use a temp `NEOAGENT_HOME`; never point tests or tools at `~/.neoagent`.
 
 ### AI / LLM
 
-- All LLM calls go through `server/services/ai/engine.js`. Do not call provider SDKs directly from routes or other services.
-- Provider-specific code belongs in `server/services/ai/providers/<name>.js`. Each provider extends `base.js`.
-- Tool schemas and metadata live in `server/services/ai/tools/definitions/<family>.js`, their code in `tools/handlers/<family>.js`. Do not define ad-hoc tool schemas elsewhere, and do not keep lists of tool names outside the definitions: scheduling, repeat detection, trust, budgets, and the security policy all read `tools/metadata.js`.
-- Large tool results must pass through `compactToolResult()` before being appended to conversation history.
-- Everything a run shows a user goes through `commitDelivery()` in `runtime/delivery/delivery_worker.js`. A new path that sends a message must reserve a slot there; do not add delivered-yet flags.
-- Prompt text lives in `server/services/ai/prompts/` as versioned fragments. Changing a fragment's text means bumping its version.
-- Run telemetry goes through `runtime/events/` with the types in `event_types.js`. Events carry metadata only: no prompt text, tool results, memory content, or private reasoning.
-- A harness change has to earn its place: it either raises task success or lowers latency, tokens, unnecessary tool calls, or errors. Do not add pre-passes, planner or critic model calls, or LLM routers. `npm run eval:harness` is the gate; add a case when you fix a harness bug.
+- All model calls go through the `neolabs-go/llm` provider clients via `internal/ai/models`. Do not call provider APIs from routes or other domains.
+- Tool schemas and metadata live in `internal/ai/tools/definitions.json`; implementations in `internal/ai/handlers`. Do not keep lists of tool names elsewhere: scheduling, repeat detection, trust, budgets, and the security policy read the tool metadata.
+- Large tool results go through the result compaction in `internal/ai` before they enter the transcript.
+- Everything a run shows a user goes through the delivery ledger in `internal/agent`. A new path that sends a message reserves a delivery slot there; do not add delivered-yet flags.
+- Prompt text lives in `internal/ai/prompts/` as versioned fragments. Changing a fragment's text means bumping its version.
+- Run telemetry carries metadata only: no prompt text, tool results, memory content, or private reasoning.
+- One model, one loop. Do not add pre-passes, planner or critic model calls, or LLM routers. All user-facing agent text is model-authored: no canned status lines or templates. A harness change has to earn its place by raising task success or lowering latency, tokens, unnecessary tool calls, or errors.
 
 ### Error handling
 
-- Validate at system boundaries: HTTP request bodies, external API responses, user-supplied env values. Do not defensively validate arguments passed between internal functions.
-- Wrap I/O and external calls in `try/catch`. Log errors with a `[ServiceName]` prefix for searchability.
-- Every route handler must send a response. Unhandled errors propagate to `server/http/errors.js`.
+- Validate at system boundaries: request bodies, external API responses, user-supplied env values. Do not defensively validate arguments passed between internal functions.
+- Return errors with context (`fmt.Errorf("memory: recall: %w", err)`); log once, where the error is handled, with `slog`.
+- Errors shown to non-admins pass through `publicerr` (installed globally).
 
 ### Security
 
-- Never log secrets, tokens, or PII. Log boolean presence (`Boolean(process.env.KEY)`) in startup diagnostics.
-- Parameterized queries everywhere — no SQL string interpolation, ever.
-- CORS and origin validation go through `server/config/origins.js`. No ad-hoc bypasses.
-- Server startup must reject (and log clearly) if `SESSION_SECRET` is absent.
+- Secrets are sealed at rest with `secretbox`; store token digests, not tokens; compare secrets in constant time.
+- Every outbound request a user or the model can influence goes through `neolabs-go/ssrf`.
+- Paths from users are confined with `os.Root`. Data directories are 0700, files 0600.
+- Never log secrets, tokens, or PII. Log boolean presence in startup diagnostics.
+- No shelling out with unsanitised input.
+- CORS and origin validation go through `internal/httpserver`. No ad-hoc bypasses.
 
 ### Environment & paths
 
-- Use the constants exported from `runtime/paths.js` for all filesystem paths. Never hardcode `~/.neoagent` or absolute system paths.
-- Use `runtime/env.js` helpers for env access in service code. Raw `process.env` is acceptable only for simple top-level feature flags in entry points.
+- Read configuration through `internal/config`. Never hardcode `~/.neoagent` or absolute system paths.
 
-### Logging
+### Tests
 
-- Use `server/utils/logger.js` in all service and library code. Plain `console.log` is only acceptable in entry-point startup sequences.
+- `gofmt`, `go vet ./...`, `staticcheck ./...`, and `go test -race ./...` must pass (CI runs them).
+- Use a real temp SQLite (`dbx.Open` + `schema.Ensure`) and `httptest`, not mocks of the database.
+- Table-driven tests for behaviour; recorded scenarios (testdata JSON) for API responses and byte-exact texts.
 
 ---
 
@@ -112,11 +120,12 @@ scripts/         Build and release utility scripts
 - Prefer `final`. Use `late final` only when initialization is genuinely deferred.
 - Use `const` constructors wherever the analyzer allows.
 - Avoid `dynamic`. When interfacing with untyped data (JSON, JS interop), cast and validate at the boundary.
+- Do not run `dart format` on whole files: parts of the codebase are intentionally unformatted.
 
 ### Flutter web build
 
-- Flutter web builds are handled separately as part of the release pipeline. Do not run `flutter build web` during normal development.
-- For local development use the `flutter:run:web` npm script, which includes the required `--dart-define` flags.
+- Flutter web builds are handled by the maintainer and the release pipeline. Do not run `flutter build web` during normal development.
+- For local development run the client against a local server: `cd flutter_app && flutter run -d chrome --dart-define=NEOAGENT_BACKEND_URL=http://localhost:3333`.
 
 ---
 
@@ -124,9 +133,9 @@ scripts/         Build and release utility scripts
 
 | Context | Convention |
 |---|---|
-| JS filenames | `snake_case` |
-| JS variables / functions | `camelCase` |
-| JS classes | `PascalCase` |
+| Go packages | short, lowercase, no underscores (`memory`, `socialreach`) |
+| Go files | `snake_case.go` |
+| Go identifiers | `camelCase` / `PascalCase` for exported |
 | Dart filenames | `snake_case` |
 | Dart classes / types | `UpperCamelCase` |
 | Dart variables / functions | `lowerCamelCase` |
@@ -140,25 +149,24 @@ scripts/         Build and release utility scripts
 
 ### New integration
 
-1. OAuth client, token storage, and refresh logic in `server/services/integrations/`.
-2. Route file at `server/routes/<name>.js` — HTTP only, delegate to service.
-3. Register the route in `server/http/routes.js`.
-4. Add the env key(s) to `.env.example` with a descriptive comment.
-5. Add boolean presence logging for the new keys in `logStartupConfig()` in `server/index.js`.
+1. A package `internal/integrations/<name>/` implementing the provider interface in `internal/integrations` (spec, connection, tools). OAuth and token refresh use the shared integration OAuth helpers.
+2. Register the provider in `internal/wiring`.
+3. Add the env key(s) to `.env.example` with a descriptive comment.
 
 ### New AI tool
 
-1. Add the schema and metadata to `server/services/ai/tools/definitions/<family>.js`: at least `group`, `access`, and `capabilities`, plus `policy`, `stateScope`, `sideEffect`, `repeatable`, and `untrusted` where the defaults do not hold. Give it `whenToUse` / `whenNotToUse` if a neighbouring tool is easy to confuse it with.
-2. Add its handler to `tools/handlers/<family>.js`. Extract non-trivial logic into `server/services/ai/integrated_tools/` and import from there.
-3. Ensure the tool result is passed through `compactToolResult()` if it can produce large payloads.
+1. Add the schema and metadata to `internal/ai/tools/definitions.json`: at least `group`, `access`, and `capabilities`, plus `policy`, `stateScope`, `sideEffect`, `repeatable`, and `untrusted` where the defaults do not hold. Give it `whenToUse` / `whenNotToUse` if a neighbouring tool is easy to confuse it with.
+2. Implement it in `internal/ai/handlers`, calling the owning domain through its interface.
+3. Make sure large results pass through result compaction.
 
 ---
 
 ## Hard Rules
 
-- Do not import Anthropic, OpenAI, or Google AI SDKs outside of `server/services/ai/providers/`.
-- Do not create additional SQLite database files. One DB, one instance.
+- Do not call AI provider APIs outside `neolabs-go/llm` and `internal/ai/models`.
+- Do not create additional SQLite database files. One DB, one handle.
 - Do not commit `.env`, `data/`, `agent-data/`, or anything matched by `.gitignore`.
 - Do not bypass git hooks with `--no-verify`.
 - Do not run `flutter build web` outside the release pipeline.
+- Do not edit `README.md` layout; it stays visual.
 - Do not create `CHANGELOG.md`; GitHub Releases are the canonical release history.

@@ -1,0 +1,1481 @@
+{
+ "steps": [
+  {
+   "name": "list files",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/remote.php/dav/files/neo%20user/Documents/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/remote.php/dav/files/neo%20user/Documents/a%20b.txt</d:href><d:propstat><d:prop><d:getcontentlength>12</d:getcontentlength><d:getcontenttype>text/plain</d:getcontenttype><d:getlastmodified>Thu, 01 Jan 2026 00:00:00 GMT</d:getlastmodified><oc:fileid>7</oc:fileid><d:resourcetype/></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/remote.php/dav/files/neo%20user/Documents/Sub/</d:href><d:propstat><d:prop><d:displayname>Sub</d:displayname><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "Documents/a b.txt",
+     "name": "a b.txt",
+     "type": "file",
+     "size": 12,
+     "mimeType": "text/plain",
+     "lastModified": "Thu, 01 Jan 2026 00:00:00 GMT",
+     "fileId": "7",
+     "deletedAt": null,
+     "originalPath": null
+    },
+    {
+     "path": "Documents/Sub",
+     "name": "Sub",
+     "type": "folder",
+     "size": null,
+     "mimeType": null,
+     "lastModified": null,
+     "fileId": null,
+     "deletedAt": null,
+     "originalPath": null
+    }
+   ],
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/Documents/",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\">\n  <d:prop>\n    <d:displayname/>\n    <d:getcontentlength/>\n    <d:getcontenttype/>\n    <d:getlastmodified/>\n    <d:resourcetype/>\n    <oc:fileid/>\n    <nc:trashbin-deletion-time/>\n    <nc:trashbin-original-filename/>\n    <nc:trashbin-original-location/>\n  </d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "nextcloud_list_files",
+   "args": {
+    "path": "Documents"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list root",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\">\n  <d:prop>\n    <d:displayname/>\n    <d:getcontentlength/>\n    <d:getcontenttype/>\n    <d:getlastmodified/>\n    <d:resourcetype/>\n    <oc:fileid/>\n    <nc:trashbin-deletion-time/>\n    <nc:trashbin-original-filename/>\n    <nc:trashbin-original-location/>\n  </d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "nextcloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "search",
+   "answers": [
+    {
+     "body": {
+      "ocs": {
+       "meta": {
+        "status": "ok",
+        "statuscode": 200
+       },
+       "data": {
+        "entries": [
+         {
+          "title": "r"
+         }
+        ]
+       }
+      }
+     }
+    }
+   ],
+   "result": {
+    "entries": [
+     {
+      "title": "r"
+     }
+    ]
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/ocs/v2.php/search/providers/files/search?term=report&limit=100",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/json",
+      "ocs-apirequest": "true",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_search_files",
+   "args": {
+    "query": "report",
+    "limit": 500
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "search ocs error",
+   "answers": [
+    {
+     "body": {
+      "ocs": {
+       "meta": {
+        "statuscode": 404,
+        "message": "No provider"
+       },
+       "data": []
+      }
+     }
+    }
+   ],
+   "error": "No provider",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/ocs/v2.php/search/providers/files/search?term=x&limit=20",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/json",
+      "ocs-apirequest": "true",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_search_files",
+   "args": {
+    "query": "x"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "read text file",
+   "answers": [
+    {
+     "body": "hello",
+     "headers": {
+      "content-type": "text/plain; charset=utf-8"
+     }
+    }
+   ],
+   "result": {
+    "path": "Documents/a b.txt",
+    "mimeType": "text/plain; charset=utf-8",
+    "content": "hello",
+    "size": 5
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/Documents/a%20b.txt",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_read_file",
+   "args": {
+    "path": "/Documents/a b.txt"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "read binary file",
+   "answers": [
+    {
+     "body": "a\u0000b",
+     "headers": {
+      "content-type": "application/octet-stream"
+     }
+    }
+   ],
+   "result": {
+    "path": "x.bin",
+    "binary": true,
+    "size": 3,
+    "note": "Use nextcloud_download_file for binary content."
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/x.bin",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_read_file",
+   "args": {
+    "path": "x.bin"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "read missing",
+   "answers": [
+    {
+     "status": 404,
+     "body": "<error/>",
+     "headers": {
+      "content-type": "application/xml"
+     }
+    }
+   ],
+   "error": "Nextcloud WebDAV request failed (404): <error/>",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/nope",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_read_file",
+   "args": {
+    "path": "nope"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "write file",
+   "answers": [
+    {
+     "status": 201
+    }
+   ],
+   "result": {
+    "path": "notes/n.txt"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/notes/n.txt",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "text/plain; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "text"
+    }
+   ],
+   "tool": "nextcloud_write_file",
+   "args": {
+    "path": "notes/n.txt",
+    "content": "text"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "mkdir",
+   "answers": [
+    {
+     "status": 201
+    }
+   ],
+   "result": {
+    "path": "new",
+    "type": "folder"
+   },
+   "requests": [
+    {
+     "method": "MKCOL",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/new",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_mkdir",
+   "args": {
+    "path": "new"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "move",
+   "answers": [
+    {
+     "status": 201
+    }
+   ],
+   "result": {
+    "path": "b/c",
+    "from": "a"
+   },
+   "requests": [
+    {
+     "method": "MOVE",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/a",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "destination": "https://cloud.example/remote.php/dav/files/neo%20user/b/c",
+      "overwrite": "T",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_move_file",
+   "args": {
+    "path": "a",
+    "destination": "b/c",
+    "overwrite": true
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "copy",
+   "answers": [
+    {
+     "status": 201
+    }
+   ],
+   "result": {
+    "path": "d",
+    "from": "a"
+   },
+   "requests": [
+    {
+     "method": "COPY",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/a",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "destination": "https://cloud.example/remote.php/dav/files/neo%20user/d",
+      "overwrite": "F",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_copy_file",
+   "args": {
+    "path": "a",
+    "destination": "d"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "delete",
+   "answers": [
+    {
+     "status": 204
+    }
+   ],
+   "result": {
+    "deleted": true,
+    "path": "a"
+   },
+   "requests": [
+    {
+     "method": "DELETE",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/a",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_delete_file",
+   "args": {
+    "path": "a"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "traversal",
+   "answers": [],
+   "error": "Path must not contain parent traversal segments.",
+   "requests": [],
+   "tool": "nextcloud_delete_file",
+   "args": {
+    "path": "../etc"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list shares",
+   "answers": [
+    {
+     "body": {
+      "ocs": {
+       "meta": {
+        "statuscode": 200
+       },
+       "data": []
+      }
+     }
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/ocs/v2.php/apps/files_sharing/api/v1/shares?path=%2Fa&shared_with_me=true",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/json",
+      "ocs-apirequest": "true",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_list_shares",
+   "args": {
+    "path": "a",
+    "shared_with_me": true
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create share",
+   "answers": [
+    {
+     "body": {
+      "ocs": {
+       "meta": {
+        "statuscode": 200
+       },
+       "data": {
+        "id": "9"
+       }
+      }
+     }
+    }
+   ],
+   "result": {
+    "id": "9"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/ocs/v2.php/apps/files_sharing/api/v1/shares",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json",
+      "ocs-apirequest": "true",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "path=%2Fa&shareType=0&shareWith=bob&permissions=1&password=p+w"
+    }
+   ],
+   "tool": "nextcloud_create_share",
+   "args": {
+    "path": "a",
+    "share_type": "0",
+    "share_with": "bob",
+    "password": "p w",
+    "note": ""
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create share failure",
+   "answers": [
+    {
+     "status": 403,
+     "body": {
+      "ocs": {
+       "meta": {
+        "statuscode": 403,
+        "message": "Not allowed"
+       }
+      }
+     }
+    }
+   ],
+   "error": "Nextcloud OCS request failed: Not allowed",
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/ocs/v2.php/apps/files_sharing/api/v1/shares",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json",
+      "ocs-apirequest": "true",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "path=%2Fa&shareType=3&permissions=1"
+    }
+   ],
+   "tool": "nextcloud_create_share",
+   "args": {
+    "path": "a"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "delete share",
+   "answers": [
+    {
+     "body": {
+      "ocs": {
+       "meta": {
+        "statuscode": 200
+       },
+       "data": []
+      }
+     }
+    }
+   ],
+   "result": {
+    "deleted": true,
+    "share_id": "9"
+   },
+   "requests": [
+    {
+     "method": "DELETE",
+     "url": "https://cloud.example/ocs/v2.php/apps/files_sharing/api/v1/shares/9",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/json",
+      "ocs-apirequest": "true",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_delete_share",
+   "args": {
+    "share_id": "9"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list trash",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/remote.php/dav/trashbin/neo%20user/trash/f.txt.d1</d:href><d:propstat><d:prop><nc:trashbin-original-location>Docs/f.txt</nc:trashbin-original-location><nc:trashbin-deletion-time>1700000000</nc:trashbin-deletion-time><d:resourcetype/></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "trash/f.txt.d1",
+     "name": "f.txt.d1",
+     "type": "file",
+     "size": null,
+     "mimeType": null,
+     "lastModified": null,
+     "fileId": null,
+     "deletedAt": "1700000000",
+     "originalPath": "Docs/f.txt"
+    }
+   ],
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://cloud.example/remote.php/dav/trashbin/neo%20user/trash/",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\">\n  <d:prop>\n    <d:displayname/>\n    <d:getcontentlength/>\n    <d:getcontenttype/>\n    <d:getlastmodified/>\n    <d:resourcetype/>\n    <oc:fileid/>\n    <nc:trashbin-deletion-time/>\n    <nc:trashbin-original-filename/>\n    <nc:trashbin-original-location/>\n  </d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "nextcloud_list_trash",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "restore trash",
+   "answers": [
+    {
+     "status": 201
+    }
+   ],
+   "result": {
+    "restored": true,
+    "trash_path": "trash/f.txt.d1"
+   },
+   "requests": [
+    {
+     "method": "MOVE",
+     "url": "https://cloud.example/remote.php/dav/trashbin/neo%20user/trash/f.txt.d1",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "destination": "https://cloud.example/remote.php/dav/trashbin/neo%20user/restore/f.txt.d1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_restore_trash",
+   "args": {
+    "trash_path": "trash/f.txt.d1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "ocs request",
+   "answers": [
+    {
+     "body": {
+      "ocs": {
+       "meta": {
+        "statuscode": 200
+       },
+       "data": {
+        "id": 1
+       }
+      }
+     }
+    }
+   ],
+   "result": {
+    "id": 1
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/ocs/v2.php/apps/notes/api/v1/notes?b=x",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/json",
+      "accept": "application/json",
+      "ocs-apirequest": "true",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "{\"title\":\"T\"}"
+    }
+   ],
+   "tool": "nextcloud_ocs_request",
+   "args": {
+    "method": "post",
+    "path": "/ocs/v2.php/apps/notes/api/v1/notes",
+    "query": {
+     "b": "x"
+    },
+    "body": {
+     "title": "T"
+    }
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "ocs outside prefix",
+   "answers": [],
+   "error": "Nextcloud OCS path must start with /ocs/v2.php/.",
+   "requests": [],
+   "tool": "nextcloud_ocs_request",
+   "args": {
+    "method": "GET",
+    "path": "/index.php/x"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "ocs bad method",
+   "answers": [],
+   "error": "Nextcloud OCS method must be GET, POST, PUT, PATCH, or DELETE.",
+   "requests": [],
+   "tool": "nextcloud_ocs_request",
+   "args": {
+    "method": "TRACE",
+    "path": "/ocs/v2.php/x"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "redirect refused",
+   "answers": [
+    {
+     "status": 302,
+     "headers": {
+      "location": "https://x.example"
+     }
+    }
+   ],
+   "error": "Nextcloud redirected the request; redirects are not followed.",
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://cloud.example/remote.php/dav/files/neo%20user/",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\">\n  <d:prop>\n    <d:displayname/>\n    <d:getcontentlength/>\n    <d:getcontenttype/>\n    <d:getlastmodified/>\n    <d:resourcetype/>\n    <oc:fileid/>\n    <nc:trashbin-deletion-time/>\n    <nc:trashbin-original-filename/>\n    <nc:trashbin-original-location/>\n  </d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "nextcloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list calendars",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/remote.php/dav/calendars/neo%20user/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/remote.php/dav/calendars/neo%20user/personal/</d:href><d:propstat><d:prop><d:displayname>Personal &amp; Work</d:displayname><d:resourcetype><d:collection/><cal:calendar/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/remote.php/dav/calendars/neo%20user/empty%20name/</d:href><d:propstat><d:prop><d:resourcetype><cal:calendar/></d:resourcetype></d:prop></d:propstat></d:response><d:response><d:href>/remote.php/dav/calendars/neo%20user/gone/</d:href><d:propstat><d:prop><d:resourcetype><cal:calendar/></d:resourcetype></d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "remote.php/dav/calendars/neo user/personal",
+     "name": "Personal & Work"
+    },
+    {
+     "path": "remote.php/dav/calendars/neo user/empty name",
+     "name": "remote.php/dav/calendars/neo user/empty name"
+    }
+   ],
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://cloud.example/remote.php/dav/calendars/neo%20user/",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">\n  <d:prop><d:displayname/><d:resourcetype/></d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "nextcloud_list_calendars",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list events",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/remote.php/dav/calendars/neo%20user/personal/e1.ics</d:href><d:propstat><d:prop><d:getetag>\"1\"</d:getetag><cal:calendar-data><![CDATA[BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:e1\r\nSUMMARY:Stand\\, up\r\nDESCRIPTION:line\\none\r\nDTSTART;TZID=Europe/Berlin:20260102T090000\r\nDTEND:20260102T100000Z\r\nLOCATION:Room\r\n 42\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:e1\r\nRECURRENCE-ID:20260109T090000\r\nSUMMARY:Moved\r\nDTSTART;VALUE=DATE:20260110\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n]]></cal:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "remote.php/dav/calendars/neo user/personal/e1.ics",
+     "etag": "\"1\"",
+     "uid": "e1",
+     "recurrenceId": null,
+     "summary": "Stand, up",
+     "description": "line\none",
+     "location": "Room42",
+     "start": "2026-01-02T09:00:00",
+     "end": "2026-01-02T10:00:00Z"
+    },
+    {
+     "path": "remote.php/dav/calendars/neo user/personal/e1.ics",
+     "etag": "\"1\"",
+     "uid": "e1",
+     "recurrenceId": "2026-01-09T09:00:00",
+     "summary": "Moved",
+     "description": "",
+     "location": "",
+     "start": "2026-01-10",
+     "end": null
+    }
+   ],
+   "requests": [
+    {
+     "method": "REPORT",
+     "url": "https://cloud.example/remote.php/dav/calendars/neo%20user/personal",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">\n  <d:prop><d:getetag/><c:calendar-data><c:expand start=\"20260101T120000Z\" end=\"20260131T120000Z\"/></c:calendar-data></d:prop>\n  <c:filter>\n    <c:comp-filter name=\"VCALENDAR\">\n      <c:comp-filter name=\"VEVENT\">\n        <c:time-range start=\"20260101T120000Z\" end=\"20260131T120000Z\"/>\n      </c:comp-filter>\n    </c:comp-filter>\n  </c:filter>\n</c:calendar-query>"
+    }
+   ],
+   "tool": "nextcloud_list_events",
+   "args": {
+    "calendar": "personal"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list events range",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [],
+   "requests": [
+    {
+     "method": "REPORT",
+     "url": "https://cloud.example/remote.php/dav/calendars/neo%20user/personal",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">\n  <d:prop><d:getetag/><c:calendar-data><c:expand start=\"20260201T000000Z\" end=\"20260202T080000Z\"/></c:calendar-data></d:prop>\n  <c:filter>\n    <c:comp-filter name=\"VCALENDAR\">\n      <c:comp-filter name=\"VEVENT\">\n        <c:time-range start=\"20260201T000000Z\" end=\"20260202T080000Z\"/>\n      </c:comp-filter>\n    </c:comp-filter>\n  </c:filter>\n</c:calendar-query>"
+    }
+   ],
+   "tool": "nextcloud_list_events",
+   "args": {
+    "calendar": "personal",
+    "start": "2026-02-01",
+    "end": "2026-02-02T10:00:00+02:00"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list events bad date",
+   "answers": [],
+   "error": "Datetime must be an ISO-8601 value.",
+   "requests": [],
+   "tool": "nextcloud_list_events",
+   "args": {
+    "calendar": "personal",
+    "start": "tomorrow"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "get event",
+   "answers": [
+    {
+     "body": "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:e1\r\nSUMMARY:Stand\\, up\r\nDESCRIPTION:line\\none\r\nDTSTART;TZID=Europe/Berlin:20260102T090000\r\nDTEND:20260102T100000Z\r\nLOCATION:Room\r\n 42\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:e1\r\nRECURRENCE-ID:20260109T090000\r\nSUMMARY:Moved\r\nDTSTART;VALUE=DATE:20260110\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+     "headers": {
+      "content-type": "text/calendar"
+     }
+    }
+   ],
+   "result": {
+    "path": "remote.php/dav/calendars/neo user/personal/e1.ics",
+    "uid": "e1",
+    "recurrenceId": null,
+    "summary": "Stand, up",
+    "description": "line\none",
+    "location": "Room42",
+    "start": "2026-01-02T09:00:00",
+    "end": "2026-01-02T10:00:00Z"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/remote.php/dav/calendars/neo%20user/personal/e1.ics",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "text/calendar, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_get_event",
+   "args": {
+    "calendar": "personal",
+    "event_path": "e1.ics"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create event",
+   "answers": [
+    {
+     "status": 201,
+     "body": ""
+    }
+   ],
+   "result": {
+    "path": "personal/00000000-0000-4000-8000-000000000002@neoagent.ics",
+    "uid": "00000000-0000-4000-8000-000000000002@neoagent",
+    "summary": "Lunch, team"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://cloud.example/remote.php/dav/calendars/neo%20user/personal/00000000-0000-4000-8000-000000000002%40neoagent.ics",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "text/calendar; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//NeoAgent//EN\r\nCALSCALE:GREGORIAN\r\nBEGIN:VEVENT\r\nUID:00000000-0000-4000-8000-000000000002@neoagent\r\nDTSTAMP:20260101T120000Z\r\nDTSTART:20260301T120000Z\r\nDTEND;VALUE=DATE:20260301\r\nSUMMARY:Lunch\\, team\r\nDESCRIPTION:a\\nb\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    }
+   ],
+   "tool": "nextcloud_create_event",
+   "args": {
+    "calendar": "personal",
+    "summary": "Lunch, team",
+    "start": "2026-03-01T12:00:00Z",
+    "end": "2026-03-01",
+    "description": "a\nb",
+    "location": ""
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "update event",
+   "answers": [
+    {
+     "status": 204
+    }
+   ],
+   "result": {
+    "path": "remote.php/dav/calendars/neo user/other/e1.ics",
+    "uid": "e1",
+    "summary": "S"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://cloud.example/remote.php/dav/calendars/neo%20user/other/e1.ics",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "text/calendar; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//NeoAgent//EN\r\nCALSCALE:GREGORIAN\r\nBEGIN:VEVENT\r\nUID:e1\r\nDTSTAMP:20260101T120000Z\r\nDTSTART;VALUE=DATE:20260301\r\nDTEND;VALUE=DATE:20260302\r\nSUMMARY:S\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    }
+   ],
+   "tool": "nextcloud_update_event",
+   "args": {
+    "calendar": "personal",
+    "event_path": "other/e1.ics",
+    "summary": "S",
+    "start": "2026-03-01",
+    "end": "2026-03-02"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "delete event fails",
+   "answers": [
+    {
+     "status": 403,
+     "body": "forbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbidden",
+     "headers": {
+      "content-type": "text/plain"
+     }
+    }
+   ],
+   "error": "Nextcloud WebDAV request failed (403): forbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenforbiddenfor",
+   "requests": [
+    {
+     "method": "DELETE",
+     "url": "https://cloud.example/remote.php/dav/calendars/neo%20user/personal/e1.ics",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "tool": "nextcloud_delete_event",
+   "args": {
+    "calendar": "personal",
+    "event_path": "e1.ics"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "traversal refused",
+   "answers": [],
+   "error": "Path must not contain parent traversal segments.",
+   "requests": [],
+   "tool": "nextcloud_get_event",
+   "args": {
+    "calendar": "../x",
+    "event_path": "e1.ics"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list addressbooks",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/remote.php/dav/addressbooks/neo%20user/contacts/</d:href><d:propstat><d:prop><d:displayname>Contacts</d:displayname><d:resourcetype><d:collection/><card:addressbook/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "remote.php/dav/addressbooks/neo user/contacts",
+     "name": "Contacts"
+    }
+   ],
+   "requests": [
+    {
+     "method": "PROPFIND",
+     "url": "https://cloud.example/remote.php/dav/addressbooks/neo%20user/",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\">\n  <d:prop><d:displayname/><d:resourcetype/></d:prop>\n</d:propfind>"
+    }
+   ],
+   "tool": "nextcloud_list_addressbooks",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "list contacts filtered",
+   "answers": [
+    {
+     "body": "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:cal=\"urn:ietf:params:xml:ns:caldav\" xmlns:card=\"urn:ietf:params:xml:ns:carddav\" xmlns:oc=\"http://owncloud.org/ns\" xmlns:nc=\"http://nextcloud.org/ns\"><d:response><d:href>/remote.php/dav/addressbooks/neo%20user/contacts/p1.vcf</d:href><d:propstat><d:prop><d:getetag>\"2\"</d:getetag><card:address-data>BEGIN:VCARD\r\nVERSION:3.0\r\nUID:p1\r\nFN:Ada Lovelace\r\nEMAIL;TYPE=work:ada@example.com\r\nTEL:+44 1\r\nORG:Engines\\; Ltd\r\nEND:VCARD\r\n</card:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response><d:response><d:href>/remote.php/dav/addressbooks/neo%20user/contacts/p2.vcf</d:href><d:propstat><d:prop><card:address-data>BEGIN:VCARD\r\nFN:Bob\r\nEND:VCARD</card:address-data></d:prop></d:propstat></d:response></d:multistatus>",
+     "headers": {
+      "content-type": "application/xml; charset=utf-8"
+     }
+    }
+   ],
+   "result": [
+    {
+     "path": "remote.php/dav/addressbooks/neo user/contacts/p1.vcf",
+     "etag": "\"2\"",
+     "uid": "p1",
+     "fullName": "Ada Lovelace",
+     "email": "ada@example.com",
+     "phone": "+44 1",
+     "organization": "Engines; Ltd"
+    }
+   ],
+   "requests": [
+    {
+     "method": "REPORT",
+     "url": "https://cloud.example/remote.php/dav/addressbooks/neo%20user/contacts",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "application/xml; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "depth": "1",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "<?xml version=\"1.0\"?>\n<c:addressbook-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\">\n  <d:prop><d:getetag/><c:address-data/></d:prop>\n</c:addressbook-query>"
+    }
+   ],
+   "tool": "nextcloud_list_contacts",
+   "args": {
+    "addressbook": "contacts",
+    "query": "ENGINES"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create contact",
+   "answers": [
+    {
+     "status": 201
+    }
+   ],
+   "result": {
+    "path": "contacts/00000000-0000-4000-8000-000000000003.vcf",
+    "uid": "00000000-0000-4000-8000-000000000003",
+    "fullName": "Grace Hopper"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://cloud.example/remote.php/dav/addressbooks/neo%20user/contacts/00000000-0000-4000-8000-000000000003.vcf",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "text/vcard; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:00000000-0000-4000-8000-000000000003\r\nFN:Grace Hopper\r\nEMAIL:g@example.com\r\nTEL:42\r\nEND:VCARD\r\n"
+    }
+   ],
+   "tool": "nextcloud_create_contact",
+   "args": {
+    "addressbook": "contacts",
+    "full_name": "Grace Hopper",
+    "email": "g@example.com",
+    "phone": 42
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "update contact",
+   "answers": [
+    {
+     "status": 204
+    }
+   ],
+   "result": {
+    "path": "remote.php/dav/addressbooks/neo user/contacts/p1.vcf",
+    "uid": "keep",
+    "fullName": "Ada"
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://cloud.example/remote.php/dav/addressbooks/neo%20user/contacts/p1.vcf",
+     "headers": {
+      "authorization": "Basic bmVvIHVzZXI6YXBw",
+      "content-type": "text/vcard; charset=utf-8",
+      "accept": "application/xml, text/xml, */*",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:keep\r\nFN:Ada\r\nEND:VCARD\r\n"
+    }
+   ],
+   "tool": "nextcloud_update_contact",
+   "args": {
+    "addressbook": "contacts",
+    "contact_path": "p1.vcf",
+    "full_name": "Ada",
+    "uid": "keep"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "create contact needs name",
+   "answers": [],
+   "error": "full_name is required.",
+   "requests": [],
+   "tool": "nextcloud_create_contact",
+   "args": {
+    "addressbook": "contacts"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "username": "neo user",
+    "appPassword": "app"
+   },
+   "metadata": {}
+  },
+  {
+   "name": "setup before save",
+   "answers": [],
+   "result": {
+    "baseUrl": "",
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": []
+  },
+  {
+   "name": "save needs url",
+   "answers": [],
+   "error": "Nextcloud URL is required.",
+   "requests": [],
+   "op": "save",
+   "config": {},
+   "rows": []
+  },
+  {
+   "name": "save not nextcloud",
+   "answers": [
+    {
+     "body": {
+      "installed": true
+     }
+    }
+   ],
+   "error": "The URL did not identify itself as a Nextcloud server.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/status.php",
+     "headers": {
+      "accept": "application/json",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "cloud.example"
+   },
+   "rows": []
+  },
+  {
+   "name": "save",
+   "answers": [
+    {
+     "body": {
+      "installed": true,
+      "version": "30.0.0"
+     }
+    }
+   ],
+   "result": {
+    "baseUrl": "https://cloud.example",
+    "configured": true,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/status.php",
+     "headers": {
+      "accept": "application/json",
+      "user-agent": "NeoAgent Nextcloud Integration"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "cloud.example/"
+   },
+   "rows": []
+  },
+  {
+   "name": "setup after save",
+   "answers": [],
+   "result": {
+    "baseUrl": "https://cloud.example",
+    "configured": true,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get",
+   "config": null,
+   "rows": []
+  }
+ ]
+}

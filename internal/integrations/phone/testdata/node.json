@@ -1,0 +1,415 @@
+{
+ "agent": "97950a8c-71eb-4d79-bbda-0405681575f7",
+ "now": 1767268800000,
+ "device": {
+  "id": "device-1234",
+  "platform": "android",
+  "name": "Pixel"
+ },
+ "syncBody": {
+  "deviceId": "device-1234",
+  "calendars": [
+   {
+    "id": "c1",
+    "name": "Home",
+    "writable": true,
+    "primary": true
+   },
+   {
+    "id": "c2",
+    "name": "Work"
+   }
+  ],
+  "events": [
+   {
+    "key": "e1",
+    "eventId": "e1",
+    "calendarId": "c1",
+    "title": "Dentist",
+    "start": "2026-01-02T09:00:00.000Z",
+    "end": "2026-01-02T10:00:00.000Z",
+    "location": "Main St"
+   },
+   {
+    "key": "e2",
+    "eventId": "e2",
+    "calendarId": "c2",
+    "title": "Standup",
+    "start": "2026-01-20T09:00:00.000Z",
+    "end": "2026-01-20T09:15:00.000Z",
+    "attendees": [
+     "bob@x"
+    ]
+   }
+  ],
+  "contacts": [
+   {
+    "key": "k1",
+    "name": "Bob Builder",
+    "emails": [
+     "bob@x"
+    ],
+    "phones": [
+     "+49 1"
+    ]
+   },
+   {
+    "key": "k2",
+    "name": "Ann",
+    "organization": "ACME"
+   }
+  ],
+  "nextAlarm": "2026-01-02T06:30:00.000Z"
+ },
+ "steps": [
+  {
+   "name": "alarms",
+   "answers": [],
+   "result": {
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "alarms": [
+     {
+      "time": "2026-01-02T06:30:00.000Z"
+     }
+    ]
+   },
+   "requests": [],
+   "tool": "phone_list_alarms",
+   "args": {},
+   "app": "alarms"
+  },
+  {
+   "name": "calendars",
+   "answers": [],
+   "result": {
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "calendars": [
+     {
+      "id": "c1",
+      "name": "Home",
+      "account": null,
+      "writable": true,
+      "primary": true
+     },
+     {
+      "id": "c2",
+      "name": "Work",
+      "account": null,
+      "writable": false,
+      "primary": false
+     }
+    ]
+   },
+   "requests": [],
+   "tool": "phone_list_calendars",
+   "args": {},
+   "app": "calendar"
+  },
+  {
+   "name": "events default window",
+   "answers": [],
+   "result": {
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "events": [
+     {
+      "eventId": "e1",
+      "calendarId": "c1",
+      "title": "Dentist",
+      "start": "2026-01-02T09:00:00.000Z",
+      "end": "2026-01-02T10:00:00.000Z",
+      "allDay": false,
+      "location": "Main St",
+      "notes": null,
+      "attendees": []
+     }
+    ]
+   },
+   "requests": [],
+   "tool": "phone_list_events",
+   "args": {},
+   "app": "calendar"
+  },
+  {
+   "name": "events window and query",
+   "answers": [],
+   "result": {
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "events": [
+     {
+      "eventId": "e2",
+      "calendarId": "c2",
+      "title": "Standup",
+      "start": "2026-01-20T09:00:00.000Z",
+      "end": "2026-01-20T09:15:00.000Z",
+      "allDay": false,
+      "location": null,
+      "notes": null,
+      "attendees": [
+       "bob@x"
+      ]
+     }
+    ]
+   },
+   "requests": [],
+   "tool": "phone_list_events",
+   "args": {
+    "start": "2026-01-01",
+    "end": "2026-02-01",
+    "query": "BOB"
+   },
+   "app": "calendar"
+  },
+  {
+   "name": "events by calendar",
+   "answers": [],
+   "result": {
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "events": [
+     {
+      "eventId": "e1",
+      "calendarId": "c1",
+      "title": "Dentist",
+      "start": "2026-01-02T09:00:00.000Z",
+      "end": "2026-01-02T10:00:00.000Z",
+      "allDay": false,
+      "location": "Main St",
+      "notes": null,
+      "attendees": []
+     }
+    ]
+   },
+   "requests": [],
+   "tool": "phone_list_events",
+   "args": {
+    "start": "2026-01-01T00:00:00Z",
+    "end": "2026-02-01T00:00:00Z",
+    "calendar_id": "c1"
+   },
+   "app": "calendar"
+  },
+  {
+   "name": "events bad start",
+   "answers": [],
+   "error": "start must be an ISO date or datetime.",
+   "requests": [],
+   "tool": "phone_list_events",
+   "args": {
+    "start": "soon"
+   },
+   "app": "calendar"
+  },
+  {
+   "name": "contacts",
+   "answers": [],
+   "result": {
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "contacts": [
+     {
+      "name": "Ann",
+      "emails": [],
+      "phones": [],
+      "organization": "ACME"
+     }
+    ]
+   },
+   "requests": [],
+   "tool": "phone_search_contacts",
+   "args": {
+    "query": "acme"
+   },
+   "app": "contacts"
+  },
+  {
+   "name": "contacts limit",
+   "answers": [],
+   "result": {
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "contacts": [
+     {
+      "name": "Bob Builder",
+      "emails": [
+       "bob@x"
+      ],
+      "phones": [
+       "+49 1"
+      ],
+      "organization": null
+     }
+    ]
+   },
+   "requests": [],
+   "tool": "phone_search_contacts",
+   "args": {
+    "limit": 1
+   },
+   "app": "contacts"
+  },
+  {
+   "name": "create needs title",
+   "answers": [],
+   "error": "title is required.",
+   "requests": [],
+   "tool": "phone_create_event",
+   "args": {
+    "start": "2026-01-03",
+    "end": "2026-01-03"
+   },
+   "app": "calendar"
+  },
+  {
+   "name": "create bad end",
+   "answers": [],
+   "error": "end must be an ISO date or datetime.",
+   "requests": [],
+   "tool": "phone_create_event",
+   "args": {
+    "title": "X",
+    "start": "2026-01-03",
+    "end": "later"
+   },
+   "app": "calendar"
+  },
+  {
+   "name": "create event done",
+   "answers": [],
+   "result": {
+    "status": "done",
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z",
+    "eventId": "e9"
+   },
+   "requests": [],
+   "tool": "phone_create_event",
+   "args": {
+    "title": " Lunch ",
+    "start": "2026-01-03T12:00:00Z",
+    "end": "2026-01-03T13:00:00Z",
+    "all_day": false,
+    "calendar_id": ""
+   },
+   "app": "calendar",
+   "phoneAnswer": {
+    "ok": true,
+    "result": {
+     "eventId": "e9"
+    }
+   }
+  },
+  {
+   "name": "update event failed",
+   "answers": [],
+   "error": "Calendar is read-only",
+   "requests": [],
+   "tool": "phone_update_event",
+   "args": {
+    "event_id": "e1",
+    "notes": "bring card"
+   },
+   "app": "calendar",
+   "phoneAnswer": {
+    "ok": false,
+    "error": "Calendar is read-only"
+   }
+  },
+  {
+   "name": "create contact",
+   "answers": [],
+   "result": {
+    "status": "done",
+    "device": "Pixel",
+    "syncedAt": "2026-01-01T12:00:00.000Z"
+   },
+   "requests": [],
+   "tool": "phone_create_contact",
+   "args": {
+    "name": "Zed",
+    "phone": "+1"
+   },
+   "app": "contacts",
+   "phoneAnswer": {
+    "ok": true
+   }
+  },
+  {
+   "name": "commands the phone received",
+   "result": [
+    [
+     {
+      "id": 1,
+      "action": "create_event",
+      "payload": {
+       "calendarId": null,
+       "title": "Lunch",
+       "start": "2026-01-03T12:00:00.000Z",
+       "end": "2026-01-03T13:00:00.000Z",
+       "allDay": false
+      }
+     }
+    ],
+    [
+     {
+      "id": 2,
+      "action": "update_event",
+      "payload": {
+       "eventId": "e1",
+       "notes": "bring card"
+      }
+     }
+    ],
+    [
+     {
+      "id": 3,
+      "action": "create_contact",
+      "payload": {
+       "name": "Zed",
+       "email": null,
+       "phone": "+1",
+       "organization": null
+      }
+     }
+    ]
+   ]
+  },
+  {
+   "name": "wakes",
+   "result": [
+    {
+     "room": "user:1",
+     "event": "device_sync:wake",
+     "payload": {
+      "deviceId": "device-1234"
+     }
+    },
+    {
+     "room": "user:1",
+     "event": "device_sync:wake",
+     "payload": {
+      "deviceId": "device-1234"
+     }
+    },
+    {
+     "room": "user:1",
+     "event": "device_sync:wake",
+     "payload": {
+      "deviceId": "device-1234"
+     }
+    }
+   ]
+  },
+  {
+   "name": "test synced",
+   "answers": [],
+   "result": {},
+   "requests": [],
+   "op": "test",
+   "app": "calendar"
+  }
+ ]
+}

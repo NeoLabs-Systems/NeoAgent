@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Chromium
+Exec=chromium --user-data-dir=/home/neo/.neoagent/data/browser-profiles/default --no-first-run --no-default-browser-check --restore-last-session --hide-crash-restore-bubble --disable-session-crashed-bubble --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --remote-allow-origins=*
+Icon=chromium
+Terminal=false

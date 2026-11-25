@@ -1,0 +1,711 @@
+{
+ "documents": [
+  {
+   "content": "---\nname: a\ndescription: d\n---\nbody",
+   "parsed": "{\"name\":\"a\",\"description\":\"d\",\"instructions\":\"body\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\nname: Hello\n---\n",
+   "parsed": "{\"name\":\"Hello\",\"description\":\"\",\"instructions\":\"\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\nname: x\ncategory: tools\nenabled: true\ndraft: false\nparameters: {\"type\":\"object\",\"properties\":{\"b\":1,\"a\":2}}\ntags: [\"a\",\"b\"]\nbad: {oops\nnum: 42\nblank:\n---\n\nBody  \n",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"instructions\":\"Body\",\"metadata\":{\"category\":\"tools\",\"enabled\":true,\"draft\":false,\"parameters\":{\"type\":\"object\",\"properties\":{\"b\":1,\"a\":2}},\"tags\":[\"a\",\"b\"],\"bad\":\"{oops\",\"num\":\"42\",\"blank\":\"\"}}"
+  },
+  {
+   "content": "---\r\nname: crlf\r\n---\r\nbody",
+   "parsed": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}"
+  },
+  {
+   "content": "no front matter",
+   "parsed": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}"
+  },
+  {
+   "content": "",
+   "parsed": "{\"error\":\"Skill files must start with frontmatter delimited by ---\"}"
+  },
+  {
+   "content": "---\ndescription: only\n---\nbody",
+   "parsed": "{\"error\":\"Skill frontmatter must include name\"}"
+  },
+  {
+   "content": "---\nname: false\n---\nbody",
+   "parsed": "{\"error\":\"Skill frontmatter must include name\"}"
+  },
+  {
+   "content": "---\nname: 0\n---\nbody",
+   "parsed": "{\"name\":\"0\",\"description\":\"\",\"instructions\":\"body\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\nname: true\ndescription: true\n---\nbody",
+   "parsed": "{\"name\":\"true\",\"description\":\"true\",\"instructions\":\"body\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\n  name :  Spacey  \n: orphan\nno colon\nkey with space: v\nurl: http://x:80/y\n---\n\n\n  indented \n\n",
+   "parsed": "{\"name\":\"Spacey\",\"description\":\"\",\"instructions\":\"indented\",\"metadata\":{\"\":\"orphan\",\"key with space\":\"v\",\"url\":\"http://x:80/y\"}}"
+  },
+  {
+   "content": "---\nname: x\n---body",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"instructions\":\"body\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\nname: x\n---\n---\nmore --- text",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"instructions\":\"---\\nmore --- text\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\nname: x\nname: second\n---\nbody",
+   "parsed": "{\"name\":\"second\",\"description\":\"\",\"instructions\":\"body\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\nname: [1,2]\n---\nbody",
+   "parsed": "{\"name\":\"1,2\",\"description\":\"\",\"instructions\":\"body\",\"metadata\":{}}"
+  },
+  {
+   "content": "---\nname: x\ncommand: grep {a} {b}\n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"instructions\":\"body\",\"metadata\":{\"command\":\"grep {a} {b}\"}}"
+  },
+  {
+   "content": "---\nname: x\nlearning: {\"managed\":true,\"n\":{\"b\":1,\"a\":2}}\n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"instructions\":\"body\",\"metadata\":{\"learning\":{\"managed\":true,\"n\":{\"b\":1,\"a\":2}}}}"
+  },
+  {
+   "content": "---\nname: x\nnote: <b>&</b>   end\n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"instructions\":\"body\",\"metadata\":{\"note\":\"<b>&</b>   end\"}}"
+  }
+ ],
+ "skillFiles": [
+  {
+   "content": "---\nname: a\ndescription: d\n---\nbody",
+   "parsed": "{\"name\":\"a\",\"description\":\"d\",\"metadata\":{\"name\":\"a\",\"description\":\"d\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:a\"}"
+  },
+  {
+   "content": "---\nname: Hello\n---\n",
+   "parsed": "{\"name\":\"hello\",\"description\":\"\",\"metadata\":{\"name\":\"Hello\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"\",\"key\":\"user:3:hello\"}"
+  },
+  {
+   "content": "---\nname: x\ncategory: tools\nenabled: true\ndraft: false\nparameters: {\"type\":\"object\",\"properties\":{\"b\":1,\"a\":2}}\ntags: [\"a\",\"b\"]\nbad: {oops\nnum: 42\nblank:\n---\n\nBody  \n",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"category\":\"over\",\"enabled\":true,\"draft\":false,\"parameters\":{\"type\":\"object\",\"properties\":{\"b\":1,\"a\":2}},\"tags\":[\"a\",\"b\"],\"bad\":\"{oops\",\"num\":\"42\",\"extra\":1},\"instructions\":\"Body\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\r\nname: crlf\r\n---\r\nbody",
+   "parsed": null
+  },
+  {
+   "content": "no front matter",
+   "parsed": null
+  },
+  {
+   "content": "",
+   "parsed": null
+  },
+  {
+   "content": "---\ndescription: only\n---\nbody",
+   "parsed": null
+  },
+  {
+   "content": "---\nname: false\n---\nbody",
+   "parsed": null
+  },
+  {
+   "content": "---\nname: 0\n---\nbody",
+   "parsed": "{\"name\":\"0\",\"description\":\"\",\"metadata\":{\"name\":\"0\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:0\"}"
+  },
+  {
+   "content": "---\n  name :  Spacey  \n: orphan\nno colon\nkey with space: v\nurl: http://x:80/y\n---\n\n\n  indented \n\n",
+   "parsed": null
+  },
+  {
+   "content": "---\nname: x\n---body",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname: x\n---\n---\nmore --- text",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"---\\nmore --- text\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname: x\nname: second\n---\nbody",
+   "parsed": "{\"name\":\"second\",\"description\":\"\",\"metadata\":{\"name\":\"second\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:second\"}"
+  },
+  {
+   "content": "---\nname: [1,2]\n---\nbody",
+   "parsed": "{\"name\":\"1-2\",\"description\":\"\",\"metadata\":{\"name\":[1,2],\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:1-2\"}"
+  },
+  {
+   "content": "---\nname: x\ncommand: grep {a} {b}\n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"command\":\"grep {a} {b}\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname: x\nlearning: {\"managed\":true,\"n\":{\"b\":1,\"a\":2}}\n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"learning\":{\"managed\":true,\"n\":{\"b\":1,\"a\":2}},\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname: x\nnote: <b>&</b>   end\n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname: Mixed Case_Name!\ndescription: x\nenabled: false\n---\nbody",
+   "parsed": "{\"name\":\"mixed-case-name\",\"description\":\"x\",\"metadata\":{\"name\":\"Mixed Case_Name!\",\"description\":\"x\",\"enabled\":true,\"extra\":1,\"category\":\"over\"},\"instructions\":\"body\",\"key\":\"user:3:mixed-case-name\"}"
+  },
+  {
+   "content": "---\nname: x\ndescription:   \n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"description\":\"\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname: x\nkey-with-dash: v\n9starts: v\n_under: v\n---\nbody",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"key-with-dash\":\"v\",\"9starts\":\"v\",\"_under\":\"v\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname: x\ndescription: line1\nsecond: a:b:c\n---\nbody\n---\nx",
+   "parsed": "{\"name\":\"x\",\"description\":\"line1\",\"metadata\":{\"name\":\"x\",\"description\":\"line1\",\"second\":\"a:b:c\",\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"body\\n---\\nx\",\"key\":\"user:3:x\"}"
+  },
+  {
+   "content": "---\nname:\n---\nbody",
+   "parsed": null
+  },
+  {
+   "content": "---\nname: x\nflag: yes\nempty_obj: {}\nempty_list: []\narr: [1, \"2\", null]\n---\n",
+   "parsed": "{\"name\":\"x\",\"description\":\"\",\"metadata\":{\"name\":\"x\",\"flag\":\"yes\",\"empty_obj\":{},\"empty_list\":[],\"arr\":[1,\"2\",null],\"extra\":1,\"category\":\"over\",\"enabled\":true},\"instructions\":\"\",\"key\":\"user:3:x\"}"
+  }
+ ],
+ "names": [
+  {
+   "input": "Hello World",
+   "normalized": "hello-world"
+  },
+  {
+   "input": " spaced  out ",
+   "normalized": "spaced-out"
+  },
+  {
+   "input": "--a--b--",
+   "normalized": "a-b"
+  },
+  {
+   "input": "!!!",
+   "normalized": ""
+  },
+  {
+   "input": "UPPER",
+   "normalized": "upper"
+  },
+  {
+   "input": "Ünï Cöde",
+   "normalized": "n-c-de"
+  },
+  {
+   "input": "a/b\\c",
+   "normalized": "a-b-c"
+  },
+  {
+   "input": "x_y",
+   "normalized": "x-y"
+  },
+  {
+   "input": "",
+   "normalized": ""
+  },
+  {
+   "input": null,
+   "normalized": ""
+  },
+  {
+   "input": "__undefined__",
+   "normalized": ""
+  },
+  {
+   "input": 5,
+   "normalized": "5"
+  },
+  {
+   "input": true,
+   "normalized": "true"
+  },
+  {
+   "input": "a b",
+   "normalized": "a-b"
+  },
+  {
+   "input": "  　tab\t",
+   "normalized": "tab"
+  }
+ ],
+ "frontmatters": [
+  {
+   "content": "---\nname: a\ndescription: \"quoted\"\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"a\",\"description\":\"quoted\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: 'single'\ndescription: 'x'\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"single\",\"description\":\"x\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: a\ndescription: >\n  folded\n  text   here\n\nkey: after\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"a\",\"description\":\"folded text here\",\"key\":\"after\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: a\ndescription: |\n  line1\n  line2\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"a\",\"description\":\"line1\\nline2\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: a\ndescription: >-\n  strip\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"a\",\"description\":\"strip\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: a\ndescription: |+\n  keep\n\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"a\",\"description\":\"keep\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\r\nname: crlf\r\ndescription: win\r\n---\r\nbody",
+   "parsed": "{\"data\":{\"name\":\"crlf\",\"description\":\"win\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: a\nnested:\n  inner: 1\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"a\",\"nested\":\"\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: \"mismatched\ndescription: x\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"\\\"mismatched\",\"description\":\"x\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: a\n---",
+   "parsed": "{\"data\":{\"name\":\"a\"},\"body\":\"\"}"
+  },
+  {
+   "content": "---\nname: a\n---\n",
+   "parsed": "{\"data\":{\"name\":\"a\"},\"body\":\"\"}"
+  },
+  {
+   "content": "nothing",
+   "parsed": "null"
+  },
+  {
+   "content": "---\nname: a\nk-v: v\nK_2: w\n9x: no\n---\nbody",
+   "parsed": "{\"data\":{\"name\":\"a\",\"k-v\":\"v\",\"K_2\":\"w\"},\"body\":\"body\"}"
+  },
+  {
+   "content": "---\nname: \"\"\n---\nb",
+   "parsed": "{\"data\":{\"name\":\"\"},\"body\":\"b\"}"
+  },
+  {
+   "content": "---\nname: \"x\"y\"\n---\nb",
+   "parsed": "{\"data\":{\"name\":\"x\\\"y\"},\"body\":\"b\"}"
+  }
+ ],
+ "refs": [
+  {
+   "input": "acme/skills/pdf",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "https://skills.sh/acme/skills/pdf",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "http://www.skills.sh/acme/skills/pdf/",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "https://skills.sh/acme/skills/pdf?x=1#y",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "npx skills add acme/skills --skill pdf",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "npx skills add https://github.com/acme/skills.git --skill \"pdf\"",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "skills add https://www.github.com/acme/skills/ -s 'pdf'",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "npx skills add nope --skill pdf",
+   "parsed": "null"
+  },
+  {
+   "input": "acme/skills",
+   "parsed": "null"
+  },
+  {
+   "input": "a/b/c/d",
+   "parsed": "null"
+  },
+  {
+   "input": "a b/c/d",
+   "parsed": "null"
+  },
+  {
+   "input": "  acme/skills/pdf  ",
+   "parsed": "{\"source\":\"acme/skills\",\"skillId\":\"pdf\",\"name\":\"pdf\"}"
+  },
+  {
+   "input": "",
+   "parsed": "null"
+  },
+  {
+   "input": "acme/skills/pdf\nacme/x/y",
+   "parsed": "null"
+  },
+  {
+   "input": "acme/s.k_i-lls/p.d-f_1",
+   "parsed": "{\"source\":\"acme/s.k_i-lls\",\"skillId\":\"p.d-f_1\",\"name\":\"p.d-f_1\"}"
+  }
+ ],
+ "featured": [
+  {
+   "html": "<html>x \"initialSkills\":[{\\\"source\\\":\\\"a/b\\\",\\\"skillId\\\":\\\"one\\\",\\\"name\\\":\\\"One\\\",\\\"installs\\\":5,\\\"weeklyInstalls\\\":[1,22],\\\"isOfficial\\\":true},{\\\"source\\\":\\\"a/b\\\",\\\"skillId\\\":\\\"one\\\",\\\"name\\\":\\\"dup\\\",\\\"installs\\\":6},{\\\"source\\\":\\\"bad src\\\",\\\"skillId\\\":\\\"x\\\",\\\"name\\\":\\\"y\\\",\\\"installs\\\":1},{\\\"source\\\":\\\"c/d\\\",\\\"skillId\\\":\\\"two\\\",\\\"name\\\":\\\"\\\",\\\"installs\\\":9}]</html>",
+   "parsed": "[{\"id\":\"a/b/one\",\"source\":\"a/b\",\"skillId\":\"one\",\"name\":\"One\",\"installs\":5,\"official\":true},{\"id\":\"c/d/two\",\"source\":\"c/d\",\"skillId\":\"two\",\"name\":\"two\",\"installs\":9,\"official\":false}]"
+  },
+  {
+   "html": "<html>nothing</html>",
+   "parsed": "[]"
+  },
+  {
+   "html": "before {\\\"source\\\":\\\"x/y\\\",\\\"skillId\\\":\\\"early\\\",\\\"name\\\":\\\"E\\\",\\\"installs\\\":1} \"initialSkills\":[{\\\"source\\\":\\\"a/b\\\",\\\"skillId\\\":\\\"late\\\",\\\"name\\\":\\\"L\\\",\\\"installs\\\":2}]",
+   "parsed": "[{\"id\":\"a/b/late\",\"source\":\"a/b\",\"skillId\":\"late\",\"name\":\"L\",\"installs\":2,\"official\":false}]"
+  },
+  {
+   "html": "\"initialSkills\":[{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s0\\\",\\\"name\\\":\\\"S0\\\",\\\"installs\\\":0},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s1\\\",\\\"name\\\":\\\"S1\\\",\\\"installs\\\":1},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s2\\\",\\\"name\\\":\\\"S2\\\",\\\"installs\\\":2},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s3\\\",\\\"name\\\":\\\"S3\\\",\\\"installs\\\":3},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s4\\\",\\\"name\\\":\\\"S4\\\",\\\"installs\\\":4},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s5\\\",\\\"name\\\":\\\"S5\\\",\\\"installs\\\":5},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s6\\\",\\\"name\\\":\\\"S6\\\",\\\"installs\\\":6},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s7\\\",\\\"name\\\":\\\"S7\\\",\\\"installs\\\":7},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s8\\\",\\\"name\\\":\\\"S8\\\",\\\"installs\\\":8},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s9\\\",\\\"name\\\":\\\"S9\\\",\\\"installs\\\":9},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s10\\\",\\\"name\\\":\\\"S10\\\",\\\"installs\\\":10},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s11\\\",\\\"name\\\":\\\"S11\\\",\\\"installs\\\":11},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s12\\\",\\\"name\\\":\\\"S12\\\",\\\"installs\\\":12},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s13\\\",\\\"name\\\":\\\"S13\\\",\\\"installs\\\":13},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s14\\\",\\\"name\\\":\\\"S14\\\",\\\"installs\\\":14},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s15\\\",\\\"name\\\":\\\"S15\\\",\\\"installs\\\":15},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s16\\\",\\\"name\\\":\\\"S16\\\",\\\"installs\\\":16},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s17\\\",\\\"name\\\":\\\"S17\\\",\\\"installs\\\":17},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s18\\\",\\\"name\\\":\\\"S18\\\",\\\"installs\\\":18},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s19\\\",\\\"name\\\":\\\"S19\\\",\\\"installs\\\":19},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s20\\\",\\\"name\\\":\\\"S20\\\",\\\"installs\\\":20},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s21\\\",\\\"name\\\":\\\"S21\\\",\\\"installs\\\":21},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s22\\\",\\\"name\\\":\\\"S22\\\",\\\"installs\\\":22},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s23\\\",\\\"name\\\":\\\"S23\\\",\\\"installs\\\":23},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s24\\\",\\\"name\\\":\\\"S24\\\",\\\"installs\\\":24},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s25\\\",\\\"name\\\":\\\"S25\\\",\\\"installs\\\":25},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s26\\\",\\\"name\\\":\\\"S26\\\",\\\"installs\\\":26},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s27\\\",\\\"name\\\":\\\"S27\\\",\\\"installs\\\":27},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s28\\\",\\\"name\\\":\\\"S28\\\",\\\"installs\\\":28},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s29\\\",\\\"name\\\":\\\"S29\\\",\\\"installs\\\":29},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s30\\\",\\\"name\\\":\\\"S30\\\",\\\"installs\\\":30},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s31\\\",\\\"name\\\":\\\"S31\\\",\\\"installs\\\":31},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s32\\\",\\\"name\\\":\\\"S32\\\",\\\"installs\\\":32},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s33\\\",\\\"name\\\":\\\"S33\\\",\\\"installs\\\":33},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s34\\\",\\\"name\\\":\\\"S34\\\",\\\"installs\\\":34},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s35\\\",\\\"name\\\":\\\"S35\\\",\\\"installs\\\":35},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s36\\\",\\\"name\\\":\\\"S36\\\",\\\"installs\\\":36},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s37\\\",\\\"name\\\":\\\"S37\\\",\\\"installs\\\":37},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s38\\\",\\\"name\\\":\\\"S38\\\",\\\"installs\\\":38},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s39\\\",\\\"name\\\":\\\"S39\\\",\\\"installs\\\":39},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s40\\\",\\\"name\\\":\\\"S40\\\",\\\"installs\\\":40},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s41\\\",\\\"name\\\":\\\"S41\\\",\\\"installs\\\":41},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s42\\\",\\\"name\\\":\\\"S42\\\",\\\"installs\\\":42},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s43\\\",\\\"name\\\":\\\"S43\\\",\\\"installs\\\":43},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s44\\\",\\\"name\\\":\\\"S44\\\",\\\"installs\\\":44},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s45\\\",\\\"name\\\":\\\"S45\\\",\\\"installs\\\":45},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s46\\\",\\\"name\\\":\\\"S46\\\",\\\"installs\\\":46},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s47\\\",\\\"name\\\":\\\"S47\\\",\\\"installs\\\":47},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s48\\\",\\\"name\\\":\\\"S48\\\",\\\"installs\\\":48},{\\\"source\\\":\\\"o/r\\\",\\\"skillId\\\":\\\"s49\\\",\\\"name\\\":\\\"S49\\\",\\\"installs\\\":49}]",
+   "parsed": "[{\"id\":\"o/r/s0\",\"source\":\"o/r\",\"skillId\":\"s0\",\"name\":\"S0\",\"installs\":0,\"official\":false},{\"id\":\"o/r/s1\",\"source\":\"o/r\",\"skillId\":\"s1\",\"name\":\"S1\",\"installs\":1,\"official\":false},{\"id\":\"o/r/s2\",\"source\":\"o/r\",\"skillId\":\"s2\",\"name\":\"S2\",\"installs\":2,\"official\":false},{\"id\":\"o/r/s3\",\"source\":\"o/r\",\"skillId\":\"s3\",\"name\":\"S3\",\"installs\":3,\"official\":false},{\"id\":\"o/r/s4\",\"source\":\"o/r\",\"skillId\":\"s4\",\"name\":\"S4\",\"installs\":4,\"official\":false},{\"id\":\"o/r/s5\",\"source\":\"o/r\",\"skillId\":\"s5\",\"name\":\"S5\",\"installs\":5,\"official\":false},{\"id\":\"o/r/s6\",\"source\":\"o/r\",\"skillId\":\"s6\",\"name\":\"S6\",\"installs\":6,\"official\":false},{\"id\":\"o/r/s7\",\"source\":\"o/r\",\"skillId\":\"s7\",\"name\":\"S7\",\"installs\":7,\"official\":false},{\"id\":\"o/r/s8\",\"source\":\"o/r\",\"skillId\":\"s8\",\"name\":\"S8\",\"installs\":8,\"official\":false},{\"id\":\"o/r/s9\",\"source\":\"o/r\",\"skillId\":\"s9\",\"name\":\"S9\",\"installs\":9,\"official\":false},{\"id\":\"o/r/s10\",\"source\":\"o/r\",\"skillId\":\"s10\",\"name\":\"S10\",\"installs\":10,\"official\":false},{\"id\":\"o/r/s11\",\"source\":\"o/r\",\"skillId\":\"s11\",\"name\":\"S11\",\"installs\":11,\"official\":false},{\"id\":\"o/r/s12\",\"source\":\"o/r\",\"skillId\":\"s12\",\"name\":\"S12\",\"installs\":12,\"official\":false},{\"id\":\"o/r/s13\",\"source\":\"o/r\",\"skillId\":\"s13\",\"name\":\"S13\",\"installs\":13,\"official\":false},{\"id\":\"o/r/s14\",\"source\":\"o/r\",\"skillId\":\"s14\",\"name\":\"S14\",\"installs\":14,\"official\":false},{\"id\":\"o/r/s15\",\"source\":\"o/r\",\"skillId\":\"s15\",\"name\":\"S15\",\"installs\":15,\"official\":false},{\"id\":\"o/r/s16\",\"source\":\"o/r\",\"skillId\":\"s16\",\"name\":\"S16\",\"installs\":16,\"official\":false},{\"id\":\"o/r/s17\",\"source\":\"o/r\",\"skillId\":\"s17\",\"name\":\"S17\",\"installs\":17,\"official\":false},{\"id\":\"o/r/s18\",\"source\":\"o/r\",\"skillId\":\"s18\",\"name\":\"S18\",\"installs\":18,\"official\":false},{\"id\":\"o/r/s19\",\"source\":\"o/r\",\"skillId\":\"s19\",\"name\":\"S19\",\"installs\":19,\"official\":false},{\"id\":\"o/r/s20\",\"source\":\"o/r\",\"skillId\":\"s20\",\"name\":\"S20\",\"installs\":20,\"official\":false},{\"id\":\"o/r/s21\",\"source\":\"o/r\",\"skillId\":\"s21\",\"name\":\"S21\",\"installs\":21,\"official\":false},{\"id\":\"o/r/s22\",\"source\":\"o/r\",\"skillId\":\"s22\",\"name\":\"S22\",\"installs\":22,\"official\":false},{\"id\":\"o/r/s23\",\"source\":\"o/r\",\"skillId\":\"s23\",\"name\":\"S23\",\"installs\":23,\"official\":false},{\"id\":\"o/r/s24\",\"source\":\"o/r\",\"skillId\":\"s24\",\"name\":\"S24\",\"installs\":24,\"official\":false},{\"id\":\"o/r/s25\",\"source\":\"o/r\",\"skillId\":\"s25\",\"name\":\"S25\",\"installs\":25,\"official\":false},{\"id\":\"o/r/s26\",\"source\":\"o/r\",\"skillId\":\"s26\",\"name\":\"S26\",\"installs\":26,\"official\":false},{\"id\":\"o/r/s27\",\"source\":\"o/r\",\"skillId\":\"s27\",\"name\":\"S27\",\"installs\":27,\"official\":false},{\"id\":\"o/r/s28\",\"source\":\"o/r\",\"skillId\":\"s28\",\"name\":\"S28\",\"installs\":28,\"official\":false},{\"id\":\"o/r/s29\",\"source\":\"o/r\",\"skillId\":\"s29\",\"name\":\"S29\",\"installs\":29,\"official\":false},{\"id\":\"o/r/s30\",\"source\":\"o/r\",\"skillId\":\"s30\",\"name\":\"S30\",\"installs\":30,\"official\":false},{\"id\":\"o/r/s31\",\"source\":\"o/r\",\"skillId\":\"s31\",\"name\":\"S31\",\"installs\":31,\"official\":false},{\"id\":\"o/r/s32\",\"source\":\"o/r\",\"skillId\":\"s32\",\"name\":\"S32\",\"installs\":32,\"official\":false},{\"id\":\"o/r/s33\",\"source\":\"o/r\",\"skillId\":\"s33\",\"name\":\"S33\",\"installs\":33,\"official\":false},{\"id\":\"o/r/s34\",\"source\":\"o/r\",\"skillId\":\"s34\",\"name\":\"S34\",\"installs\":34,\"official\":false},{\"id\":\"o/r/s35\",\"source\":\"o/r\",\"skillId\":\"s35\",\"name\":\"S35\",\"installs\":35,\"official\":false}]"
+  }
+ ],
+ "notes": [
+  {
+   "body": "plain body",
+   "result": "## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nplain body"
+  },
+  {
+   "body": "\n\nleading newlines",
+   "result": "## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nleading newlines"
+  },
+  {
+   "body": "## NeoAgent Notes\nalready",
+   "result": "## NeoAgent Notes\nalready"
+  },
+  {
+   "body": "x\n## NeoAgent Notes\ny",
+   "result": "x\n## NeoAgent Notes\ny"
+  },
+  {
+   "body": "x\n## NeoAgent Notes extra",
+   "result": "## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\nx\n## NeoAgent Notes extra"
+  },
+  {
+   "body": "",
+   "result": "## NeoAgent Notes\n\nMap any generic tool references in this skill to NeoAgent equivalents:\n- shell and scripts (terminal, bash, exec): `execute_command`\n- local files and code search (read, write, patch, grep): `read_file`, `search_files`, `write_file`, `edit_file`\n- remote pages and APIs (web_extract, web_fetch, browser): `http_request`, `web_search`, and `browser_*` tools\n- schedules (cronjob, cron): `create_task`\n- memory and messages (memory, send_message): `memory_save`, `memory_recall`, `send_message`\n\n"
+  }
+ ],
+ "templates": [
+  {
+   "template": "echo hi",
+   "valid": true
+  },
+  {
+   "template": "grep {pattern} {file}",
+   "valid": true
+  },
+  {
+   "template": "a;b",
+   "valid": false
+  },
+  {
+   "template": "a|b",
+   "valid": false
+  },
+  {
+   "template": "a && b",
+   "valid": false
+  },
+  {
+   "template": "`x`",
+   "valid": false
+  },
+  {
+   "template": "$HOME",
+   "valid": false
+  },
+  {
+   "template": "{a;b} ok",
+   "valid": true
+  },
+  {
+   "template": "x\ny",
+   "valid": false
+  },
+  {
+   "template": "(sub)",
+   "valid": false
+  },
+  {
+   "template": "a\\b",
+   "valid": false
+  },
+  {
+   "template": "<in",
+   "valid": false
+  },
+  {
+   "template": "out>",
+   "valid": false
+  },
+  {
+   "template": "echo {a{b}} c",
+   "valid": false
+  },
+  {
+   "template": "a {} b",
+   "valid": true
+  },
+  {
+   "template": "cat {x}.txt",
+   "valid": true
+  }
+ ],
+ "prompts": [
+  {
+   "options": {
+    "userId": 7
+   },
+   "prompt": "\n## Installed Skills\nThese are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task: load its full instructions by passing its name to `list_skills`, then follow them.\n- `epsilon` [Dev] Tool without parameters\n- `beta` [user] x y\n- `delta` A tool\n- `alpha` [ops] word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word... Trigger: word word word word word word word word word word word word word word word word word word word word word word word word...\n- `mine` [ops] owned\n- `zeta` [ops / builtin] Last one Trigger: when zeta\n- `emoji` [zz] 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\ud83d..."
+  },
+  {
+   "options": {
+    "userId": 8
+   },
+   "prompt": "\n## Installed Skills\nThese are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task: load its full instructions by passing its name to `list_skills`, then follow them.\n- `epsilon` [Dev] Tool without parameters\n- `beta` [user] x y\n- `delta` A tool\n- `theirs` owned by 8\n- `alpha` [ops] word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word... Trigger: word word word word word word word word word word word word word word word word word word word word word word word word...\n- `zeta` [ops / builtin] Last one Trigger: when zeta\n- `emoji` [zz] 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\ud83d..."
+  },
+  {
+   "options": {
+    "userId": 7,
+    "maxTotalChars": 400
+   },
+   "prompt": "\n## Installed Skills\nThese are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task: load its full instructions by passing its name to `list_skills`, then follow them.\n- `epsilon` [Dev] Tool without parameters\n- `beta` [user] x y\n- `delta` A tool\n- ...and 4 more skills. Use `list_skills` if you need the full catalog."
+  },
+  {
+   "options": {
+    "userId": 7,
+    "maxTotalChars": 700,
+    "maxDescriptionChars": 30,
+    "maxTriggerChars": 10
+   },
+   "prompt": "\n## Installed Skills\nThese are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task: load its full instructions by passing its name to `list_skills`, then follow them.\n- `epsilon` [Dev] Tool without parameters\n- `beta` [user] x y\n- `delta` A tool\n- `alpha` [ops] word word word word word word... Trigger: word word...\n- `mine` [ops] owned\n- `zeta` [ops / builtin] Last one Trigger: when zeta\n- `emoji` [zz] 😀😀😀😀😀😀😀😀😀😀😀😀😀😀\ud83d..."
+  },
+  {
+   "options": {
+    "userId": 7,
+    "maxTotalChars": 120
+   },
+   "prompt": "\n## Installed Skills\nThese are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task: load its full instructions by passing its name to `list_skills`, then follow them.\n- ...and 7 more skills. Use `list_skills` if you need the full catalog."
+  },
+  {
+   "options": {},
+   "prompt": "\n## Installed Skills\nThese are reusable local workflows loaded into NeoAgent. Use a matching skill when it clearly fits the task: load its full instructions by passing its name to `list_skills`, then follow them.\n- `epsilon` [Dev] Tool without parameters\n- `beta` [user] x y\n- `delta` A tool\n- `theirs` owned by 8\n- `alpha` [ops] word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word... Trigger: word word word word word word word word word word word word word word word word word word word word word word word word...\n- `mine` [ops] owned\n- `zeta` [ops / builtin] Last one Trigger: when zeta\n- `emoji` [zz] 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\ud83d..."
+  }
+ ],
+ "emptyPrompt": "",
+ "toolDefinitions": [
+  {
+   "userId": 7,
+   "tools": "[{\"name\":\"delta\",\"description\":\"A tool\",\"parameters\":{\"type\":\"object\",\"properties\":{\"q\":{\"type\":\"string\"}}}},{\"name\":\"epsilon\",\"description\":\"Tool without parameters\",\"parameters\":{\"type\":\"object\",\"properties\":{}}}]"
+  },
+  {
+   "userId": 8,
+   "tools": "[{\"name\":\"delta\",\"description\":\"A tool\",\"parameters\":{\"type\":\"object\",\"properties\":{\"q\":{\"type\":\"string\"}}}},{\"name\":\"epsilon\",\"description\":\"Tool without parameters\",\"parameters\":{\"type\":\"object\",\"properties\":{}}}]"
+  }
+ ],
+ "execution": [
+  {
+   "tool": "say",
+   "args": "{\"text\":\"it's a \\\"test\\\" $HOME `x`\",\"other\":5}",
+   "userId": 7,
+   "result": "{\"received\":\"echo 'it'\\\\''s a \\\"test\\\" $HOME `x`' 'it'\\\\''s a \\\"test\\\" $HOME `x`' '5'\",\"userId\":7,\"exitCode\":0}"
+  },
+  {
+   "tool": "say",
+   "args": "{\"text\":null,\"other\":[\"a\",\"b\"]}",
+   "userId": 7,
+   "result": "{\"received\":\"echo '' '' 'a,b'\",\"userId\":7,\"exitCode\":0}"
+  },
+  {
+   "tool": "say",
+   "args": "{\"text\":\"\",\"other\":{\"k\":1},\"unused\":\"x\"}",
+   "userId": 7,
+   "result": "{\"received\":\"echo '' '' '[object Object]'\",\"userId\":7,\"exitCode\":0}"
+  },
+  {
+   "tool": "say",
+   "args": "{\"text\":\"x\"}",
+   "userId": "abc",
+   "result": "{\"error\":\"Missing or invalid userId\"}"
+  },
+  {
+   "tool": "say",
+   "args": "{}",
+   "userId": 0,
+   "result": "{\"error\":\"Missing or invalid userId\"}"
+  },
+  {
+   "tool": "bad",
+   "args": "{}",
+   "userId": 7,
+   "result": "{\"error\":\"Skill 'bad' has an invalid command template\"}"
+  },
+  {
+   "tool": "doc",
+   "args": "{\"a\":1,\"b\":\"two\"}",
+   "userId": 7,
+   "result": "{\"error\":\"Skill 'doc' is documentation-only and cannot execute directly.\",\"skill\":\"doc\",\"instructions\":\"body\",\"args\":{\"a\":1,\"b\":\"two\"}}"
+  },
+  {
+   "tool": "off",
+   "args": "{}",
+   "userId": 7,
+   "result": "{\"error\":\"Skill 'off' is disabled\"}"
+  },
+  {
+   "tool": "fail",
+   "args": "{\"x\":\"y\"}",
+   "userId": 7,
+   "result": "{\"received\":\"echo FAIL 'y'\",\"userId\":7,\"exitCode\":2}"
+  },
+  {
+   "tool": "missing",
+   "args": "{}",
+   "userId": 7,
+   "result": "null"
+  }
+ ],
+ "executionNoRuntime": "{\"error\":\"VM runtime is required\"}",
+ "metrics": [
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "bad",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "bad",
+   "invocation_count": 0,
+   "success_count": 0,
+   "failure_count": 1
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "doc",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "doc",
+   "invocation_count": 0,
+   "success_count": 0,
+   "failure_count": 1
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "fail",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "fail",
+   "invocation_count": 0,
+   "success_count": 0,
+   "failure_count": 1
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "off",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "off",
+   "invocation_count": 0,
+   "success_count": 0,
+   "failure_count": 1
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 0,
+   "success_count": 1,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 0,
+   "success_count": 1,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 0,
+   "success_count": 1,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 1,
+   "success_count": 0,
+   "failure_count": 0
+  },
+  {
+   "user_id": 7,
+   "agent_id": null,
+   "skill_name": "say",
+   "invocation_count": 0,
+   "success_count": 0,
+   "failure_count": 1
+  }
+ ]
+}

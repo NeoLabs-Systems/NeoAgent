@@ -1,0 +1,136 @@
+[
+ {
+  "run": {
+   "userId": 1,
+   "agentId": "a1",
+   "runId": "r1"
+  },
+  "args": {},
+  "result": {
+   "error": "name, responsibility and reason are required."
+  },
+  "row": null
+ },
+ {
+  "run": {
+   "userId": 1,
+   "agentId": "a1",
+   "runId": "r1",
+   "alreadyCreatedInRun": true
+  },
+  "args": {
+   "name": "X",
+   "responsibility": "r",
+   "reason": "y"
+  },
+  "result": {
+   "error": "A run may create one agent. Use the one you created."
+  },
+  "row": null
+ },
+ {
+  "run": {
+   "userId": 1,
+   "agentId": "a1",
+   "runId": "run-task"
+  },
+  "args": {
+   "name": "X",
+   "responsibility": "r",
+   "reason": "y"
+  },
+  "result": {
+   "error": "Agents working on a task for another agent cannot create agents. Report the need in your result instead."
+  },
+  "row": null
+ },
+ {
+  "run": {
+   "userId": 2,
+   "agentId": null,
+   "runId": "r2"
+  },
+  "args": {
+   "name": "X",
+   "responsibility": "r",
+   "reason": "y"
+  },
+  "result": {
+   "error": "This account already has 12 agents, the most it may have. Hand the work to one of them, or ask the user to archive one."
+  },
+  "row": null
+ },
+ {
+  "run": {
+   "userId": 1,
+   "agentId": "main",
+   "runId": "r3"
+  },
+  "args": {
+   "name": "  Research Bot  ",
+   "responsibility": " digs ",
+   "reason": " needed ",
+   "description": " d ",
+   "instructions": " i ",
+   "ask_first": [
+    "user_contact",
+    "nope"
+   ],
+   "not_allowed": [
+    "network_write"
+   ]
+  },
+  "result": {
+   "id": true,
+   "slug": "research-bot",
+   "displayName": "Research Bot"
+  },
+  "row": {
+   "slug": "research-bot",
+   "display_name": "Research Bot",
+   "description": "d",
+   "responsibilities": "digs",
+   "instructions": "i",
+   "status": "active",
+   "is_default": 0,
+   "can_delegate": 0,
+   "can_be_delegated_to": 1,
+   "delegate_targets_json": "[]",
+   "tool_restrictions_json": "{\"network_write\":\"deny\",\"user_contact\":\"require_approval\"}",
+   "created_by_agent_id": "a1",
+   "creation_reason": "needed"
+  }
+ },
+ {
+  "run": {
+   "userId": 1,
+   "agentId": "a1",
+   "runId": "r4"
+  },
+  "args": {
+   "name": "research bot!",
+   "responsibility": "r",
+   "reason": "y"
+  },
+  "result": {
+   "thrown": "An agent with the identifier \"research-bot\" already exists."
+  },
+  "row": null
+ },
+ {
+  "run": {
+   "userId": 1,
+   "agentId": "a1",
+   "runId": "r5"
+  },
+  "args": {
+   "name": "!!!",
+   "responsibility": "r",
+   "reason": "y"
+  },
+  "result": {
+   "thrown": "Agent slug or display name is required."
+  },
+  "row": null
+ }
+]

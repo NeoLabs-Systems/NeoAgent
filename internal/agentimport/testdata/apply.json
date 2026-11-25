@@ -1,0 +1,2622 @@
+{
+  "fresh": {
+    "entries": [
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "NOUS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "ANTHROPIC_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (OpenClaw has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "BRAVE_SEARCH_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "DEEPGRAM_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "ELEVENLABS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OLLAMA_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GROQ_API_KEY",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GITHUB_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "imported",
+        "name": "Jarvis → main agent",
+        "detail": "personality and instructions",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "imported",
+        "name": "Helper Bot",
+        "detail": "new agent \"helper-bot\"",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "Jarvis: about you",
+        "detail": "saved to core memory",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "Jarvis: 4 memories",
+        "detail": "",
+        "count": 4
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Jarvis: 2 already known",
+        "detail": "",
+        "count": 2
+      },
+      {
+        "kind": "Daily notes",
+        "status": "imported",
+        "name": "Jarvis",
+        "detail": "1 day",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "imported",
+        "name": "plain",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "imported",
+        "name": "greeter",
+        "detail": "with 1 file",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "imported",
+        "name": "Jarvis: anthropic::claude-sonnet-4",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "skipped",
+        "name": "openrouter::acme/x1",
+        "detail": "no key for this provider was found",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "imported",
+        "name": "remote",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "imported",
+        "name": "off",
+        "detail": "kept switched off",
+        "count": 1
+      },
+      {
+        "kind": "Setting",
+        "status": "imported",
+        "name": "timezone",
+        "detail": "Europe/Berlin",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Morning",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Often",
+        "detail": "paused; interval rounded to the nearest cron step",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Weekly",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Future",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Telegram",
+        "detail": "connects when NeoAgent restarts",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Telegram @alice",
+        "detail": "usernames cannot be allowed; add the numeric user id",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Telegram allowlist",
+        "detail": "4 allowed",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Discord",
+        "detail": "connects when NeoAgent restarts",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Discord allowlist",
+        "detail": "1 allowed",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "WhatsApp allowlist",
+        "detail": "2 allowed",
+        "count": 1
+      },
+      {
+        "kind": "Instructions",
+        "status": "skipped",
+        "name": "main/AGENTS.md",
+        "detail": "OpenClaw's operating manual for its own tools; copy any rules you added by hand",
+        "count": 1
+      },
+      {
+        "kind": "Sign-in",
+        "status": "skipped",
+        "name": "xai",
+        "detail": "OAuth sign-ins cannot be copied; sign in again under Admin → Providers in the app",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "second",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "local",
+        "detail": "runs a local program (npx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Past",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Shell",
+        "detail": "runs a shell command on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Broken",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "extra accounts",
+        "detail": "NeoAgent connects one account per platform; the first one was used",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "matrix",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OPENROUTER_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OLLAMA_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "HF_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "imported",
+        "name": "work",
+        "detail": "new agent \"work\"",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "Hermes: 5 memories",
+        "detail": "",
+        "count": 5
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Hermes: 2 already known",
+        "detail": "",
+        "count": 2
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "work: 1 memory",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "imported",
+        "name": "My Skill",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "exists",
+        "name": "Hermes",
+        "detail": "kept anthropic::claude-sonnet-4",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "imported",
+        "name": "web",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Digest",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Ping",
+        "detail": "paused; every 7m rounded to \"*/6 * * * *\"",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Once",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Standup",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "Telegram",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "another",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "stdio",
+        "detail": "runs a local program (uvx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Old",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Backup",
+        "detail": "runs a script on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "NoPrompt",
+        "detail": "it has no prompt",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Odd",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Signal",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      }
+    ],
+    "totals": [
+      "10 keys",
+      "3 agents",
+      "11 memories",
+      "1 day of notes",
+      "3 skills",
+      "1 model choice",
+      "3 MCP servers",
+      "1 setting",
+      "8 automations",
+      "5 chat settings"
+    ],
+    "prompt": "The user just moved from OpenClaw and Hermes Agent to NeoAgent. A script already imported keys, agents, memories, skills, automations, MCP servers and chat channels. Finish the move for the parts the script could not translate.\n\nYou run unattended: nobody is there to approve a tool call. Do not use execute_command, file writes or the browser. Work with memory_save, memory_update_core, create_task, list_tasks and mcp_add_server. If a tool is blocked or needs approval, do not retry it; put the exact change in your final message instead.\n\nFor each item below, either recreate it the NeoAgent way or decide it is not needed (a local filesystem MCP server is not, for example: NeoAgent has its own file tools). Never invent credentials: where a token is missing, say so in your final message. Do not change anything that was imported correctly.\n\n## Left behind\n- Model \"openrouter::acme/x1\": no key for this provider was found\n- Channel \"Telegram @alice\": usernames cannot be allowed; add the numeric user id\n- Instructions \"main/AGENTS.md\": OpenClaw's operating manual for its own tools; copy any rules you added by hand\n- Sign-in \"xai\": OAuth sign-ins cannot be copied; sign in again under Admin → Providers in the app\n- AI provider \"second\": NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it\n- MCP server \"local\": runs a local program (npx); NeoAgent connects to MCP servers by URL\n- Automation \"Past\": a one-time job whose time has passed\n- Automation \"Shell\": runs a shell command on this computer; NeoAgent's agent works on its own computer\n- Automation \"Broken\": its schedule could not be read\n- Channel \"extra accounts\": NeoAgent connects one account per platform; the first one was used\n- Channel \"WhatsApp\": WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)\n- Channel \"Slack\": NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations\n- Channel \"matrix\": not supported by NeoAgent\n- AI provider \"another\": NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it\n- MCP server \"stdio\": runs a local program (uvx); NeoAgent connects to MCP servers by URL\n- Automation \"Old\": a one-time job whose time has passed\n- Automation \"Backup\": runs a script on this computer; NeoAgent's agent works on its own computer\n- Automation \"NoPrompt\": it has no prompt\n- Automation \"Odd\": its schedule could not be read\n- Channel \"WhatsApp\": WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)\n- Channel \"Slack\": NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations\n- Channel \"Signal\": not supported by NeoAgent\n\n## Original definitions\n- MCP server \"local\" (OpenClaw): {\"command\":\"npx\",\"args\":[\"-y\",\"fs\"],\"env\":{\"API_TOKEN\":\"[hidden]\",\"PLAIN\":\"p\"}}\n- Automation \"Shell\" (OpenClaw): {\"schedule\":{\"kind\":\"cron\",\"expr\":\"* * * * *\"},\"kind\":\"command\",\"command\":\"ls\",\"token\":\"[hidden]\"}\n- MCP server \"stdio\" (Hermes Agent): {\"command\":\"uvx\",\"args\":[\"thing\"]}\n- Automation \"Backup\" (Hermes Agent): {\"schedule\":\"daily\",\"script\":\"backup.sh\",\"content\":\"#!/bin/sh\\ntar czf x.tgz .\\n\"}\n\n## Rules the user wrote by hand\nKeep the ones that still apply as memories or core memory; ignore anything specific to OpenClaw and Hermes Agent's own tooling.\n### Jarvis (OpenClaw) AGENTS.md\n# My rules\nAlways answer in German.\n\n\nEnd with one short notify_user message: what you set up, and what the user still needs to do themselves, with the exact place in NeoAgent to do it.",
+    "leftovers": true,
+    "state": {
+      "agents": [
+        {
+          "slug": "helper-bot",
+          "display_name": "Helper Bot",
+          "description": "Imported from OpenClaw",
+          "instructions": "You are the helper.",
+          "is_default": 0
+        },
+        {
+          "slug": "main",
+          "display_name": "Main",
+          "description": "Default personal AI contact and fallback agent.",
+          "instructions": "Your name is Jarvis.\n\nBe warm and brief.",
+          "is_default": 1
+        },
+        {
+          "slug": "work",
+          "display_name": "work",
+          "description": "Imported from Hermes Agent",
+          "instructions": "You are the work agent.",
+          "is_default": 0
+        }
+      ],
+      "core": {
+        "helper-bot": {
+          "profile": "",
+          "notes": ""
+        },
+        "main": {
+          "profile": "Name: Alex\nTime zone: Europe/Berlin\nNotes: likes tea",
+          "notes": ""
+        },
+        "work": {
+          "profile": "",
+          "notes": ""
+        }
+      },
+      "memories": [
+        {
+          "agent_id": "work",
+          "category": "projects",
+          "content": "Works on project X",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:work",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "contacts",
+          "content": "Anna is my sister: she lives in Hamburg",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        },
+        {
+          "agent_id": "main",
+          "category": "episodic",
+          "content": "Home automation: lights, blinds and heating are controlled through Home Assistant and the main hub in the hall closet nearby",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        },
+        {
+          "agent_id": "main",
+          "category": "identity",
+          "content": "Likes jazz",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "preferences",
+          "content": "Likes oat milk. Dislikes cilantro; hates early meetings.",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        },
+        {
+          "agent_id": "main",
+          "category": "episodic",
+          "content": "Lives in Berlin; works as a nurse at a clinic.",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "episodic",
+          "content": "Long entry: word word word word word word word word word word word word word word word word word word word word word word word word word word word",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "identity",
+          "content": "Name: Sam",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "preferences",
+          "content": "Prefers dark mode",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "preferences",
+          "content": "Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long.",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        }
+      ],
+      "mcp": [
+        {
+          "name": "remote",
+          "agent_id": "main",
+          "command": "https://mcp.example.test/sse",
+          "config": "{\"transport\":\"sse\",\"auth\":{\"type\":\"bearer\",\"token\":\"tok-mcp\"},\"headers\":{\"X-Team\":\"blue\"}}",
+          "enabled": 1
+        },
+        {
+          "name": "off",
+          "agent_id": "main",
+          "command": "https://mcp2.example.test/mcp",
+          "config": "{\"transport\":\"streamable-http\"}",
+          "enabled": 0
+        },
+        {
+          "name": "web",
+          "agent_id": "main",
+          "command": "https://web.example.test/mcp",
+          "config": "{\"transport\":\"streamable-http\",\"auth\":{\"type\":\"bearer\",\"token\":\"web-tok\"}}",
+          "enabled": 1
+        }
+      ],
+      "tasks": [
+        {
+          "name": "Morning",
+          "agent_id": "main",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"Say good morning\",\"model\":\"openai::gpt-5\",\"notifyPlatform\":\"telegram\",\"notifyTo\":\"12345\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"0 8 * * *\",\"finishOnTime\":false}",
+          "cron_expression": "0 8 * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Often",
+          "agent_id": "main",
+          "enabled": 0,
+          "task_config": "{\"prompt\":\"check things\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"*/6 * * * *\",\"finishOnTime\":false}",
+          "cron_expression": "*/6 * * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Weekly",
+          "agent_id": "main",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"weekly\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * 1\",\"finishOnTime\":false}",
+          "cron_expression": "0 9 * * 1",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Future",
+          "agent_id": "helper-bot",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"later\"}",
+          "trigger_config": "{\"mode\":\"one_time\",\"runAt\":\"2099-01-01T10:00:00.000Z\"}",
+          "cron_expression": null,
+          "run_at": "2099-01-01T10:00:00.000Z",
+          "one_time": 1
+        },
+        {
+          "name": "Digest",
+          "agent_id": "main",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"Use the news, web skills.\\n\\nSummarise news\",\"model\":\"openai::gpt-5\",\"notifyPlatform\":\"telegram\",\"notifyTo\":\"12345\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"30 7 * * *\",\"finishOnTime\":false}",
+          "cron_expression": "30 7 * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Ping",
+          "agent_id": "main",
+          "enabled": 0,
+          "task_config": "{\"prompt\":\"ping\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"*/6 * * * *\",\"finishOnTime\":false}",
+          "cron_expression": "*/6 * * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Once",
+          "agent_id": "main",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"later\"}",
+          "trigger_config": "{\"mode\":\"one_time\",\"runAt\":\"2099-05-05T05:05:05.000Z\"}",
+          "cron_expression": null,
+          "run_at": "2099-05-05T05:05:05.000Z",
+          "one_time": 1
+        },
+        {
+          "name": "Standup",
+          "agent_id": "work",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"standup\",\"notifyPlatform\":\"discord\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * 1-5\",\"finishOnTime\":false}",
+          "cron_expression": "0 9 * * 1-5",
+          "run_at": null,
+          "one_time": 0
+        }
+      ],
+      "connections": [
+        {
+          "platform": "telegram",
+          "agent_id": "main",
+          "config": "{\"botToken\":\"123:abc\",\"autoConnect\":true}",
+          "status": "connecting"
+        },
+        {
+          "platform": "discord",
+          "agent_id": "main",
+          "config": "{\"token\":\"dtok\",\"autoConnect\":true}",
+          "status": "connecting"
+        }
+      ],
+      "policies": [
+        {
+          "key": "platform_access_policy_discord",
+          "agent_id": "main"
+        },
+        {
+          "key": "platform_access_policy_telegram",
+          "agent_id": "main"
+        },
+        {
+          "key": "platform_access_policy_whatsapp",
+          "agent_id": "main"
+        }
+      ],
+      "models": [
+        {
+          "agent_id": "main",
+          "value": "anthropic::claude-sonnet-4"
+        }
+      ],
+      "timezone": "Europe/Berlin",
+      "env": "ANTHROPIC_API_KEY=sk-ant-1\nOPENAI_API_KEY=existing-different\nOLLAMA_URL=http://box:11434\n\nGOOGLE_AI_KEY=g-key\n\nNOUS_API_KEY=n-tok\n\nBRAVE_SEARCH_API_KEY=brave-123\n\nDEEPGRAM_API_KEY=dg-1\n\nELEVENLABS_API_KEY=xi-1\n\nOPENAI_COMPATIBLE_BASE_URL=https://api.acme.test/v1\n\nOPENAI_COMPATIBLE_API_KEY=acme-secret\n\nOPENROUTER_API_KEY=or-1\n",
+      "daily": {
+        "2026-01-01.md": "Went hiking.\n"
+      },
+      "skills": {
+        "users/1/greeter/SKILL.md": 714,
+        "users/1/greeter/scripts/hi.sh": 8,
+        "users/1/my-skill/SKILL.md": 706,
+        "users/1/plain/SKILL.md": 723
+      }
+    },
+    "second": [
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "NOUS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "ANTHROPIC_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (OpenClaw has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "BRAVE_SEARCH_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "DEEPGRAM_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "ELEVENLABS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OLLAMA_URL",
+        "detail": "kept the value NeoAgent already had (OpenClaw has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GROQ_API_KEY",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GITHUB_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "exists",
+        "name": "Jarvis → main agent",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "exists",
+        "name": "Helper Bot",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Jarvis: about you",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Jarvis: 6 already known",
+        "detail": "",
+        "count": 6
+      },
+      {
+        "kind": "Daily notes",
+        "status": "exists",
+        "name": "Jarvis",
+        "detail": "1 day",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "exists",
+        "name": "plain",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "exists",
+        "name": "greeter",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "exists",
+        "name": "Jarvis",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "imported",
+        "name": "Helper Bot: openrouter::acme/x1",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "exists",
+        "name": "remote",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "exists",
+        "name": "off",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Morning",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Often",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Weekly",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Future",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "Telegram",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "Discord",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "WhatsApp allowlist",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Instructions",
+        "status": "skipped",
+        "name": "main/AGENTS.md",
+        "detail": "OpenClaw's operating manual for its own tools; copy any rules you added by hand",
+        "count": 1
+      },
+      {
+        "kind": "Sign-in",
+        "status": "skipped",
+        "name": "xai",
+        "detail": "OAuth sign-ins cannot be copied; sign in again under Admin → Providers in the app",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "second",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "local",
+        "detail": "runs a local program (npx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Past",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Shell",
+        "detail": "runs a shell command on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Broken",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "extra accounts",
+        "detail": "NeoAgent connects one account per platform; the first one was used",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "matrix",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENROUTER_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OLLAMA_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "HF_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "exists",
+        "name": "work",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Hermes: 7 already known",
+        "detail": "",
+        "count": 7
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "work: 1 already known",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "exists",
+        "name": "My Skill",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "exists",
+        "name": "Hermes",
+        "detail": "kept anthropic::claude-sonnet-4",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "exists",
+        "name": "web",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Digest",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Ping",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Once",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Standup",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "Telegram",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "another",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "stdio",
+        "detail": "runs a local program (uvx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Old",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Backup",
+        "detail": "runs a script on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "NoPrompt",
+        "detail": "it has no prompt",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Odd",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Signal",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      }
+    ],
+    "stateSame": false
+  },
+  "preset": {
+    "entries": [
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "NOUS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "ANTHROPIC_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (OpenClaw has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "BRAVE_SEARCH_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "DEEPGRAM_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "ELEVENLABS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OLLAMA_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GROQ_API_KEY",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GITHUB_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "imported",
+        "name": "Jarvis",
+        "detail": "new agent \"jarvis\"",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "imported",
+        "name": "Helper Bot",
+        "detail": "new agent \"helper-bot\"",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "Jarvis: about you",
+        "detail": "saved to core memory",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "Jarvis: 4 memories",
+        "detail": "",
+        "count": 4
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Jarvis: 2 already known",
+        "detail": "",
+        "count": 2
+      },
+      {
+        "kind": "Daily notes",
+        "status": "imported",
+        "name": "Jarvis",
+        "detail": "1 day",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "imported",
+        "name": "plain",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "imported",
+        "name": "greeter",
+        "detail": "with 1 file",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "imported",
+        "name": "Jarvis: anthropic::claude-sonnet-4",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "skipped",
+        "name": "openrouter::acme/x1",
+        "detail": "no key for this provider was found",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "imported",
+        "name": "remote",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "imported",
+        "name": "off",
+        "detail": "kept switched off",
+        "count": 1
+      },
+      {
+        "kind": "Setting",
+        "status": "imported",
+        "name": "timezone",
+        "detail": "Europe/Berlin",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Morning",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Often",
+        "detail": "paused; interval rounded to the nearest cron step",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Weekly",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Future",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Telegram",
+        "detail": "connects when NeoAgent restarts",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Telegram @alice",
+        "detail": "usernames cannot be allowed; add the numeric user id",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Telegram allowlist",
+        "detail": "4 allowed",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Discord",
+        "detail": "connects when NeoAgent restarts",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Discord allowlist",
+        "detail": "1 allowed",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "WhatsApp allowlist",
+        "detail": "2 allowed",
+        "count": 1
+      },
+      {
+        "kind": "Instructions",
+        "status": "skipped",
+        "name": "main/AGENTS.md",
+        "detail": "OpenClaw's operating manual for its own tools; copy any rules you added by hand",
+        "count": 1
+      },
+      {
+        "kind": "Sign-in",
+        "status": "skipped",
+        "name": "xai",
+        "detail": "OAuth sign-ins cannot be copied; sign in again under Admin → Providers in the app",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "second",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "local",
+        "detail": "runs a local program (npx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Past",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Shell",
+        "detail": "runs a shell command on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Broken",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "extra accounts",
+        "detail": "NeoAgent connects one account per platform; the first one was used",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "matrix",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OPENROUTER_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "imported",
+        "name": "OLLAMA_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "HF_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "imported",
+        "name": "work",
+        "detail": "new agent \"work\"",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "Hermes: about you",
+        "detail": "saved to core memory",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "Hermes: 3 memories",
+        "detail": "",
+        "count": 3
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Hermes: 2 already known",
+        "detail": "",
+        "count": 2
+      },
+      {
+        "kind": "Memory",
+        "status": "imported",
+        "name": "work: 1 memory",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "imported",
+        "name": "My Skill",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "imported",
+        "name": "Hermes: openai-compatible::gpt-4o",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "imported",
+        "name": "web",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Digest",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Ping",
+        "detail": "paused; every 7m rounded to \"*/6 * * * *\"",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Once",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "imported",
+        "name": "Standup",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Telegram",
+        "detail": "connects when NeoAgent restarts",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "imported",
+        "name": "Telegram allowlist",
+        "detail": "3 allowed",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "another",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "stdio",
+        "detail": "runs a local program (uvx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Old",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Backup",
+        "detail": "runs a script on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "NoPrompt",
+        "detail": "it has no prompt",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Odd",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Signal",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      }
+    ],
+    "totals": [
+      "10 keys",
+      "3 agents",
+      "10 memories",
+      "1 day of notes",
+      "3 skills",
+      "2 model choices",
+      "3 MCP servers",
+      "1 setting",
+      "8 automations",
+      "7 chat settings"
+    ],
+    "prompt": "The user just moved from OpenClaw and Hermes Agent to NeoAgent. A script already imported keys, agents, memories, skills, automations, MCP servers and chat channels. Finish the move for the parts the script could not translate.\n\nYou run unattended: nobody is there to approve a tool call. Do not use execute_command, file writes or the browser. Work with memory_save, memory_update_core, create_task, list_tasks and mcp_add_server. If a tool is blocked or needs approval, do not retry it; put the exact change in your final message instead.\n\nFor each item below, either recreate it the NeoAgent way or decide it is not needed (a local filesystem MCP server is not, for example: NeoAgent has its own file tools). Never invent credentials: where a token is missing, say so in your final message. Do not change anything that was imported correctly.\n\n## Left behind\n- Model \"openrouter::acme/x1\": no key for this provider was found\n- Channel \"Telegram @alice\": usernames cannot be allowed; add the numeric user id\n- Instructions \"main/AGENTS.md\": OpenClaw's operating manual for its own tools; copy any rules you added by hand\n- Sign-in \"xai\": OAuth sign-ins cannot be copied; sign in again under Admin → Providers in the app\n- AI provider \"second\": NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it\n- MCP server \"local\": runs a local program (npx); NeoAgent connects to MCP servers by URL\n- Automation \"Past\": a one-time job whose time has passed\n- Automation \"Shell\": runs a shell command on this computer; NeoAgent's agent works on its own computer\n- Automation \"Broken\": its schedule could not be read\n- Channel \"extra accounts\": NeoAgent connects one account per platform; the first one was used\n- Channel \"WhatsApp\": WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)\n- Channel \"Slack\": NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations\n- Channel \"matrix\": not supported by NeoAgent\n- AI provider \"another\": NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it\n- MCP server \"stdio\": runs a local program (uvx); NeoAgent connects to MCP servers by URL\n- Automation \"Old\": a one-time job whose time has passed\n- Automation \"Backup\": runs a script on this computer; NeoAgent's agent works on its own computer\n- Automation \"NoPrompt\": it has no prompt\n- Automation \"Odd\": its schedule could not be read\n- Channel \"WhatsApp\": WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)\n- Channel \"Slack\": NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations\n- Channel \"Signal\": not supported by NeoAgent\n\n## Original definitions\n- MCP server \"local\" (OpenClaw): {\"command\":\"npx\",\"args\":[\"-y\",\"fs\"],\"env\":{\"API_TOKEN\":\"[hidden]\",\"PLAIN\":\"p\"}}\n- Automation \"Shell\" (OpenClaw): {\"schedule\":{\"kind\":\"cron\",\"expr\":\"* * * * *\"},\"kind\":\"command\",\"command\":\"ls\",\"token\":\"[hidden]\"}\n- MCP server \"stdio\" (Hermes Agent): {\"command\":\"uvx\",\"args\":[\"thing\"]}\n- Automation \"Backup\" (Hermes Agent): {\"schedule\":\"daily\",\"script\":\"backup.sh\",\"content\":\"#!/bin/sh\\ntar czf x.tgz .\\n\"}\n\n## Rules the user wrote by hand\nKeep the ones that still apply as memories or core memory; ignore anything specific to OpenClaw and Hermes Agent's own tooling.\n### Jarvis (OpenClaw) AGENTS.md\n# My rules\nAlways answer in German.\n\n\nEnd with one short notify_user message: what you set up, and what the user still needs to do themselves, with the exact place in NeoAgent to do it.",
+    "leftovers": true,
+    "state": {
+      "agents": [
+        {
+          "slug": "helper-bot",
+          "display_name": "Helper Bot",
+          "description": "Imported from OpenClaw",
+          "instructions": "You are the helper.",
+          "is_default": 0
+        },
+        {
+          "slug": "jarvis",
+          "display_name": "Jarvis",
+          "description": "Imported from OpenClaw",
+          "instructions": "Your name is Jarvis.\n\nBe warm and brief.",
+          "is_default": 0
+        },
+        {
+          "slug": "main",
+          "display_name": "Main",
+          "description": "Default personal AI contact and fallback agent.",
+          "instructions": "I am the existing personality.",
+          "is_default": 1
+        },
+        {
+          "slug": "work",
+          "display_name": "work",
+          "description": "Imported from Hermes Agent",
+          "instructions": "You are the work agent.",
+          "is_default": 0
+        }
+      ],
+      "core": {
+        "helper-bot": {
+          "profile": "",
+          "notes": ""
+        },
+        "jarvis": {
+          "profile": "Name: Alex\nTime zone: Europe/Berlin\nNotes: likes tea",
+          "notes": ""
+        },
+        "main": {
+          "profile": "Name: Sam\nLikes jazz",
+          "notes": ""
+        },
+        "work": {
+          "profile": "",
+          "notes": ""
+        }
+      },
+      "memories": [
+        {
+          "agent_id": "main",
+          "category": "episodic",
+          "content": "Lives in Berlin; works as a nurse at a clinic.",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "episodic",
+          "content": "Long entry: word word word word word word word word word word word word word word word word word word word word word word word word word word word",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "main",
+          "category": "preferences",
+          "content": "Prefers dark mode",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:default",
+          "source_label": "Hermes Agent import"
+        },
+        {
+          "agent_id": "jarvis",
+          "category": "contacts",
+          "content": "Anna is my sister: she lives in Hamburg",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        },
+        {
+          "agent_id": "jarvis",
+          "category": "episodic",
+          "content": "Home automation: lights, blinds and heating are controlled through Home Assistant and the main hub in the hall closet nearby",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        },
+        {
+          "agent_id": "jarvis",
+          "category": "preferences",
+          "content": "Likes oat milk. Dislikes cilantro; hates early meetings.",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        },
+        {
+          "agent_id": "jarvis",
+          "category": "preferences",
+          "content": "Very long sentence that keeps going and going to force splitting of the fact into several parts because it is long.",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "openclaw:main",
+          "source_label": "OpenClaw import"
+        },
+        {
+          "agent_id": "work",
+          "category": "projects",
+          "content": "Works on project X",
+          "importance": 6,
+          "source_type": "import",
+          "source_id": "hermes:work",
+          "source_label": "Hermes Agent import"
+        }
+      ],
+      "mcp": [
+        {
+          "name": "remote",
+          "agent_id": "jarvis",
+          "command": "https://mcp.example.test/sse",
+          "config": "{\"transport\":\"sse\",\"auth\":{\"type\":\"bearer\",\"token\":\"tok-mcp\"},\"headers\":{\"X-Team\":\"blue\"}}",
+          "enabled": 1
+        },
+        {
+          "name": "off",
+          "agent_id": "jarvis",
+          "command": "https://mcp2.example.test/mcp",
+          "config": "{\"transport\":\"streamable-http\"}",
+          "enabled": 0
+        },
+        {
+          "name": "web",
+          "agent_id": "main",
+          "command": "https://web.example.test/mcp",
+          "config": "{\"transport\":\"streamable-http\",\"auth\":{\"type\":\"bearer\",\"token\":\"web-tok\"}}",
+          "enabled": 1
+        }
+      ],
+      "tasks": [
+        {
+          "name": "Morning",
+          "agent_id": "jarvis",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"Say good morning\",\"model\":\"openai::gpt-5\",\"notifyPlatform\":\"telegram\",\"notifyTo\":\"12345\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"0 8 * * *\",\"finishOnTime\":false}",
+          "cron_expression": "0 8 * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Often",
+          "agent_id": "jarvis",
+          "enabled": 0,
+          "task_config": "{\"prompt\":\"check things\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"*/6 * * * *\",\"finishOnTime\":false}",
+          "cron_expression": "*/6 * * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Weekly",
+          "agent_id": "jarvis",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"weekly\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * 1\",\"finishOnTime\":false}",
+          "cron_expression": "0 9 * * 1",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Future",
+          "agent_id": "helper-bot",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"later\"}",
+          "trigger_config": "{\"mode\":\"one_time\",\"runAt\":\"2099-01-01T10:00:00.000Z\"}",
+          "cron_expression": null,
+          "run_at": "2099-01-01T10:00:00.000Z",
+          "one_time": 1
+        },
+        {
+          "name": "Digest",
+          "agent_id": "main",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"Use the news, web skills.\\n\\nSummarise news\",\"model\":\"openai::gpt-5\",\"notifyPlatform\":\"telegram\",\"notifyTo\":\"12345\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"30 7 * * *\",\"finishOnTime\":false}",
+          "cron_expression": "30 7 * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Ping",
+          "agent_id": "main",
+          "enabled": 0,
+          "task_config": "{\"prompt\":\"ping\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"*/6 * * * *\",\"finishOnTime\":false}",
+          "cron_expression": "*/6 * * * *",
+          "run_at": null,
+          "one_time": 0
+        },
+        {
+          "name": "Once",
+          "agent_id": "main",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"later\"}",
+          "trigger_config": "{\"mode\":\"one_time\",\"runAt\":\"2099-05-05T05:05:05.000Z\"}",
+          "cron_expression": null,
+          "run_at": "2099-05-05T05:05:05.000Z",
+          "one_time": 1
+        },
+        {
+          "name": "Standup",
+          "agent_id": "work",
+          "enabled": 1,
+          "task_config": "{\"prompt\":\"standup\",\"notifyPlatform\":\"discord\"}",
+          "trigger_config": "{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * 1-5\",\"finishOnTime\":false}",
+          "cron_expression": "0 9 * * 1-5",
+          "run_at": null,
+          "one_time": 0
+        }
+      ],
+      "connections": [
+        {
+          "platform": "telegram",
+          "agent_id": "jarvis",
+          "config": "{\"botToken\":\"123:abc\",\"autoConnect\":true}",
+          "status": "connecting"
+        },
+        {
+          "platform": "discord",
+          "agent_id": "jarvis",
+          "config": "{\"token\":\"dtok\",\"autoConnect\":true}",
+          "status": "connecting"
+        },
+        {
+          "platform": "telegram",
+          "agent_id": "main",
+          "config": "{\"botToken\":\"1:x\",\"autoConnect\":true}",
+          "status": "connecting"
+        }
+      ],
+      "policies": [
+        {
+          "key": "platform_access_policy_discord",
+          "agent_id": "jarvis"
+        },
+        {
+          "key": "platform_access_policy_telegram",
+          "agent_id": "main"
+        },
+        {
+          "key": "platform_access_policy_telegram",
+          "agent_id": "jarvis"
+        },
+        {
+          "key": "platform_access_policy_whatsapp",
+          "agent_id": "jarvis"
+        }
+      ],
+      "models": [
+        {
+          "agent_id": "main",
+          "value": "openai-compatible::gpt-4o"
+        },
+        {
+          "agent_id": "jarvis",
+          "value": "anthropic::claude-sonnet-4"
+        }
+      ],
+      "timezone": "Europe/Berlin",
+      "env": "ANTHROPIC_API_KEY=sk-ant-1\nOPENAI_API_KEY=existing-different\nOLLAMA_URL=http://box:11434\n\nGOOGLE_AI_KEY=g-key\n\nNOUS_API_KEY=n-tok\n\nBRAVE_SEARCH_API_KEY=brave-123\n\nDEEPGRAM_API_KEY=dg-1\n\nELEVENLABS_API_KEY=xi-1\n\nOPENAI_COMPATIBLE_BASE_URL=https://api.acme.test/v1\n\nOPENAI_COMPATIBLE_API_KEY=acme-secret\n\nOPENROUTER_API_KEY=or-1\n",
+      "daily": {
+        "2026-01-01.md": "Went hiking.\n"
+      },
+      "skills": {
+        "users/1/greeter/SKILL.md": 714,
+        "users/1/greeter/scripts/hi.sh": 8,
+        "users/1/my-skill/SKILL.md": 706,
+        "users/1/plain/SKILL.md": 723
+      }
+    },
+    "second": [
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "NOUS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "ANTHROPIC_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (OpenClaw has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "BRAVE_SEARCH_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "DEEPGRAM_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "ELEVENLABS_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OLLAMA_URL",
+        "detail": "kept the value NeoAgent already had (OpenClaw has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GROQ_API_KEY",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "GITHUB_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "exists",
+        "name": "Jarvis",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "exists",
+        "name": "Helper Bot",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Jarvis: about you",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Jarvis: 6 already known",
+        "detail": "",
+        "count": 6
+      },
+      {
+        "kind": "Daily notes",
+        "status": "exists",
+        "name": "Jarvis",
+        "detail": "1 day",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "exists",
+        "name": "plain",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "exists",
+        "name": "greeter",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "exists",
+        "name": "Jarvis",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "imported",
+        "name": "Helper Bot: openrouter::acme/x1",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "exists",
+        "name": "remote",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "exists",
+        "name": "off",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Morning",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Often",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Weekly",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Future",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "Telegram",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "Discord",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "WhatsApp allowlist",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Instructions",
+        "status": "skipped",
+        "name": "main/AGENTS.md",
+        "detail": "OpenClaw's operating manual for its own tools; copy any rules you added by hand",
+        "count": 1
+      },
+      {
+        "kind": "Sign-in",
+        "status": "skipped",
+        "name": "xai",
+        "detail": "OAuth sign-ins cannot be copied; sign in again under Admin → Providers in the app",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "second",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "local",
+        "detail": "runs a local program (npx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Past",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Shell",
+        "detail": "runs a shell command on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Broken",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "extra accounts",
+        "detail": "NeoAgent connects one account per platform; the first one was used",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "matrix",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENROUTER_API_KEY",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "GOOGLE_AI_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_BASE_URL",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OPENAI_COMPATIBLE_API_KEY",
+        "detail": "kept the value NeoAgent already had (Hermes Agent has a different one)",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "exists",
+        "name": "OLLAMA_URL",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Key",
+        "status": "skipped",
+        "name": "HF_TOKEN",
+        "detail": "NeoAgent does not use this service",
+        "count": 1
+      },
+      {
+        "kind": "Agent",
+        "status": "exists",
+        "name": "work",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Hermes: about you",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "Hermes: 5 already known",
+        "detail": "",
+        "count": 5
+      },
+      {
+        "kind": "Memory",
+        "status": "exists",
+        "name": "work: 1 already known",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Skill",
+        "status": "exists",
+        "name": "My Skill",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Model",
+        "status": "exists",
+        "name": "Hermes",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "exists",
+        "name": "web",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Digest",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Ping",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Once",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "exists",
+        "name": "Standup",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "exists",
+        "name": "Telegram",
+        "detail": "",
+        "count": 1
+      },
+      {
+        "kind": "AI provider",
+        "status": "skipped",
+        "name": "another",
+        "detail": "NeoAgent has room for one OpenAI-compatible endpoint; add this one by hand if you need it",
+        "count": 1
+      },
+      {
+        "kind": "MCP server",
+        "status": "skipped",
+        "name": "stdio",
+        "detail": "runs a local program (uvx); NeoAgent connects to MCP servers by URL",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Old",
+        "detail": "a one-time job whose time has passed",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Backup",
+        "detail": "runs a script on this computer; NeoAgent's agent works on its own computer",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "NoPrompt",
+        "detail": "it has no prompt",
+        "count": 1
+      },
+      {
+        "kind": "Automation",
+        "status": "skipped",
+        "name": "Odd",
+        "detail": "its schedule could not be read",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "WhatsApp",
+        "detail": "WhatsApp links to one app at a time; scan the QR code in NeoAgent (allowed numbers were kept)",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Slack",
+        "detail": "NeoAgent receives Slack events by webhook instead of socket mode; set it up under Integrations",
+        "count": 1
+      },
+      {
+        "kind": "Channel",
+        "status": "skipped",
+        "name": "Signal",
+        "detail": "not supported by NeoAgent",
+        "count": 1
+      }
+    ],
+    "stateSame": false
+  }
+}

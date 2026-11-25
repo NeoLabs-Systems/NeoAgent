@@ -1,0 +1,340 @@
+{
+  "key": "trello",
+  "label": "Trello",
+  "description": "Official Trello integration for user-managed API key setup with per-account tokens for board, list, card, and comment tools.",
+  "icon": "trello",
+  "requiresRefreshToken": false,
+  "apps": [
+    {
+      "id": "trello",
+      "label": "Trello",
+      "description": "Connect Trello for board, list, card, and comment tools."
+    }
+  ],
+  "connectPrompt": "Save your Trello API key, then connect one Trello account for structured board, list, card, and comment tools.",
+  "supportsMultipleAccounts": false,
+  "connectionMethod": "user_config",
+  "tools": [
+    {
+      "appId": "trello",
+      "name": "trello_get_me",
+      "access": "read",
+      "description": "Get the connected Trello member profile.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_list_boards",
+      "access": "read",
+      "description": "List boards visible to the connected Trello member.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "Optional board filter such as open, closed, or all."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum boards to return, default 50."
+          }
+        }
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_get_board",
+      "access": "read",
+      "description": "Get a Trello board and optional list/card summary.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Trello board ID."
+          },
+          "fields": {
+            "type": "string",
+            "description": "Optional comma-separated board fields to return."
+          },
+          "lists": {
+            "type": "string",
+            "description": "Optional list expansion, default open."
+          },
+          "cards": {
+            "type": "string",
+            "description": "Optional card expansion, default none."
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_list_lists",
+      "access": "read",
+      "description": "List the lists on a Trello board.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Trello board ID."
+          },
+          "fields": {
+            "type": "string",
+            "description": "Optional comma-separated list fields to return."
+          }
+        },
+        "required": [
+          "board_id"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_list_cards",
+      "access": "read",
+      "description": "List cards on a Trello board or list.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "description": "Optional Trello board ID."
+          },
+          "list_id": {
+            "type": "string",
+            "description": "Optional Trello list ID."
+          },
+          "filter": {
+            "type": "string",
+            "description": "Optional Trello card filter, default open."
+          },
+          "fields": {
+            "type": "string",
+            "description": "Optional comma-separated card fields to return."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum cards to return, default 100."
+          }
+        }
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_list_actions",
+      "access": "read",
+      "description": "List recent activity on a Trello list, newest first: cards created, moved, commented on, and so on.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Trello list ID."
+          },
+          "filter": {
+            "type": "string",
+            "description": "Optional comma-separated action types, e.g. createCard,updateCard:idList."
+          },
+          "since": {
+            "type": "string",
+            "description": "Optional ISO date or action ID; only newer actions are returned."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum actions to return, default 50."
+          }
+        },
+        "required": [
+          "list_id"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_get_card",
+      "access": "read",
+      "description": "Get a Trello card by ID.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Trello card ID."
+          },
+          "fields": {
+            "type": "string",
+            "description": "Optional comma-separated card fields to return."
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_search",
+      "access": "read",
+      "description": "Search Trello boards, cards, members, and organizations.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search text."
+          },
+          "model_types": {
+            "type": "string",
+            "description": "Optional comma-separated model types, default cards,boards,lists,members,organizations."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum combined results to return, default 20."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_create_card",
+      "access": "write",
+      "description": "Create a Trello card on a list.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "list_id": {
+            "type": "string",
+            "description": "Target Trello list ID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Card title."
+          },
+          "desc": {
+            "type": "string",
+            "description": "Optional card description."
+          },
+          "due": {
+            "type": "string",
+            "description": "Optional ISO 8601 due date."
+          }
+        },
+        "required": [
+          "list_id",
+          "name"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_update_card",
+      "access": "write",
+      "description": "Update a Trello card.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Trello card ID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Optional new card title."
+          },
+          "desc": {
+            "type": "string",
+            "description": "Optional new card description."
+          },
+          "closed": {
+            "type": "boolean",
+            "description": "Optional archived state."
+          },
+          "idList": {
+            "type": "string",
+            "description": "Optional target list ID."
+          },
+          "pos": {
+            "type": "string",
+            "description": "Optional position value such as top, bottom, or a number."
+          },
+          "due": {
+            "type": "string",
+            "description": "Optional ISO 8601 due date."
+          },
+          "dueComplete": {
+            "type": "boolean",
+            "description": "Optional due-complete state."
+          }
+        },
+        "required": [
+          "card_id"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_add_comment",
+      "access": "write",
+      "description": "Add a comment to a Trello card.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "description": "Trello card ID."
+          },
+          "text": {
+            "type": "string",
+            "description": "Comment text."
+          }
+        },
+        "required": [
+          "card_id",
+          "text"
+        ]
+      }
+    },
+    {
+      "appId": "trello",
+      "name": "trello_api_request",
+      "access": "dynamic_http_method",
+      "description": "Make an authenticated Trello REST API request for advanced operations.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "description": "HTTP method: GET, POST, PUT, PATCH, or DELETE."
+          },
+          "path": {
+            "type": "string",
+            "description": "Trello API path under /1, for example /1/cards/{id}."
+          },
+          "query": {
+            "type": "object",
+            "description": "Optional query parameters."
+          },
+          "body": {
+            "type": "object",
+            "description": "Optional request fields, sent as Trello query parameters."
+          }
+        },
+        "required": [
+          "method",
+          "path"
+        ]
+      }
+    }
+  ]
+}

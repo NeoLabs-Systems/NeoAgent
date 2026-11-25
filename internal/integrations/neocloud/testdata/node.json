@@ -1,0 +1,2162 @@
+{
+ "agent": "97950a8c-71eb-4d79-bbda-0405681575f7",
+ "now": 1767268800000,
+ "state": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "verifier": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+ "steps": [
+  {
+   "name": "setup before save",
+   "answers": [],
+   "result": {
+    "baseUrl": "",
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get"
+  },
+  {
+   "name": "env before save",
+   "answers": [],
+   "result": {
+    "configured": false,
+    "missing": [
+     "baseUrl"
+    ],
+    "summary": "Add the NeoCloud server URL to enable file and signature tools.",
+    "setupMode": "user"
+   },
+   "requests": [],
+   "op": "env"
+  },
+  {
+   "name": "save bad url",
+   "answers": [],
+   "error": "NeoCloud server URL must be HTTP(S), without credentials or a fragment.",
+   "requests": [],
+   "op": "save",
+   "config": {
+    "baseUrl": "ftp://x"
+   }
+  },
+  {
+   "name": "save unhealthy",
+   "answers": [
+    {
+     "body": {
+      "status": "ok"
+     }
+    },
+    {
+     "body": {
+      "product": "other"
+     }
+    }
+   ],
+   "error": "The configured endpoint did not identify itself as a healthy NeoCloud server.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/version",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "cloud.example"
+   }
+  },
+  {
+   "name": "save bootstrap rejected",
+   "answers": [
+    {
+     "body": {
+      "status": "ok"
+     }
+    },
+    {
+     "body": {
+      "product": "neocloud"
+     }
+    },
+    {
+     "status": 400,
+     "body": {
+      "error": "redirect not allowed"
+     }
+    }
+   ],
+   "error": "NeoCloud rejected NeoAgent OAuth setup (NeoCloud companion bootstrap request failed: redirect not allowed). Confirm NeoAgent PUBLIC_URL is reachable from this browser and uses HTTPS, or HTTP on a private/loopback address, ending at /api/integrations/oauth/callback.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "http://192.168.1.5:8080/api/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "GET",
+     "url": "http://192.168.1.5:8080/api/version",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "http://192.168.1.5:8080/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "192.168.1.5:8080/"
+   }
+  },
+  {
+   "name": "save not a companion",
+   "answers": [
+    {
+     "body": {
+      "status": "ok"
+     }
+    },
+    {
+     "body": {
+      "product": "neocloud"
+     }
+    },
+    {
+     "body": {
+      "companion": "other"
+     }
+    }
+   ],
+   "error": "The NeoCloud server does not expose the NeoAgent companion OAuth contract.",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/root/api/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/root/api/version",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/root/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://Cloud.example:443/root/"
+   }
+  },
+  {
+   "name": "save",
+   "answers": [
+    {
+     "body": {
+      "status": "ok"
+     }
+    },
+    {
+     "body": {
+      "product": "neocloud"
+     }
+    },
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    }
+   ],
+   "result": {
+    "baseUrl": "https://cloud.example",
+    "configured": true,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/version",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://cloud.example/"
+   }
+  },
+  {
+   "name": "env after save",
+   "answers": [],
+   "result": {
+    "configured": true,
+    "missing": [],
+    "summary": "NeoCloud is ready for account connections.",
+    "setupMode": "user"
+   },
+   "requests": [],
+   "op": "env"
+  },
+  {
+   "name": "begin oauth",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback",
+      "scopes": [
+       "search:read"
+      ]
+     }
+    }
+   ],
+   "result": {
+    "url": "https://cloud.example/oauth/authorize?response_type=code&client_id=client-1&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&state=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&code_challenge=w1TpKUdYE9hUAcNSeeSRFioHDxfUxuHho_JHAfZ_vDM&code_challenge_method=S256&scope=files%3Aread+files%3Awrite+signing%3Aread+signing%3Awrite"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    }
+   ],
+   "op": "begin"
+  },
+  {
+   "name": "finish without refresh token",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {
+      "access_token": "a"
+     }
+    }
+   ],
+   "error": "NeoCloud did not return durable OAuth credentials.",
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=authorization_code&client_id=client-1&code=c&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&code_verifier=vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+    }
+   ],
+   "op": "finish",
+   "code": "c"
+  },
+  {
+   "name": "finish email account",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {
+      "access_token": "a",
+      "refresh_token": "r",
+      "scope": "files:read files:write",
+      "expires_in": 120
+     }
+    },
+    {
+     "body": {
+      "email": "u@example.com",
+      "preferred_username": "u"
+     }
+    }
+   ],
+   "result": {
+    "accountEmail": "u@example.com",
+    "scopes": [
+     "files:read",
+     "files:write"
+    ],
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "a",
+     "refresh_token": "r",
+     "scope": "files:read files:write",
+     "expires_at_ms": 1767268920000
+    },
+    "metadata": {
+     "baseUrl": "https://cloud.example",
+     "username": "u",
+     "email": "u@example.com"
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=authorization_code&client_id=client-1&code=c&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&code_verifier=vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/oauth/userinfo",
+     "headers": {
+      "authorization": "Bearer a",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "finish",
+   "code": " c "
+  },
+  {
+   "name": "finish scope from userinfo",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {
+      "access_token": "a",
+      "refresh_token": "r"
+     }
+    },
+    {
+     "body": {
+      "sub": "s1",
+      "scope": "signing:read"
+     }
+    }
+   ],
+   "result": {
+    "accountEmail": "neocloud:s1",
+    "scopes": [
+     "signing:read"
+    ],
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "a",
+     "refresh_token": "r",
+     "scope": "signing:read",
+     "expires_at_ms": 1767272400000
+    },
+    "metadata": {
+     "baseUrl": "https://cloud.example",
+     "username": "",
+     "email": null
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=authorization_code&client_id=client-1&code=c&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&code_verifier=vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/oauth/userinfo",
+     "headers": {
+      "authorization": "Bearer a",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "finish",
+   "code": " c "
+  },
+  {
+   "name": "finish no scope",
+   "answers": [
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {
+      "access_token": "a",
+      "refresh_token": "r"
+     }
+    },
+    {
+     "body": {
+      "preferred_username": "u"
+     }
+    }
+   ],
+   "error": "NeoCloud did not report which access was granted.",
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=authorization_code&client_id=client-1&code=c&redirect_uri=https%3A%2F%2Fneo.example%2Fapi%2Fintegrations%2Foauth%2Fcallback&code_verifier=vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/oauth/userinfo",
+     "headers": {
+      "authorization": "Bearer a",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "finish",
+   "code": " c "
+  },
+  {
+   "name": "list files",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/files?path=%2F",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "search",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/files/search?q=tax+2025&limit=5",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_search_files",
+   "args": {
+    "query": "tax 2025",
+    "limit": 5
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "search needs query",
+   "answers": [],
+   "error": "query is required.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_search_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "read file",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/files/a%2Fb/content",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_read_file",
+   "args": {
+    "file_id": "a/b"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "create file",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/files",
+     "headers": {
+      "authorization": "Bearer at",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"path\":\"/x.md\",\"content\":\"hi\",\"overwrite\":true}"
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_create_file",
+   "args": {
+    "path": "/x.md",
+    "content": "hi",
+    "overwrite": true
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "create file base64",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/files",
+     "headers": {
+      "authorization": "Bearer at",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"path\":\"/x.bin\",\"contentBase64\":\"AA==\",\"overwrite\":false}"
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_create_file",
+   "args": {
+    "path": "/x.bin",
+    "content_base64": "AA==",
+    "content": "ignored"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "create file needs content",
+   "answers": [],
+   "error": "content or content_base64 is required.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_create_file",
+   "args": {
+    "path": "/x"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "update file",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "PUT",
+     "url": "https://cloud.example/api/v1/files/f1/content",
+     "headers": {
+      "authorization": "Bearer at",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"content\":\"null\",\"baseRevision\":\"r2\"}"
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_update_file",
+   "args": {
+    "file_id": "f1",
+    "content": null,
+    "base_revision": " r2 "
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "create folder",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/folders",
+     "headers": {
+      "authorization": "Bearer at",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"path\":\"/New\"}"
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_create_folder",
+   "args": {
+    "path": "/New"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "move needs a change",
+   "answers": [],
+   "error": "name or parent_path is required.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_move_file",
+   "args": {
+    "file_id": "f1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "move",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "PATCH",
+     "url": "https://cloud.example/api/v1/files/f1",
+     "headers": {
+      "authorization": "Bearer at",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"parentPath\":\"/Archive\"}"
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_move_file",
+   "args": {
+    "file_id": "f1",
+    "parent_path": "/Archive"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "delete",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "DELETE",
+     "url": "https://cloud.example/api/v1/files/f1",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_delete_file",
+   "args": {
+    "file_id": "f1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "create pdf",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/documents/pdf",
+     "headers": {
+      "authorization": "Bearer at",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"path\":\"/c.pdf\",\"markdown\":\"# Hi\",\"overwrite\":false}"
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_create_pdf",
+   "args": {
+    "path": "/c.pdf",
+    "markdown": "# Hi",
+    "title": ""
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "signatures need one source",
+   "answers": [],
+   "error": "Pass exactly one of document or file_id.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_request_signatures",
+   "args": {
+    "file_id": "f1",
+    "document": {
+     "path": "/x"
+    },
+    "signers": [
+     {
+      "name": "A"
+     }
+    ]
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "signatures need signers",
+   "answers": [],
+   "error": "At least one signer with a name is required.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_request_signatures",
+   "args": {
+    "file_id": "f1",
+    "signers": [
+     {
+      "email": "x@y"
+     }
+    ]
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "signatures document fields",
+   "answers": [],
+   "error": "document.markdown is required.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_request_signatures",
+   "args": {
+    "document": {
+     "path": "/c.pdf",
+     "title": "C"
+    },
+    "signers": [
+     {
+      "name": "A"
+     }
+    ]
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "signatures",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/signing/requests",
+     "headers": {
+      "authorization": "Bearer at",
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"document\":{\"path\":\"/c.pdf\",\"title\":\"C\",\"markdown\":\"Text\"},\"signers\":[{\"name\":\"Ann\"},{\"name\":\"Bob\",\"email\":\"b@x\"}],\"sendEmail\":true,\"expiresInDays\":7}"
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_request_signatures",
+   "args": {
+    "document": {
+     "path": "/c.pdf",
+     "title": "C",
+     "markdown": "Text"
+    },
+    "signers": [
+     {
+      "name": " Ann ",
+      "email": ""
+     },
+     {
+      "name": "Bob",
+      "email": "b@x"
+     },
+     {}
+    ],
+    "send_email": true,
+    "expires_in_days": 7,
+    "message": ""
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "list requests",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/signing/requests?status=pending",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_list_signature_requests",
+   "args": {
+    "status": "pending"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "get request",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/signing/requests/r%201",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_get_signature_request",
+   "args": {
+    "request_id": "r 1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "remind",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/signing/requests/r1/remind",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_remind_signers",
+   "args": {
+    "request_id": "r1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "new link",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/signing/requests/r1/signers/s1/link",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_new_signing_link",
+   "args": {
+    "request_id": "r1",
+    "signer_id": "s1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "cancel",
+   "answers": [
+    {
+     "body": {
+      "ok": 1
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": 1
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/api/v1/signing/requests/r1/cancel",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_cancel_signature_request",
+   "args": {
+    "request_id": "r1"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "scope not granted",
+   "answers": [],
+   "error": "This NeoCloud account did not grant files:write. Reconnect it and allow that access on NeoCloud's consent page.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_create_folder",
+   "args": {
+    "path": "/x"
+   },
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read"
+   ]
+  },
+  {
+   "name": "refresh then call",
+   "answers": [
+    {
+     "body": {
+      "access_token": "at2",
+      "expires_in": 60,
+      "scope": ""
+     }
+    },
+    {
+     "body": {
+      "items": []
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "items": []
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at2",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767268860000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=refresh_token&client_id=client-1&refresh_token=rt"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/files?path=%2F",
+     "headers": {
+      "authorization": "Bearer at2",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767268830000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "refresh missing",
+   "answers": [],
+   "error": "NeoCloud refresh token is missing. Reconnect the NeoCloud account.",
+   "requests": [],
+   "op": "exec",
+   "tool": "neocloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767268830000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "api error",
+   "answers": [
+    {
+     "status": 400,
+     "body": {
+      "error": "Already there",
+      "code": "ALREADY_EXISTS"
+     }
+    }
+   ],
+   "error": "NeoCloud API request failed: Already there (ALREADY_EXISTS)",
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/files?path=%2F",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "api error after refresh",
+   "answers": [
+    {
+     "body": {
+      "access_token": "at3",
+      "refresh_token": "rt3",
+      "expires_in": 100
+     }
+    },
+    {
+     "status": 400,
+     "body": {
+      "error": "Conflict: CONFLICT",
+      "code": "CONFLICT"
+     }
+    }
+   ],
+   "result": {
+    "result": {
+     "error": "NeoCloud API request failed: Conflict: CONFLICT",
+     "code": "CONFLICT",
+     "status": 400
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at3",
+     "refresh_token": "rt3",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767268900000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=refresh_token&client_id=client-1&refresh_token=rt"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/files?path=%2F",
+     "headers": {
+      "authorization": "Bearer at3",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767268830000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "empty answer",
+   "answers": [
+    {
+     "status": 204
+    }
+   ],
+   "result": {
+    "result": {
+     "ok": true
+    },
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://cloud.example/api/v1/files?path=%2F",
+     "headers": {
+      "authorization": "Bearer at",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "exec",
+   "tool": "neocloud_list_files",
+   "args": {},
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   },
+   "scopes": [
+    "files:read",
+    "files:write",
+    "signing:read",
+    "signing:write"
+   ]
+  },
+  {
+   "name": "test connection",
+   "answers": [
+    {
+     "body": {
+      "access_token": "at4"
+     }
+    },
+    {
+     "body": {
+      "sub": "u"
+     }
+    }
+   ],
+   "result": {
+    "credentials": {
+     "baseUrl": "https://cloud.example",
+     "client_id": "client-1",
+     "access_token": "at4",
+     "refresh_token": "rt",
+     "scope": "files:read files:write signing:read signing:write",
+     "expires_at_ms": 1767272400000
+    }
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/token",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "grant_type=refresh_token&client_id=client-1&refresh_token=rt"
+    },
+    {
+     "method": "GET",
+     "url": "https://cloud.example/oauth/userinfo",
+     "headers": {
+      "authorization": "Bearer at4",
+      "accept": "application/json"
+     },
+     "body": null
+    }
+   ],
+   "op": "test",
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767268830000
+   }
+  },
+  {
+   "name": "disconnect",
+   "answers": [
+    {
+     "body": {}
+    },
+    {
+     "status": 400,
+     "body": {
+      "error": "bad token"
+     }
+    }
+   ],
+   "error": "NeoCloud OAuth revocation request failed: bad token",
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=rt"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=at"
+    }
+   ],
+   "op": "disconnect",
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   }
+  },
+  {
+   "name": "filter read-only grant",
+   "op": "filter",
+   "scopes": [
+    "files:read",
+    "files:write"
+   ],
+   "metadata": {
+    "access_mode": "read_only"
+   },
+   "result": [
+    "neocloud_list_files",
+    "neocloud_search_files",
+    "neocloud_read_file"
+   ]
+  },
+  {
+   "name": "filter signing grant",
+   "op": "filter",
+   "scopes": [
+    "signing:read",
+    "signing:write"
+   ],
+   "metadata": {},
+   "result": [
+    "neocloud_request_signatures",
+    "neocloud_list_signature_requests",
+    "neocloud_get_signature_request",
+    "neocloud_remind_signers",
+    "neocloud_new_signing_link",
+    "neocloud_cancel_signature_request"
+   ]
+  },
+  {
+   "name": "filter nothing granted",
+   "op": "filter",
+   "scopes": [],
+   "metadata": {},
+   "result": []
+  },
+  {
+   "name": "add account",
+   "op": "upsert",
+   "credentials": {
+    "baseUrl": "https://cloud.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   }
+  },
+  {
+   "name": "setup with account",
+   "answers": [],
+   "result": {
+    "baseUrl": "https://cloud.example",
+    "configured": true,
+    "accountCount": 1,
+    "hasConnectedAccount": true
+   },
+   "requests": [],
+   "op": "get"
+  },
+  {
+   "name": "save new server removes accounts",
+   "answers": [
+    {
+     "body": {
+      "status": "ok"
+     }
+    },
+    {
+     "body": {
+      "product": "neocloud"
+     }
+    },
+    {
+     "body": {
+      "companion": "neoagent",
+      "clientId": "client-1",
+      "redirectUri": "https://neo.example/api/integrations/oauth/callback"
+     }
+    },
+    {
+     "body": {}
+    },
+    {
+     "body": {}
+    }
+   ],
+   "result": {
+    "baseUrl": "https://other.example",
+    "configured": true,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://other.example/api/health",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "GET",
+     "url": "https://other.example/api/version",
+     "headers": {
+      "accept": "application/json"
+     },
+     "body": null
+    },
+    {
+     "method": "POST",
+     "url": "https://other.example/api/oauth/companion/neoagent/bootstrap",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+     },
+     "body": "{\"redirectUri\":\"https://neo.example/api/integrations/oauth/callback\",\"appName\":\"NeoAgent\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=rt"
+    },
+    {
+     "method": "POST",
+     "url": "https://cloud.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=at"
+    }
+   ],
+   "op": "save",
+   "config": {
+    "baseUrl": "https://other.example"
+   }
+  },
+  {
+   "name": "add account again",
+   "op": "upsert",
+   "credentials": {
+    "baseUrl": "https://other.example",
+    "client_id": "client-1",
+    "access_token": "at",
+    "refresh_token": "rt",
+    "scope": "files:read files:write signing:read signing:write",
+    "expires_at_ms": 1767272400000
+   }
+  },
+  {
+   "name": "clear",
+   "answers": [
+    {
+     "body": {}
+    },
+    {
+     "body": {}
+    }
+   ],
+   "result": {
+    "cleared": true
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://other.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=rt"
+    },
+    {
+     "method": "POST",
+     "url": "https://other.example/oauth/revoke",
+     "headers": {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json"
+     },
+     "body": "client_id=client-1&token=at"
+    }
+   ],
+   "op": "clear"
+  },
+  {
+   "name": "setup after clear",
+   "answers": [],
+   "result": {
+    "baseUrl": "",
+    "configured": false,
+    "accountCount": 0,
+    "hasConnectedAccount": false
+   },
+   "requests": [],
+   "op": "get"
+  }
+ ]
+}

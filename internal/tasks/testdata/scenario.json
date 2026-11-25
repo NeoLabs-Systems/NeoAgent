@@ -1,0 +1,550 @@
+{
+ "volatile": [
+  "created_at",
+  "updated_at",
+  "createdAt",
+  "updatedAt",
+  "nextRun",
+  "nextRunAt",
+  "next_run_at",
+  "lastRun",
+  "last_run",
+  "lastTriggeredAt",
+  "timestamp",
+  "secretCreatedAt",
+  "rotatedAt",
+  "webhookUrl",
+  "secret"
+ ],
+ "steps": [
+  {
+   "name": "anonymous",
+   "method": "GET",
+   "path": "/api/tasks",
+   "user": null,
+   "expect": {
+    "status": 401,
+    "raw": "{\"error\":\"Unauthorized\"}"
+   }
+  },
+  {
+   "name": "list empty",
+   "method": "GET",
+   "path": "/api/tasks",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[]"
+   }
+  },
+  {
+   "name": "catalog",
+   "method": "GET",
+   "path": "/api/tasks/catalog",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"type\":\"schedule\",\"label\":\"Schedule\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"manual\",\"label\":\"Manual Trigger\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"webhook\",\"label\":\"Signed Webhook\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"gmail_message_received\",\"label\":\"Gmail Message Received\",\"providerKey\":\"google_workspace\",\"appKey\":\"gmail\",\"available\":true},{\"type\":\"outlook_email_received\",\"label\":\"Outlook Email Received\",\"providerKey\":\"microsoft_365\",\"appKey\":\"outlook\",\"available\":true},{\"type\":\"slack_message_received\",\"label\":\"Slack Message Received\",\"providerKey\":\"slack\",\"appKey\":\"slack\",\"available\":true},{\"type\":\"teams_message_received\",\"label\":\"Teams Message Received\",\"providerKey\":\"microsoft_365\",\"appKey\":\"teams\",\"available\":true},{\"type\":\"whatsapp_personal_message_received\",\"label\":\"WhatsApp Personal Message Received\",\"providerKey\":\"whatsapp_personal\",\"appKey\":\"personal\",\"available\":true},{\"type\":\"messaging_member_joined\",\"label\":\"Member Joined\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"messaging_member_left\",\"label\":\"Member Left\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"messaging_reaction_added\",\"label\":\"Reaction Added\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"messaging_platform_disconnected\",\"label\":\"Messaging Disconnected\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"google_calendar_event_starting\",\"label\":\"Google Calendar Event Starting\",\"providerKey\":\"google_workspace\",\"appKey\":\"calendar\",\"available\":true},{\"type\":\"google_calendar_event_created\",\"label\":\"Google Calendar Event Created\",\"providerKey\":\"google_workspace\",\"appKey\":\"calendar\",\"available\":true},{\"type\":\"outlook_calendar_event_starting\",\"label\":\"Outlook Calendar Event Starting\",\"providerKey\":\"microsoft_365\",\"appKey\":\"calendar\",\"available\":true},{\"type\":\"nextcloud_calendar_event_starting\",\"label\":\"Nextcloud Calendar Event Starting\",\"providerKey\":\"nextcloud\",\"appKey\":\"calendar\",\"available\":true},{\"type\":\"google_drive_file_added\",\"label\":\"Google Drive File Added\",\"providerKey\":\"google_workspace\",\"appKey\":\"drive\",\"available\":true},{\"type\":\"google_sheets_row_added\",\"label\":\"Google Sheets Row Added\",\"providerKey\":\"google_workspace\",\"appKey\":\"sheets\",\"available\":true},{\"type\":\"onedrive_file_added\",\"label\":\"OneDrive File Added\",\"providerKey\":\"microsoft_365\",\"appKey\":\"onedrive\",\"available\":true},{\"type\":\"nextcloud_file_added\",\"label\":\"Nextcloud File Added\",\"providerKey\":\"nextcloud\",\"appKey\":\"files\",\"available\":true},{\"type\":\"nextcloud_share_received\",\"label\":\"Nextcloud File Shared With You\",\"providerKey\":\"nextcloud\",\"appKey\":\"files\",\"available\":true},{\"type\":\"notion_database_item_added\",\"label\":\"Notion Database Item Added\",\"providerKey\":\"notion\",\"appKey\":\"notion\",\"available\":true},{\"type\":\"notion_database_item_updated\",\"label\":\"Notion Database Item Updated\",\"providerKey\":\"notion\",\"appKey\":\"notion\",\"available\":true},{\"type\":\"trello_card_entered_list\",\"label\":\"Trello Card Added to List\",\"providerKey\":\"trello\",\"appKey\":\"trello\",\"available\":true},{\"type\":\"figma_comment_added\",\"label\":\"Figma Comment Added\",\"providerKey\":\"figma\",\"appKey\":\"figma\",\"available\":true},{\"type\":\"github_issue_opened\",\"label\":\"GitHub Issue Opened\",\"providerKey\":\"github\",\"appKey\":\"repos\",\"available\":true},{\"type\":\"github_pr_opened\",\"label\":\"GitHub Pull Request Opened\",\"providerKey\":\"github\",\"appKey\":\"repos\",\"available\":true},{\"type\":\"github_workflow_run_failed\",\"label\":\"GitHub Workflow Run Failed\",\"providerKey\":\"github\",\"appKey\":\"repos\",\"available\":true},{\"type\":\"github_commit_pushed\",\"label\":\"GitHub Commit Pushed\",\"providerKey\":\"github\",\"appKey\":\"repos\",\"available\":true},{\"type\":\"mcp_server_disconnected\",\"label\":\"MCP Server Failed\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"home_assistant_state_changed\",\"label\":\"Home Assistant State Changed\",\"providerKey\":\"home_assistant\",\"appKey\":\"home_assistant\",\"available\":true},{\"type\":\"spotify_track_changed\",\"label\":\"Spotify Track Changed\",\"providerKey\":\"spotify\",\"appKey\":\"spotify\",\"available\":true},{\"type\":\"neorecall_memory_created\",\"label\":\"NeoRecall Memory Created\",\"providerKey\":\"neorecall\",\"appKey\":\"recall\",\"available\":true},{\"type\":\"neorecall_daily_summary_created\",\"label\":\"NeoRecall Daily Summary Ready\",\"providerKey\":\"neorecall\",\"appKey\":\"recall\",\"available\":true},{\"type\":\"neorecall_conversation_recorded\",\"label\":\"NeoRecall Conversation Recorded\",\"providerKey\":\"neorecall\",\"appKey\":\"recall\",\"available\":true},{\"type\":\"weather_event\",\"label\":\"Weather Event\",\"providerKey\":\"weather\",\"appKey\":\"forecast\",\"available\":true},{\"type\":\"world_news\",\"label\":\"World News\",\"providerKey\":\"news\",\"appKey\":\"headlines\",\"available\":true},{\"type\":\"android_notification_received\",\"label\":\"Android Notification Received\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"geofence_event\",\"label\":\"Location Geofence\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"health_metric_recorded\",\"label\":\"Health Metric Recorded\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"phone_alarm\",\"label\":\"Phone Alarm\",\"providerKey\":\"phone\",\"appKey\":\"alarms\",\"available\":true},{\"type\":\"wearable_connection_changed\",\"label\":\"Wearable Connected or Disconnected\",\"providerKey\":null,\"appKey\":null,\"available\":true},{\"type\":\"task_run_finished\",\"label\":\"Another Task Finished\",\"providerKey\":null,\"appKey\":null,\"available\":true}]"
+   }
+  },
+  {
+   "name": "delivery targets",
+   "method": "GET",
+   "path": "/api/tasks/delivery-targets",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[]"
+   }
+  },
+  {
+   "name": "create empty",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task name is required.\"}"
+   }
+  },
+  {
+   "name": "create no trigger config",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Morning\",\"triggerType\":\"schedule\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task prompt is required.\"}"
+   }
+  },
+  {
+   "name": "create bad cron",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Bad\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"cronExpression\":\"61 * * * *\"},\"taskConfig\":{\"prompt\":\"x\"}}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"minute value \\\"61\\\" is out of bounds\"}"
+   }
+  },
+  {
+   "name": "create cron seconds",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Secs\",\"cronExpression\":\"15 0 9 * * *\",\"prompt\":\"x\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Cron expressions with seconds are not supported. Use a 5-field expression.\"}"
+   }
+  },
+  {
+   "name": "create unknown trigger",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Odd\",\"triggerType\":\"telepathy\",\"prompt\":\"x\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Unsupported trigger type: telepathy. Use one of: schedule, manual, webhook, gmail_message_received, outlook_email_received, slack_message_received, teams_message_received, whatsapp_personal_message_received, messaging_member_joined, messaging_member_left, messaging_reaction_added, messaging_platform_disconnected, google_calendar_event_starting, google_calendar_event_created, outlook_calendar_event_starting, nextcloud_calendar_event_starting, google_drive_file_added, google_sheets_row_added, onedrive_file_added, nextcloud_file_added, nextcloud_share_received, notion_database_item_added, notion_database_item_updated, trello_card_entered_list, figma_comment_added, github_issue_opened, github_pr_opened, github_workflow_run_failed, github_commit_pushed, mcp_server_disconnected, home_assistant_state_changed, spotify_track_changed, neorecall_memory_created, neorecall_daily_summary_created, neorecall_conversation_recorded, weather_event, world_news, android_notification_received, geofence_event, health_metric_recorded, phone_alarm, wearable_connection_changed, task_run_finished. A time, once or repeating, is \\\"schedule\\\" with config.mode \\\"one_time\\\" or \\\"recurring\\\".\"}"
+   }
+  },
+  {
+   "name": "create integration without connection",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Mail\",\"triggerType\":\"gmail_message_received\",\"triggerConfig\":{},\"prompt\":\"Summarize\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"A valid integration connection is required.\"}"
+   }
+  },
+  {
+   "name": "create daily",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Daily brief\",\"cronExpression\":\"0 9 * * *\",\"prompt\":\"Brief me.\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":1,\"name\":\"Daily brief\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * *\",\"finishOnTime\":false},\"triggerSummary\":\"0 9 * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Brief me.\"},\"loopPaused\":false,\"prompt\":\"Brief me.\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create quartz",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Weekdays\",\"trigger_type\":\"schedule\",\"trigger_config\":{\"mode\":\"recurring\",\"cronExpression\":\"0 0 8 ? * mon-fri\"},\"task_config\":{\"prompt\":\"Standup notes\",\"allowMultipleMessages\":true},\"model\":\"some-model\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":2,\"name\":\"Weekdays\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 8 * * mon-fri\",\"finishOnTime\":false},\"triggerSummary\":\"0 8 * * mon-fri\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Standup notes\",\"allowMultipleMessages\":true,\"model\":\"some-model\"},\"loopPaused\":false,\"prompt\":\"Standup notes\",\"model\":\"some-model\",\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create one time",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Reminder\",\"oneTime\":true,\"runAt\":\"2099-01-01T09:00\",\"prompt\":\"Remind me\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":3,\"name\":\"Reminder\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"one_time\",\"runAt\":\"2099-01-01T09:00:00.000Z\"},\"triggerSummary\":\"One-time at 2099-01-01T09:00:00.000Z\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Remind me\"},\"loopPaused\":false,\"prompt\":\"Remind me\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create one time past",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Old\",\"one_time\":true,\"run_at\":\"2001-01-01T00:00:00Z\",\"prompt\":\"Too late\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":4,\"name\":\"Old\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"one_time\",\"runAt\":\"2001-01-01T00:00:00.000Z\"},\"triggerSummary\":\"One-time at 2001-01-01T00:00:00.000Z\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Too late\"},\"loopPaused\":false,\"prompt\":\"Too late\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create one time bad",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Never\",\"oneTime\":true,\"runAt\":\"someday\",\"prompt\":\"x\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"A valid runAt datetime is required.\"}"
+   }
+  },
+  {
+   "name": "create manual",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"On demand\",\"triggerType\":\"manual\",\"prompt\":\"Check the weather\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":5,\"name\":\"On demand\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Check the weather\"},\"loopPaused\":false,\"prompt\":\"Check the weather\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create silent",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Silent\",\"triggerType\":\"manual\",\"prompt\":\"Say nothing at all\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":6,\"name\":\"Silent\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Say nothing at all\"},\"loopPaused\":false,\"prompt\":\"Say nothing at all\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create disabled",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Paused\",\"cronExpression\":\"*/30 * * * *\",\"prompt\":\"Ping\",\"enabled\":false}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":7,\"name\":\"Paused\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"*/30 * * * *\",\"finishOnTime\":false},\"triggerSummary\":\"*/30 * * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":false,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Ping\"},\"loopPaused\":false,\"prompt\":\"Ping\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create webhook",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Hook\",\"triggerType\":\"webhook\",\"prompt\":\"Handle the hook\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":8,\"name\":\"Hook\",\"triggerType\":\"webhook\",\"triggerConfig\":{\"sourceLabel\":null},\"triggerSummary\":\"Signed webhook\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Handle the hook\"},\"loopPaused\":false,\"prompt\":\"Handle the hook\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create task run finished",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Chain\",\"triggerType\":\"task_run_finished\",\"triggerConfig\":{\"taskId\":1},\"prompt\":\"Follow up\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Choose the task whose runs should trigger this one.\"}"
+   }
+  },
+  {
+   "name": "create bob",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 2,
+   "body": "{\"name\":\"Bob task\",\"triggerType\":\"manual\",\"prompt\":\"Bob stuff\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":9,\"name\":\"Bob task\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Bob stuff\"},\"loopPaused\":false,\"prompt\":\"Bob stuff\",\"model\":null,\"agentId\":\"<agent:2:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "list",
+   "method": "GET",
+   "path": "/api/tasks",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":1,\"name\":\"Daily brief\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * *\",\"finishOnTime\":false},\"triggerSummary\":\"0 9 * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Brief me.\"},\"loopPaused\":false,\"prompt\":\"Brief me.\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":2,\"name\":\"Weekdays\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 8 * * mon-fri\",\"finishOnTime\":false},\"triggerSummary\":\"0 8 * * mon-fri\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Standup notes\",\"allowMultipleMessages\":true,\"model\":\"some-model\"},\"loopPaused\":false,\"prompt\":\"Standup notes\",\"model\":\"some-model\",\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":3,\"name\":\"Reminder\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"one_time\",\"runAt\":\"2099-01-01T09:00:00.000Z\"},\"triggerSummary\":\"One-time at 2099-01-01T09:00:00.000Z\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Remind me\"},\"loopPaused\":false,\"prompt\":\"Remind me\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":4,\"name\":\"Old\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"one_time\",\"runAt\":\"2001-01-01T00:00:00.000Z\"},\"triggerSummary\":\"One-time at 2001-01-01T00:00:00.000Z\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Too late\"},\"loopPaused\":false,\"prompt\":\"Too late\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":5,\"name\":\"On demand\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Check the weather\"},\"loopPaused\":false,\"prompt\":\"Check the weather\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":6,\"name\":\"Silent\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Say nothing at all\"},\"loopPaused\":false,\"prompt\":\"Say nothing at all\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":7,\"name\":\"Paused\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"*/30 * * * *\",\"finishOnTime\":false},\"triggerSummary\":\"*/30 * * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":false,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Ping\"},\"loopPaused\":false,\"prompt\":\"Ping\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":8,\"name\":\"Hook\",\"triggerType\":\"webhook\",\"triggerConfig\":{\"sourceLabel\":null},\"triggerSummary\":\"Signed webhook\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Handle the hook\"},\"loopPaused\":false,\"prompt\":\"Handle the hook\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}]"
+   }
+  },
+  {
+   "name": "list bob",
+   "method": "GET",
+   "path": "/api/tasks",
+   "user": 2,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":9,\"name\":\"Bob task\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Bob stuff\"},\"loopPaused\":false,\"prompt\":\"Bob stuff\",\"model\":null,\"agentId\":\"<agent:2:main>\",\"connectionLabel\":null}]"
+   }
+  },
+  {
+   "name": "update bad id",
+   "method": "PUT",
+   "path": "/api/tasks/abc",
+   "user": 1,
+   "body": "{\"name\":\"x\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Invalid task id\"}"
+   }
+  },
+  {
+   "name": "update missing",
+   "method": "PUT",
+   "path": "/api/tasks/999",
+   "user": 1,
+   "body": "{\"name\":\"x\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task not found\"}"
+   }
+  },
+  {
+   "name": "update foreign",
+   "method": "PUT",
+   "path": "/api/tasks/9",
+   "user": 1,
+   "body": "{\"name\":\"Stolen\"}",
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task not found\"}"
+   }
+  },
+  {
+   "name": "update rename",
+   "method": "PUT",
+   "path": "/api/tasks/1",
+   "user": 1,
+   "body": "{\"name\":\"Daily briefing\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"id\":1,\"name\":\"Daily briefing\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * *\",\"finishOnTime\":false},\"triggerSummary\":\"0 9 * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Brief me.\"},\"loopPaused\":false,\"prompt\":\"Brief me.\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "update cron",
+   "method": "PUT",
+   "path": "/api/tasks/1",
+   "user": 1,
+   "body": "{\"cronExpression\":\"30 7 * * *\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"id\":1,\"name\":\"Daily briefing\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * *\",\"finishOnTime\":false},\"triggerSummary\":\"0 9 * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Brief me.\"},\"loopPaused\":false,\"prompt\":\"Brief me.\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "update bad cron",
+   "method": "PUT",
+   "path": "/api/tasks/1",
+   "user": 1,
+   "body": "{\"cronExpression\":\"nope\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"id\":1,\"name\":\"Daily briefing\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * *\",\"finishOnTime\":false},\"triggerSummary\":\"0 9 * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Brief me.\"},\"loopPaused\":false,\"prompt\":\"Brief me.\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "update disable",
+   "method": "PUT",
+   "path": "/api/tasks/1",
+   "user": 1,
+   "body": "{\"enabled\":false}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"id\":1,\"name\":\"Daily briefing\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * *\",\"finishOnTime\":false},\"triggerSummary\":\"0 9 * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":false,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Brief me.\"},\"loopPaused\":false,\"prompt\":\"Brief me.\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "update prompt",
+   "method": "PUT",
+   "path": "/api/tasks/5",
+   "user": 1,
+   "body": "{\"prompt\":\"Check the weather in Berlin\",\"model\":\"other-model\"}",
+   "expect": {
+    "status": 200,
+    "raw": "{\"id\":5,\"name\":\"On demand\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Check the weather in Berlin\",\"model\":\"other-model\"},\"loopPaused\":false,\"prompt\":\"Check the weather in Berlin\",\"model\":\"other-model\",\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "delete bad id",
+   "method": "DELETE",
+   "path": "/api/tasks/0",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Invalid task id\"}"
+   }
+  },
+  {
+   "name": "delete missing",
+   "method": "DELETE",
+   "path": "/api/tasks/999",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task not found\"}"
+   }
+  },
+  {
+   "name": "delete foreign",
+   "method": "DELETE",
+   "path": "/api/tasks/9",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task not found\"}"
+   }
+  },
+  {
+   "name": "run bad id",
+   "method": "POST",
+   "path": "/api/tasks/x/run",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Invalid task id\"}"
+   }
+  },
+  {
+   "name": "run missing",
+   "method": "POST",
+   "path": "/api/tasks/999/run",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task not found\"}"
+   }
+  },
+  {
+   "name": "run foreign",
+   "method": "POST",
+   "path": "/api/tasks/9/run",
+   "user": 1,
+   "expect": {
+    "status": 400,
+    "raw": "{\"error\":\"Task not found\"}"
+   }
+  },
+  {
+   "name": "create exploder",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Exploder\",\"triggerType\":\"manual\",\"prompt\":\"Explode on purpose\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":10,\"name\":\"Exploder\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Explode on purpose\"},\"loopPaused\":false,\"prompt\":\"Explode on purpose\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "create reporter",
+   "method": "POST",
+   "path": "/api/tasks",
+   "user": 1,
+   "body": "{\"name\":\"Reporter\",\"triggerType\":\"manual\",\"prompt\":\"Report the news\"}",
+   "expect": {
+    "status": 201,
+    "raw": "{\"id\":11,\"name\":\"Reporter\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Report the news\"},\"loopPaused\":false,\"prompt\":\"Report the news\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}"
+   }
+  },
+  {
+   "name": "seed previous runs",
+   "sql": "INSERT INTO agent_runs (id, user_id, agent_id, title, status, error, final_response, metadata_json, created_at) VALUES\n  ('prev-5a', 1, '$main1', 'On demand', 'completed', NULL, 'Rainy', '{\"taskId\":5}', '2026-11-22 09:00:00'),\n  ('prev-5b', 1, '$main1', 'On demand', 'completed', NULL, 'Sunny and 20C', '{\"taskId\":5}', '2026-11-23 09:00:00'),\n  ('prev-6', 1, '$main1', 'Silent', 'failed', 'Timed out', NULL, '{\"taskId\":\"6\"}', '2026-11-23 10:00:00'),\n  ('prev-11', 1, '$main1', 'Reporter', 'completed', '', NULL, '{\"taskId\":11}', '2026-11-23 11:00:00'),\n  ('prev-x', 1, '$main1', 'Broken', 'completed', NULL, 'x', 'not json', '2026-11-24 11:00:00')",
+   "params": []
+  },
+  {
+   "name": "seed sent messages",
+   "sql": "INSERT INTO messages (user_id, agent_id, run_id, role, content) VALUES\n  (1, '$main1', 'prev-11', 'assistant', 'Headline one'),\n  (1, '$main1', 'prev-11', 'user', 'ignored'),\n  (1, '$main1', 'prev-11', 'assistant', 'Headline two')",
+   "params": []
+  },
+  {
+   "name": "list after edits",
+   "method": "GET",
+   "path": "/api/tasks",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "[{\"id\":1,\"name\":\"Daily briefing\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 9 * * *\",\"finishOnTime\":false},\"triggerSummary\":\"0 9 * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":false,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Brief me.\"},\"loopPaused\":false,\"prompt\":\"Brief me.\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":2,\"name\":\"Weekdays\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"0 8 * * mon-fri\",\"finishOnTime\":false},\"triggerSummary\":\"0 8 * * mon-fri\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Standup notes\",\"allowMultipleMessages\":true,\"model\":\"some-model\"},\"loopPaused\":false,\"prompt\":\"Standup notes\",\"model\":\"some-model\",\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":3,\"name\":\"Reminder\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"one_time\",\"runAt\":\"2099-01-01T09:00:00.000Z\"},\"triggerSummary\":\"One-time at 2099-01-01T09:00:00.000Z\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Remind me\"},\"loopPaused\":false,\"prompt\":\"Remind me\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":4,\"name\":\"Old\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"one_time\",\"runAt\":\"2001-01-01T00:00:00.000Z\"},\"triggerSummary\":\"One-time at 2001-01-01T00:00:00.000Z\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Too late\"},\"loopPaused\":false,\"prompt\":\"Too late\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":5,\"name\":\"On demand\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":\"<time>\",\"lastRunId\":\"prev-5b\",\"lastRunStatus\":\"completed\",\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Check the weather in Berlin\",\"model\":\"other-model\"},\"loopPaused\":false,\"prompt\":\"Check the weather in Berlin\",\"model\":\"other-model\",\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":6,\"name\":\"Silent\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":\"<time>\",\"lastRunId\":\"prev-6\",\"lastRunStatus\":\"failed\",\"lastRunError\":\"Timed out\",\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Say nothing at all\"},\"loopPaused\":false,\"prompt\":\"Say nothing at all\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":7,\"name\":\"Paused\",\"triggerType\":\"schedule\",\"triggerConfig\":{\"mode\":\"recurring\",\"cronExpression\":\"*/30 * * * *\",\"finishOnTime\":false},\"triggerSummary\":\"*/30 * * * *\",\"nextRun\":\"<time>\",\"averageRunSeconds\":null,\"enabled\":false,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Ping\"},\"loopPaused\":false,\"prompt\":\"Ping\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":8,\"name\":\"Hook\",\"triggerType\":\"webhook\",\"triggerConfig\":{\"sourceLabel\":null},\"triggerSummary\":\"Signed webhook\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Handle the hook\"},\"loopPaused\":false,\"prompt\":\"Handle the hook\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":10,\"name\":\"Exploder\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":null,\"lastRunId\":null,\"lastRunStatus\":null,\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Explode on purpose\"},\"loopPaused\":false,\"prompt\":\"Explode on purpose\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null},{\"id\":11,\"name\":\"Reporter\",\"triggerType\":\"manual\",\"triggerConfig\":{},\"triggerSummary\":\"Manual run only\",\"nextRun\":null,\"averageRunSeconds\":null,\"enabled\":true,\"lastRun\":\"<time>\",\"lastRunId\":\"prev-11\",\"lastRunStatus\":\"completed\",\"lastRunError\":null,\"lastTriggeredAt\":null,\"taskType\":\"agent_prompt\",\"taskConfig\":{\"prompt\":\"Report the news\"},\"loopPaused\":false,\"prompt\":\"Report the news\",\"model\":null,\"agentId\":\"<agent:1:main>\",\"connectionLabel\":null}]"
+   }
+  },
+  {
+   "name": "run manual",
+   "method": "POST",
+   "path": "/api/tasks/5/run",
+   "user": 1,
+   "expect": {
+    "status": 200,
+    "raw": "{\"running\":true}"
+   }
+  }
+ ],
+ "snapshot": [
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":1,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Daily briefing\",\"trigger_type\":\"schedule\",\"trigger_config\":\"{\\\"mode\\\":\\\"recurring\\\",\\\"cronExpression\\\":\\\"0 9 * * *\\\",\\\"finishOnTime\\\":false}\",\"cron_expression\":\"0 9 * * *\",\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Brief me.\\\"}\",\"enabled\":0,\"ran\":0,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":2,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Weekdays\",\"trigger_type\":\"schedule\",\"trigger_config\":\"{\\\"mode\\\":\\\"recurring\\\",\\\"cronExpression\\\":\\\"0 8 * * mon-fri\\\",\\\"finishOnTime\\\":false}\",\"cron_expression\":\"0 8 * * mon-fri\",\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Standup notes\\\",\\\"allowMultipleMessages\\\":true,\\\"model\\\":\\\"some-model\\\"}\",\"enabled\":1,\"ran\":0,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":3,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Reminder\",\"trigger_type\":\"schedule\",\"trigger_config\":\"{\\\"mode\\\":\\\"one_time\\\",\\\"runAt\\\":\\\"2099-01-01T09:00:00.000Z\\\"}\",\"cron_expression\":null,\"run_at\":\"2099-01-01T09:00:00.000Z\",\"one_time\":1,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Remind me\\\"}\",\"enabled\":1,\"ran\":0,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":4,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Old\",\"trigger_type\":\"schedule\",\"trigger_config\":\"{\\\"mode\\\":\\\"one_time\\\",\\\"runAt\\\":\\\"2001-01-01T00:00:00.000Z\\\"}\",\"cron_expression\":null,\"run_at\":\"2001-01-01T00:00:00.000Z\",\"one_time\":1,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Too late\\\"}\",\"enabled\":1,\"ran\":0,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":5,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"On demand\",\"trigger_type\":\"manual\",\"trigger_config\":\"{}\",\"cron_expression\":null,\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Check the weather in Berlin\\\",\\\"model\\\":\\\"other-model\\\"}\",\"enabled\":1,\"ran\":1,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":6,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Silent\",\"trigger_type\":\"manual\",\"trigger_config\":\"{}\",\"cron_expression\":null,\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Say nothing at all\\\"}\",\"enabled\":1,\"ran\":1,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":7,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Paused\",\"trigger_type\":\"schedule\",\"trigger_config\":\"{\\\"mode\\\":\\\"recurring\\\",\\\"cronExpression\\\":\\\"*/30 * * * *\\\",\\\"finishOnTime\\\":false}\",\"cron_expression\":\"*/30 * * * *\",\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Ping\\\"}\",\"enabled\":0,\"ran\":0,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":8,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Hook\",\"trigger_type\":\"webhook\",\"trigger_config\":\"{\\\"sourceLabel\\\":null}\",\"cron_expression\":null,\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Handle the hook\\\"}\",\"enabled\":1,\"ran\":0,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":9,\"user_id\":2,\"agent_id\":\"<agent:2:main>\",\"name\":\"Bob task\",\"trigger_type\":\"manual\",\"trigger_config\":\"{}\",\"cron_expression\":null,\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Bob stuff\\\"}\",\"enabled\":1,\"ran\":0,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":10,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Exploder\",\"trigger_type\":\"manual\",\"trigger_config\":\"{}\",\"cron_expression\":null,\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Explode on purpose\\\"}\",\"enabled\":1,\"ran\":1,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "scheduled_tasks",
+   "row": "{\"id\":11,\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"name\":\"Reporter\",\"trigger_type\":\"manual\",\"trigger_config\":\"{}\",\"cron_expression\":null,\"run_at\":null,\"one_time\":0,\"execution_mode\":\"prompt\",\"task_type\":\"agent_prompt\",\"task_config\":\"{\\\"prompt\\\":\\\"Report the news\\\"}\",\"enabled\":1,\"ran\":1,\"triggered\":0,\"last_trigger_fingerprint\":null}"
+  },
+  {
+   "table": "conversations",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"platform\":\"tasks\",\"platform_chat_id\":\"task:10\",\"title\":\"Task — Exploder\"}"
+  },
+  {
+   "table": "conversations",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"platform\":\"tasks\",\"platform_chat_id\":\"task:11\",\"title\":\"Task — Reporter\"}"
+  },
+  {
+   "table": "conversations",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"platform\":\"tasks\",\"platform_chat_id\":\"task:5\",\"title\":\"Task — On demand\"}"
+  },
+  {
+   "table": "conversations",
+   "row": "{\"user_id\":1,\"agent_id\":\"<agent:1:main>\",\"platform\":\"tasks\",\"platform_chat_id\":\"task:6\",\"title\":\"Task — Silent\"}"
+  }
+ ],
+ "engineRuns": [
+  "{\"userId\":1,\"model\":\"other-model\",\"prompt\":\"[SYSTEM: Executing Background Task]\\n\\nTask Name: On demand\\n\\nTrigger: Manual run only\\n\\nDefault output rules (the task instructions below and the user's memory/preferences override these wherever they say otherwise):\\n- Report only what actually changed or needs attention. Never mention checks that found nothing (e.g. if the task checks mail and calendar and only mail has something new, say nothing about the calendar).\\n- Do not explain why or when the task ran, what you checked, or how you did it. No preamble, no sign-off.\\n- Say each thing once. No repetition, no restating the task, no summary of a summary.\\n- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.\\n- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).\\n- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.\\n- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.\\n\\nCheck the weather in Berlin\\n\\n[Previous run of this task: 2026-11-23 09:00:00 UTC, completed]\\nIt sent nothing. Its result:\\nSunny and 20C\\nDo not repeat what that run already delivered; report only what is new since then.\",\"title\":\"On demand\",\"triggerType\":\"manual\",\"triggerSource\":\"manual\",\"agentId\":\"<agent:1:main>\",\"taskId\":5,\"allowMultipleProactiveMessages\":false,\"priorSummary\":\"\",\"context\":{},\"resumable\":true}",
+  "{\"userId\":1,\"model\":null,\"prompt\":\"[SYSTEM: Executing Background Task]\\n\\nTask Name: Silent\\n\\nTrigger: Manual run only\\n\\nDefault output rules (the task instructions below and the user's memory/preferences override these wherever they say otherwise):\\n- Report only what actually changed or needs attention. Never mention checks that found nothing (e.g. if the task checks mail and calendar and only mail has something new, say nothing about the calendar).\\n- Do not explain why or when the task ran, what you checked, or how you did it. No preamble, no sign-off.\\n- Say each thing once. No repetition, no restating the task, no summary of a summary.\\n- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.\\n- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).\\n- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.\\n- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.\\n\\nSay nothing at all\\n\\n[Previous run of this task: 2026-11-23 10:00:00 UTC, failed]\\nIt failed: Timed out\\nDo not repeat what that run already delivered; report only what is new since then.\",\"title\":\"Silent\",\"triggerType\":\"manual\",\"triggerSource\":\"manual\",\"agentId\":\"<agent:1:main>\",\"taskId\":6,\"allowMultipleProactiveMessages\":false,\"priorSummary\":\"\",\"context\":{},\"resumable\":true}",
+  "{\"userId\":1,\"model\":null,\"prompt\":\"[SYSTEM: Executing Background Task]\\n\\nTask Name: Silent\\n\\nTrigger: Manual run only\\n\\nDefault output rules (the task instructions below and the user's memory/preferences override these wherever they say otherwise):\\n- Report only what actually changed or needs attention. Never mention checks that found nothing (e.g. if the task checks mail and calendar and only mail has something new, say nothing about the calendar).\\n- Do not explain why or when the task ran, what you checked, or how you did it. No preamble, no sign-off.\\n- Say each thing once. No repetition, no restating the task, no summary of a summary.\\n- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.\\n- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).\\n- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.\\n- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.\\n\\nSay nothing at all\\n\\n[Previous run of this task: 2026-11-23 10:00:00 UTC, failed]\\nIt failed: Timed out\\nDo not repeat what that run already delivered; report only what is new since then.\\n\\n[SYSTEM: Previous task attempt failed]\\nError: Background task completed without producing a result or an explicit no-response decision.\\nContinue autonomously end-to-end, retrying failed steps safely and using alternate tools when appropriate.\",\"title\":\"Silent\",\"triggerType\":\"manual\",\"triggerSource\":\"manual\",\"agentId\":\"<agent:1:main>\",\"taskId\":6,\"allowMultipleProactiveMessages\":false,\"priorSummary\":\"\",\"context\":{},\"resumable\":true}",
+  "{\"userId\":1,\"model\":null,\"prompt\":\"[SYSTEM: Executing Background Task]\\n\\nTask Name: Exploder\\n\\nTrigger: Manual run only\\n\\nDefault output rules (the task instructions below and the user's memory/preferences override these wherever they say otherwise):\\n- Report only what actually changed or needs attention. Never mention checks that found nothing (e.g. if the task checks mail and calendar and only mail has something new, say nothing about the calendar).\\n- Do not explain why or when the task ran, what you checked, or how you did it. No preamble, no sign-off.\\n- Say each thing once. No repetition, no restating the task, no summary of a summary.\\n- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.\\n- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).\\n- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.\\n- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.\\n\\nExplode on purpose\",\"title\":\"Exploder\",\"triggerType\":\"manual\",\"triggerSource\":\"manual\",\"agentId\":\"<agent:1:main>\",\"taskId\":10,\"allowMultipleProactiveMessages\":false,\"priorSummary\":\"\",\"context\":{},\"resumable\":true}",
+  "{\"userId\":1,\"model\":null,\"prompt\":\"[SYSTEM: Executing Background Task]\\n\\nTask Name: Exploder\\n\\nTrigger: Manual run only\\n\\nDefault output rules (the task instructions below and the user's memory/preferences override these wherever they say otherwise):\\n- Report only what actually changed or needs attention. Never mention checks that found nothing (e.g. if the task checks mail and calendar and only mail has something new, say nothing about the calendar).\\n- Do not explain why or when the task ran, what you checked, or how you did it. No preamble, no sign-off.\\n- Say each thing once. No repetition, no restating the task, no summary of a summary.\\n- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.\\n- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).\\n- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.\\n- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.\\n\\nExplode on purpose\\n\\n[SYSTEM: Previous task attempt failed]\\nError: Model exploded\\nContinue autonomously end-to-end, retrying failed steps safely and using alternate tools when appropriate.\",\"title\":\"Exploder\",\"triggerType\":\"manual\",\"triggerSource\":\"manual\",\"agentId\":\"<agent:1:main>\",\"taskId\":10,\"allowMultipleProactiveMessages\":false,\"priorSummary\":\"\",\"context\":{},\"resumable\":true}",
+  "{\"userId\":1,\"model\":null,\"prompt\":\"[SYSTEM: Executing Background Task]\\n\\nTask Name: Reporter\\n\\nTrigger: Manual run only\\n\\nDefault output rules (the task instructions below and the user's memory/preferences override these wherever they say otherwise):\\n- Report only what actually changed or needs attention. Never mention checks that found nothing (e.g. if the task checks mail and calendar and only mail has something new, say nothing about the calendar).\\n- Do not explain why or when the task ran, what you checked, or how you did it. No preamble, no sign-off.\\n- Say each thing once. No repetition, no restating the task, no summary of a summary.\\n- Be brief and token-efficient: do the minimum tool calls needed and keep the message as short as the content allows.\\n- Format user-facing messages for easy reading on the target platform (short lines, lists or bold for key items where it helps).\\n- If nothing is relevant, answer exactly [NO RESPONSE] and nothing else.\\n- Treat the task instructions as intent, not a rigid script. If context shows something else would serve the user better, do that instead.\\n\\nReport the news\\n\\n[Previous run of this task: 2026-11-23 11:00:00 UTC, completed]\\nIt sent the user:\\nHeadline one\\n---\\nHeadline two\\nDo not repeat what that run already delivered; report only what is new since then.\",\"title\":\"Reporter\",\"triggerType\":\"manual\",\"triggerSource\":\"manual\",\"agentId\":\"<agent:1:main>\",\"taskId\":11,\"allowMultipleProactiveMessages\":false,\"priorSummary\":\"\",\"context\":{},\"resumable\":true}"
+ ],
+ "events": [
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_running\",\"payload\":{\"taskId\":5,\"timestamp\":\"<time>\"}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_complete\",\"payload\":{\"taskId\":5,\"result\":{\"runId\":\"run-1\",\"content\":\"Done 1.\"}}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_running\",\"payload\":{\"taskId\":6,\"timestamp\":\"<time>\"}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_running\",\"payload\":{\"taskId\":6,\"timestamp\":\"<time>\",\"retry\":1}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_skipped\",\"payload\":{\"taskId\":6,\"reason\":\"execution_failed\",\"error\":\"Background task completed without producing a result or an explicit no-response decision.\",\"timestamp\":\"<time>\"}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_running\",\"payload\":{\"taskId\":10,\"timestamp\":\"<time>\"}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_running\",\"payload\":{\"taskId\":10,\"timestamp\":\"<time>\",\"retry\":1}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_skipped\",\"payload\":{\"taskId\":10,\"reason\":\"execution_failed\",\"error\":\"Model exploded\",\"timestamp\":\"<time>\"}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_running\",\"payload\":{\"taskId\":11,\"timestamp\":\"<time>\"}}",
+  "{\"room\":\"user:1\",\"event\":\"tasks:task_complete\",\"payload\":{\"taskId\":11,\"result\":{\"runId\":\"run-6\",\"content\":\"Done 6.\"}}}"
+ ]
+}

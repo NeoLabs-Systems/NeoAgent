@@ -1,0 +1,537 @@
+{
+  "setup": [
+    "INSERT INTO users (id, username, password) VALUES (1, 'u', 'x')",
+    "INSERT INTO agents (id, user_id, slug, display_name) VALUES ('a1', 1, 'main', 'M')",
+    "INSERT INTO agent_runs (id, user_id, agent_id, status) VALUES ('run-old', 1, 'a1', 'running')"
+  ],
+  "seeds": [
+    {
+      "platform": "whatsapp",
+      "messageId": "w1",
+      "content": "first",
+      "chatId": "chat-whatsapp",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "platform": "whatsapp",
+      "messageId": "w2",
+      "content": "boom",
+      "chatId": "chat-whatsapp",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:01.000Z"
+    },
+    {
+      "platform": "whatsapp",
+      "messageId": "w3",
+      "content": "cancel",
+      "chatId": "chat-whatsapp",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:02.000Z"
+    },
+    {
+      "platform": "whatsapp",
+      "messageId": "w4",
+      "content": "abandoned",
+      "chatId": "chat-whatsapp",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:03.000Z"
+    },
+    {
+      "platform": "whatsapp",
+      "messageId": "w5",
+      "content": "interrupted",
+      "chatId": "chat-whatsapp",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:04.000Z"
+    },
+    {
+      "platform": "whatsapp",
+      "messageId": "w6",
+      "content": "bad",
+      "chatId": "chat-whatsapp",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:05.000Z"
+    },
+    {
+      "platform": "whatsapp",
+      "messageId": "w7",
+      "content": "done",
+      "chatId": "chat-whatsapp",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:06.000Z"
+    },
+    {
+      "platform": "telegram",
+      "messageId": "t1",
+      "content": "elsewhere",
+      "chatId": "chat-telegram",
+      "sender": "ann",
+      "timestamp": "2026-11-01T10:00:07.000Z"
+    }
+  ],
+  "states": [
+    "UPDATE messaging_inbound_jobs SET created_at = (SELECT created_at FROM messages WHERE messages.id = message_id)",
+    "UPDATE messaging_inbound_jobs SET status = 'processing' WHERE platform_msg_id = 'w4'",
+    "UPDATE messaging_inbound_jobs SET status = 'processing', run_id = 'run-old' WHERE platform_msg_id = 'w5'",
+    "UPDATE messaging_inbound_jobs SET payload_json = '{oops' WHERE platform_msg_id = 'w6'",
+    "UPDATE messaging_inbound_jobs SET status = 'completed' WHERE platform_msg_id = 'w7'"
+  ],
+  "steps": [
+    {
+      "label": "offline recovery",
+      "result": {
+        "recovered": 0,
+        "skipped": 6
+      },
+      "handled": [],
+      "emitted": [],
+      "jobs": [
+        {
+          "id": "w1",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w2",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w3",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w4",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w5",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": "run-old",
+          "last_error": "The server restarted after this agent run began; it will not be replayed automatically."
+        },
+        {
+          "id": "w6",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w7",
+          "status": "completed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "t1",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        }
+      ]
+    },
+    {
+      "label": "reconnected",
+      "result": null,
+      "handled": [
+        [
+          1,
+          "whatsapp",
+          "w1",
+          "first"
+        ],
+        [
+          1,
+          "whatsapp",
+          "w2",
+          "boom"
+        ],
+        [
+          1,
+          "whatsapp",
+          "w3",
+          "cancel"
+        ],
+        [
+          1,
+          "whatsapp",
+          "w4",
+          "abandoned"
+        ]
+      ],
+      "emitted": [],
+      "jobs": [
+        {
+          "id": "w1",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w2",
+          "status": "failed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": "boom failed"
+        },
+        {
+          "id": "w3",
+          "status": "pending",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w4",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w5",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": "run-old",
+          "last_error": "The server restarted after this agent run began; it will not be replayed automatically."
+        },
+        {
+          "id": "w6",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": "Stored inbound message payload is invalid."
+        },
+        {
+          "id": "w7",
+          "status": "completed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "t1",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        }
+      ]
+    },
+    {
+      "label": "redelivered completed",
+      "result": null,
+      "handled": [],
+      "emitted": [],
+      "jobs": [
+        {
+          "id": "w1",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w2",
+          "status": "failed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": "boom failed"
+        },
+        {
+          "id": "w3",
+          "status": "pending",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w4",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w5",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": "run-old",
+          "last_error": "The server restarted after this agent run began; it will not be replayed automatically."
+        },
+        {
+          "id": "w6",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": "Stored inbound message payload is invalid."
+        },
+        {
+          "id": "w7",
+          "status": "completed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "t1",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        }
+      ]
+    },
+    {
+      "label": "redelivered failed",
+      "result": null,
+      "handled": [
+        [
+          1,
+          "whatsapp",
+          "w2",
+          "boom"
+        ]
+      ],
+      "emitted": [],
+      "jobs": [
+        {
+          "id": "w1",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w2",
+          "status": "failed",
+          "attempts": 2,
+          "run_id": null,
+          "last_error": "boom failed"
+        },
+        {
+          "id": "w3",
+          "status": "pending",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w4",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w5",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": "run-old",
+          "last_error": "The server restarted after this agent run began; it will not be replayed automatically."
+        },
+        {
+          "id": "w6",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": "Stored inbound message payload is invalid."
+        },
+        {
+          "id": "w7",
+          "status": "completed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "t1",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        }
+      ]
+    },
+    {
+      "label": "new message",
+      "result": null,
+      "handled": [
+        [
+          1,
+          "whatsapp",
+          "w8",
+          "fresh"
+        ]
+      ],
+      "emitted": [
+        [
+          "w8",
+          "fresh"
+        ]
+      ],
+      "jobs": [
+        {
+          "id": "w1",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w2",
+          "status": "failed",
+          "attempts": 2,
+          "run_id": null,
+          "last_error": "boom failed"
+        },
+        {
+          "id": "w3",
+          "status": "pending",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w4",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w5",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": "run-old",
+          "last_error": "The server restarted after this agent run began; it will not be replayed automatically."
+        },
+        {
+          "id": "w6",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": "Stored inbound message payload is invalid."
+        },
+        {
+          "id": "w7",
+          "status": "completed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "t1",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w8",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        }
+      ]
+    },
+    {
+      "label": "scoped recovery",
+      "result": {
+        "recovered": 0,
+        "skipped": 0
+      },
+      "handled": [
+        [
+          1,
+          "whatsapp",
+          "w3",
+          "cancel"
+        ]
+      ],
+      "emitted": [],
+      "jobs": [
+        {
+          "id": "w1",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w2",
+          "status": "failed",
+          "attempts": 2,
+          "run_id": null,
+          "last_error": "boom failed"
+        },
+        {
+          "id": "w3",
+          "status": "pending",
+          "attempts": 2,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w4",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w5",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": "run-old",
+          "last_error": "The server restarted after this agent run began; it will not be replayed automatically."
+        },
+        {
+          "id": "w6",
+          "status": "failed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": "Stored inbound message payload is invalid."
+        },
+        {
+          "id": "w7",
+          "status": "completed",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "t1",
+          "status": "pending",
+          "attempts": 0,
+          "run_id": null,
+          "last_error": null
+        },
+        {
+          "id": "w8",
+          "status": "completed",
+          "attempts": 1,
+          "run_id": null,
+          "last_error": null
+        }
+      ]
+    }
+  ]
+}

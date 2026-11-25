@@ -11,6 +11,9 @@ on:
         description: Release tag the image is published under, for example v1.2.3 or v1.2.3-beta.0
         required: true
         type: string
+    secrets:
+      NEOLABS_GO_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -26,10 +29,10 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
         with:
-          node-version: 22
+          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -40,7 +43,7 @@ jobs:
 
       # Same as the installers: the image ships the web client built from this exact ref.
       - name: Build bundled web client
-        run: NEOAGENT_BACKEND_URL='' npm run flutter:build:web
+        uses: ./.github/actions/build-web
 
       - name: Resolve image tags
         id: meta
@@ -78,3 +81,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          secrets: |
+            github_token=${{ secrets.NEOLABS_GO_TOKEN }}
