@@ -6,7 +6,6 @@
 
 <p align="center"><strong>The personal AI agent you host yourself.</strong></p>
 
-Browser and coarse server analytics are enabled by default and can be disabled; see [analytics](docs/analytics.md).
 
 <p align="center">
   Its own computer, a memory, a schedule and a voice.<br>
