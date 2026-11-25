@@ -131,7 +131,7 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	newer := release.CompareVersions(available.Version, before) > 0
 	if !newer && !(requested != "" && available.Version != before) {
 		if previous != nil {
-			if err := a.refreshLauncher(a.Exe, *previous); err != nil {
+			if err := a.refreshLauncher(a.LauncherPath, *previous); err != nil {
 				a.UI.Warn("The command-line launcher could not be refreshed: " + err.Error())
 			}
 		}
@@ -154,7 +154,7 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	port := a.Port()
 	var installed installedRuntime
 	var archive string
-	aLauncher := a.Exe
+	aLauncher := a.LauncherPath
 	snapshot := a.snapshotService()
 	resumable := 0
 	switched := false

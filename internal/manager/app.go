@@ -21,6 +21,7 @@ import (
 	"github.com/NeoLabs-Systems/neoagent/internal/setupcontract"
 	"github.com/NeoLabs-Systems/neolabs-go/cli"
 	"github.com/NeoLabs-Systems/neolabs-go/cli/envfile"
+	nlrelease "github.com/NeoLabs-Systems/neolabs-go/cli/release"
 	"github.com/NeoLabs-Systems/neolabs-go/cli/service"
 	"github.com/NeoLabs-Systems/neolabs-go/dbx"
 	"github.com/NeoLabs-Systems/neolabs-go/runtimecfg"
@@ -30,15 +31,16 @@ const appName = "NeoAgent"
 
 // App is one CLI invocation.
 type App struct {
-	Paths   runtimecfg.Paths
-	Exe     string // resolved path of this binary
-	AppDir  string // holds public/, landing/ and computer-runtime/
-	UI      *cli.UI
-	Events  *cli.EventWriter
-	JSON    bool
-	Service *service.Manager
-	Out     io.Writer
-	Getenv  func(string) string
+	Paths        runtimecfg.Paths
+	Exe          string // resolved path of this binary
+	LauncherPath string // path used to invoke the standalone command, without resolving symlinks
+	AppDir       string // holds public/, landing/ and computer-runtime/
+	UI           *cli.UI
+	Events       *cli.EventWriter
+	JSON         bool
+	Service      *service.Manager
+	Out          io.Writer
+	Getenv       func(string) string
 	// notes collects what the user still has to do after an install.
 	notes []string
 	// releaseAPI replaces the GitHub API (tests serve releases locally).
@@ -84,11 +86,12 @@ func New(args []string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	launcherPath := nlrelease.InvocationPath(os.Args[0])
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
 	}
 	jsonOut := cli.HasFlag(args, "--json")
-	a := &App{Paths: paths, Exe: exe, UI: cli.NewUI(jsonOut), JSON: jsonOut, Out: os.Stdout, Getenv: os.Getenv}
+	a := &App{Paths: paths, Exe: exe, LauncherPath: launcherPath, UI: cli.NewUI(jsonOut), JSON: jsonOut, Out: os.Stdout, Getenv: os.Getenv}
 	a.AppDir = a.resolveAppDir()
 	profile := "quick"
 	if cli.HasFlag(args, "--full") {

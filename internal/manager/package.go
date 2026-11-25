@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,31 +40,12 @@ func (a *App) refreshLauncher(exe string, rt installedRuntime) error {
 	if binDir == "" {
 		binDir = filepath.Join(home, ".local", "bin")
 	}
-	launcher, err := filepath.Abs(filepath.Join(binDir, "neoagent"))
-	if err != nil || filepath.Clean(exe) != launcher {
-		return err
-	}
-	src, err := os.Open(rt.binary())
+	launcher, err := filepath.Abs(filepath.Join(binDir, release.BinaryName(Platform())))
 	if err != nil {
 		return err
 	}
-	defer src.Close()
-	tmp, err := os.CreateTemp(binDir, ".neoagent-update-*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	_, copyErr := io.Copy(tmp, src)
-	if copyErr == nil {
-		copyErr = tmp.Chmod(0o755)
-	}
-	if err := tmp.Close(); copyErr == nil {
-		copyErr = err
-	}
-	if copyErr != nil {
-		return copyErr
-	}
-	return os.Rename(tmp.Name(), launcher)
+	_, err = nlrelease.RefreshCommandLauncher(exe, launcher, rt.binary())
+	return err
 }
 
 func (a *App) versionsDir() string { return filepath.Join(a.Paths.Home, "app", "versions") }

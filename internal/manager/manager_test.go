@@ -369,6 +369,40 @@ func TestRefreshLauncher(t *testing.T) {
 	}
 }
 
+func TestRefreshLauncherFromInvokedSymlink(t *testing.T) {
+	bin := t.TempDir()
+	t.Setenv("NEOAGENT_BIN_DIR", bin)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	launcher := filepath.Join(bin, "neoagent")
+	target := filepath.Join(t.TempDir(), "neoagent")
+	if err := os.WriteFile(target, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, launcher); err != nil {
+		t.Fatal(err)
+	}
+	rt := installedRuntime{Version: "2.0.0", Dir: t.TempDir()}
+	if err := os.MkdirAll(filepath.Dir(rt.binary()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rt.binary(), []byte("new"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	invoked := nlrelease.InvocationPath("neoagent")
+	if invoked != launcher {
+		t.Fatalf("invocation path = %q, want launcher %q", invoked, launcher)
+	}
+	if err := (&App{}).refreshLauncher(invoked, rt); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(launcher); err != nil || string(data) != "new" {
+		t.Fatalf("launcher = %q, %v", data, err)
+	}
+	if data, err := os.ReadFile(target); err != nil || string(data) != "old" {
+		t.Fatalf("versioned target = %q, %v", data, err)
+	}
+}
+
 func TestPruneRuntimesKeepsActiveAndPrevious(t *testing.T) {
 	a := newTestApp(t)
 	for _, name := range []string{"1.0.0", "2.0.0", "3.0.0", ".staging-work", "unrelated"} {
