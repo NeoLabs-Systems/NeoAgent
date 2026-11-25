@@ -10,8 +10,6 @@ on:
     secrets:
       NEOAGENT_RUNTIME_SIGNING_PRIVATE_KEY:
         required: true
-      NEOLABS_GO_TOKEN:
-        required: false
 
 permissions:
   contents: write
@@ -28,8 +26,6 @@ jobs:
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
-        with:
-          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4.2.0

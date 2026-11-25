@@ -5,8 +5,7 @@
 # runtime lives in the /data volume; the image itself is never modified.
 #
 # The web client is built before `docker build` (CI runs the Flutter web build
-# into public/). The Go module is fetched inside the build stage; while
-# neolabs-go is private, pass a token: --secret id=github_token,env=GITHUB_TOKEN.
+# into public/).
 
 ARG GO_IMAGE=golang:1.27-trixie
 ARG BASE_IMAGE=debian:trixie-slim
@@ -14,16 +13,10 @@ ARG BASE_IMAGE=debian:trixie-slim
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS build
 ARG TARGETOS
 ARG TARGETARCH
-ENV CGO_ENABLED=0 GOPRIVATE=github.com/NeoLabs-Systems/* GOWORK=off
+ENV CGO_ENABLED=0 GOWORK=off
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN --mount=type=secret,id=github_token \
-    --mount=type=cache,target=/go/pkg/mod \
-    if [ -s /run/secrets/github_token ]; then \
-      git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/".insteadOf "https://github.com/"; \
-    fi \
- && go mod download \
- && rm -f /root/.gitconfig
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY VERSION ./
 COPY cmd ./cmd
 COPY internal ./internal

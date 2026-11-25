@@ -37,8 +37,6 @@ jobs:
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
-        with:
-          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2

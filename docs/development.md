@@ -66,8 +66,6 @@ go run ./cmd/neoagent serve
 | Go | gofmt, `go vet`, staticcheck, govulncheck, `go test -race`, static builds for every release target, setup contract check |
 | Flutter tests | `flutter pub get`, `flutter analyze --no-pub`, unit and widget tests |
 
-While `neolabs-go` is private, CI reads it with the `NEOLABS_GO_TOKEN` repository secret.
-
 ## Server conventions
 
 [GUIDELINES.md](https://github.com/NeoLabs-Systems/NeoAgent/blob/main/GUIDELINES.md) is the full rule set; the essentials:

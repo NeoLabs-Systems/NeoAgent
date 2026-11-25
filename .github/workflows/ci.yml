@@ -11,9 +11,6 @@ on:
       - beta
   workflow_dispatch:
   workflow_call:
-    secrets:
-      NEOLABS_GO_TOKEN:
-        required: false
 
 permissions:
   contents: read
@@ -32,8 +29,6 @@ jobs:
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
-        with:
-          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Check formatting
         run: |

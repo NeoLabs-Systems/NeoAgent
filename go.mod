@@ -4,7 +4,7 @@ go 1.27
 
 require (
 	github.com/NeoLabs-Systems/neolabs-go v0.3.1
-	github.com/andybalholm/brotli v1.2.0
+	github.com/andybalholm/brotli v1.2.7
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/coder/websocket v1.8.15
 	github.com/emersion/go-ical v0.0.0-20261112170022-46c5b53a1723
@@ -12,7 +12,7 @@ require (
 	github.com/emersion/go-message v0.18.2
 	github.com/go-telegram/bot v1.30.0
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/websocket v1.5.3
+	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/slack-go/slack v0.36.0

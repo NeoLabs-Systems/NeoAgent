@@ -44,8 +44,6 @@ jobs:
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
-        with:
-          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       # semantic-release is a CI tool here: it decides the stable version from
       # the commit history and creates the tag and GitHub release.

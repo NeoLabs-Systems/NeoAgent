@@ -37,8 +37,6 @@ on:
         required: false
       APPLE_NOTARY_ISSUER_ID:
         required: false
-      NEOLABS_GO_TOKEN:
-        required: false
 
 permissions:
   contents: write
@@ -66,8 +64,6 @@ jobs:
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
-        with:
-          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Set up Flutter
         id: flutter
@@ -403,8 +399,6 @@ jobs:
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
-        with:
-          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -673,8 +667,6 @@ jobs:
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
-        with:
-          token: ${{ secrets.NEOLABS_GO_TOKEN }}
 
       - name: Install Linux build dependencies
         run: |
