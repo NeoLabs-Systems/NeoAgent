@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/NeoLabs-Systems/neoagent/internal/tasks/replay"
 )
@@ -65,10 +64,6 @@ func TestReplaysNodeSemanticConversation(t *testing.T) {
 func TestReplaysNodeIngestion(t *testing.T) {
 	sc := replay.Load(t, "testdata/ingestion.json")
 	db, srv, _ := newReplayStack(t, nil, nil, true)
-	// Node recorded every write within one second, so rows tie on their
-	// second-precision timestamps and keep insertion order. Starting right
-	// after a second boundary keeps the replay inside one second as well.
-	time.Sleep(time.Until(time.Now().Truncate(time.Second).Add(time.Second)))
 	play(t, sc, db, srv)
 	compareSnapshot(t, sc, db, [][2]string{
 		{"memory_ingestion_documents", `SELECT id, agent_id, source_type, normalized_type, provider_key, connection_id, external_object_id, source_account, title, content, summary, salience, source_timestamp, metadata_json, payload_json FROM memory_ingestion_documents ORDER BY id`},

@@ -210,6 +210,10 @@ func (r *Runner) expand(s string) string {
 // Run plays every step and fails the test on the first difference.
 func (r *Runner) Run(sc Scenario) {
 	r.vars = map[string]string{}
+	// Node recorded each scenario within one second, so rows tie on their
+	// second-precision timestamps and keep insertion order. Starting right
+	// after a second boundary keeps a replay inside one second as well.
+	time.Sleep(time.Until(time.Now().Truncate(time.Second).Add(time.Second)))
 	for _, step := range sc.Steps {
 		if step.SQL != "" {
 			query := r.expand(step.SQL)
