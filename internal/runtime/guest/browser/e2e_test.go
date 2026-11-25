@@ -105,6 +105,7 @@ func asJSON(t *testing.T, v any) map[string]any {
 }
 
 func TestBrowserAgainstChrome(t *testing.T) {
+	skipChromiumUnderRaceDetector(t)
 	c, site := newBrowser(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -205,6 +206,7 @@ func TestBrowserAgainstChrome(t *testing.T) {
 }
 
 func TestProtectedCredentialFillThroughRoutes(t *testing.T) {
+	skipChromiumUnderRaceDetector(t)
 	c, site := newBrowser(t)
 	mux := http.NewServeMux()
 	Mount(mux.Handle, c)

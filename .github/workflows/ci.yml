@@ -49,6 +49,9 @@ jobs:
       - name: Test
         run: go test -race -count=1 ./...
 
+      - name: Exercise Chromium integration without race instrumentation
+        run: go test -count=1 ./internal/runtime/guest/browser
+
       - name: Setup contract is current
         run: go run ./cmd/neoagent-release setup-contract --check
 
