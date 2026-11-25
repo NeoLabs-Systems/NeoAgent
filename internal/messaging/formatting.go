@@ -14,13 +14,22 @@ import (
 type formattingProfile struct {
 	maxMessageLength int
 	markdownDocument bool
-	extraGuidance    []string
+	// keepTokens matches <...> tokens the platform renders (Discord mentions,
+	// emoji, timestamps) that raw-HTML stripping must leave alone.
+	keepTokens    *regexp.Regexp
+	extraGuidance []string
 }
+
+// discordTokenRe is a Discord user, role, or channel mention, a custom emoji, a
+// timestamp, a slash-command mention, or an embed-suppressed link.
+var discordTokenRe = regexp.MustCompile(`^<(?:@[!&]?\d+|#\d+|a?:\w+:\d+|t:-?\d+(?::[tTdDfFR])?|/[\w -]+:\d+|https?://[^\s>]+)>$`)
 
 var platformFormatting = map[string]formattingProfile{
 	"whatsapp": {extraGuidance: []string{"WhatsApp does not render Markdown links like [text](link). Write the bare URL instead."}},
 	"telegram": {maxMessageLength: 4096},
-	"discord":  {maxMessageLength: 2000},
+	"discord": {maxMessageLength: 2000, keepTokens: discordTokenRe, extraGuidance: []string{
+		"To mention someone on Discord, write <@user_id> with an id the platform gave you (sender_id, or the <@id> next to a participant's name). Never guess or reuse another person's id; if you have no id for someone, write their name without an @.",
+	}},
 	// A GitHub comment is a rendered Markdown document, not a chat bubble.
 	"github": {markdownDocument: true},
 }
@@ -45,7 +54,7 @@ func BuildPlatformFormattingGuide(platform string, intro bool) string {
 			"Prefer short paragraphs or multi-line chat bursts over document structure.",
 			"Use simple single-level lists only when they genuinely improve clarity.",
 			"Avoid tables, raw HTML, and formal report formatting in chat replies.",
-			"A blank line may be delivered as a separate message bubble, so use one only for an intentional conversational beat.",
+			"A blank line may be delivered as a separate message bubble, so use one only for an intentional conversational beat. A fenced code block always stays in one message, blank lines inside it included, so never split formatted content across messages.",
 			"The runtime will adapt the final text to the destination platform.",
 		}, profile.extraGuidance...)
 	}
@@ -186,8 +195,13 @@ func NormalizeOutgoingMessage(platform string, content any, stripNoResponse bool
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	// GitHub sanitizes HTML itself, and stripping tags here would eat code such
 	// as `Array<string>` from the comment.
-	if !formattingProfileFor(platform).markdownDocument {
-		text = rawHTMLRe.ReplaceAllString(text, "")
+	if profile := formattingProfileFor(platform); !profile.markdownDocument {
+		text = rawHTMLRe.ReplaceAllStringFunc(text, func(tag string) string {
+			if profile.keepTokens != nil && profile.keepTokens.MatchString(tag) {
+				return tag
+			}
+			return ""
+		})
 	}
 	text = trailingSpaceRe.ReplaceAllString(text, "\n")
 	text = blankRunRe.ReplaceAllString(text, "\n\n")
@@ -284,7 +298,8 @@ func SplitToMessageLimit(platform, text string) []string {
 var paragraphBreak = regexp.MustCompile(`\n{2,}`)
 
 // SplitOutgoingMessage is the chat bubbles a reply is delivered as: one per
-// paragraph, or one document on a platform that renders Markdown.
+// paragraph, or one document on a platform that renders Markdown. A fenced code
+// block stays in one bubble even when it holds blank lines.
 func SplitOutgoingMessage(platform string, content any) []string {
 	normalized := NormalizeOutgoingMessage(platform, content, false)
 	if normalized == "" {
@@ -294,10 +309,21 @@ func SplitOutgoingMessage(platform string, content any) []string {
 		return []string{normalized}
 	}
 	var chunks []string
+	openFence := false
 	for _, chunk := range paragraphBreak.Split(normalized, -1) {
-		if chunk = jsTrim(chunk); chunk != "" {
+		if openFence {
+			chunks[len(chunks)-1] += "\n\n" + chunk
+		} else if chunk = jsTrim(chunk); chunk != "" {
 			chunks = append(chunks, chunk)
+		} else {
+			continue
 		}
+		if strings.Count(chunk, "```")%2 == 1 {
+			openFence = !openFence
+		}
+	}
+	for i := range chunks {
+		chunks[i] = jsTrim(chunks[i])
 	}
 	if len(chunks) == 0 {
 		return []string{normalized}

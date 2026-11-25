@@ -327,8 +327,8 @@ func TestGuildMessageWithMentionContextAndReply(t *testing.T) {
 		ReplyTo: &messaging.ReplyRef{FromAgent: true, Content: "earlier"}, Content: "what is up", IsGroup: true,
 		Timestamp: "2023-11-14T22:13:20.123Z", BotUsername: "neobot", BotDisplayName: "neobot", BotTag: "neobot",
 		ChannelContext: []messaging.ContextEntry{
-			{Author: "[bot] neobot", Content: "earlier", Mine: true},
-			{Author: "Ally (alice)", Content: "<@900>  what is  up"},
+			{Author: "[bot] neobot <@900>", Content: "earlier", Mine: true},
+			{Author: "Ally (alice) <@11>", Content: "<@900>  what is  up"},
 		},
 	}
 	if a, b := jsonOf(got), jsonOf(want); a != b {

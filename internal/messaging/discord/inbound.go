@@ -84,6 +84,8 @@ func (p *Platform) contextEntry(m *discordgo.Message, bot *discordgo.User) conte
 	if m.Author.Bot {
 		author = "[bot] " + author
 	}
+	// The mention token lets a reply tag this person instead of guessing an id.
+	author += " <@" + m.Author.ID + ">"
 	content := m.Content
 	if content == "" {
 		content = "[empty]"

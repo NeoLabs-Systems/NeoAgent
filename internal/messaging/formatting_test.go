@@ -110,3 +110,28 @@ func TestSplitNeverBreaksACodePoint(t *testing.T) {
 		}
 	}
 }
+
+func TestDiscordKeepsMentionTokens(t *testing.T) {
+	in := "hey <@123>, <@!45> and <@&6> in <#7> <:wave:8> <a:spin:9> <t:1700000000:R> </ask:10> <https://x.dev/a> <b>bold</b>"
+	want := "hey <@123>, <@!45> and <@&6> in <#7> <:wave:8> <a:spin:9> <t:1700000000:R> </ask:10> <https://x.dev/a> bold"
+	if got := NormalizeOutgoingMessage("discord", in, false); got != want {
+		t.Fatalf("discord:\n got %q\nwant %q", got, want)
+	}
+	if got := NormalizeOutgoingMessage("telegram", "hi <@123> <b>x</b>", false); got != "hi  x" {
+		t.Fatalf("telegram: %q", got)
+	}
+}
+
+func TestSplitKeepsFencedCodeTogether(t *testing.T) {
+	in := "Here it is:\n\n```markdown\n# Title\n\nbody\n\n\nmore\n```\n\nThat's all."
+	got := SplitOutgoingMessage("discord", in)
+	want := []string{"Here it is:", "```markdown\n# Title\n\nbody\n\nmore\n```", "That's all."}
+	if len(got) != len(want) {
+		t.Fatalf("chunks %q", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("chunk %d:\n got %q\nwant %q", i, got[i], want[i])
+		}
+	}
+}
