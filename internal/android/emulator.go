@@ -494,6 +494,13 @@ func (c *Controller) startEmulatorProcess(ctx context.Context, progress func(str
 	select {
 	case err := <-bootErr:
 		if err != nil {
+			// When the process died, its exit code and output explain why
+			// better than the boot wait noticing it is gone.
+			select {
+			case exitErr := <-failure:
+				return exitErr
+			case <-time.After(2 * time.Second):
+			}
 			return err
 		}
 	case err := <-failure:

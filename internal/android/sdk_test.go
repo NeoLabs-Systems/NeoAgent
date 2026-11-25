@@ -104,7 +104,7 @@ func TestPickSystemImage(t *testing.T) {
 	}
 	want := "system-images;android-36;google_apis;arm64-v8a"
 	if !hostIsARM() {
-		want = "system-images;android-36;default;x86_64"
+		want = "system-images;android-34;google_apis;x86_64"
 	}
 	if got := pickSystemImage(sdk); got != want {
 		t.Fatalf("picked %q, want %q", got, want)
