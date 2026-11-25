@@ -33,12 +33,14 @@ func TestDownloadNotesMatchNode(t *testing.T) {
 }
 
 func TestWebBuildID(t *testing.T) {
-	if WebBuildID(func(string) string { return " fixed " }, time.Now()) != "fixed" {
+	if WebBuildID(func(string) string { return " fixed " }, time.Time{}) != "fixed" {
 		t.Fatal("explicit id")
 	}
-	id := WebBuildID(func(string) string { return "" }, time.UnixMilli(36*36))
-	if !strings.HasPrefix(id, "100-") {
-		t.Fatal(id)
+	getenv := func(string) string { return "" }
+	first := WebBuildID(getenv, time.UnixMilli(36*36))
+	second := WebBuildID(getenv, time.UnixMilli(72*36))
+	if first == "" || first != second {
+		t.Fatalf("same source produced different build IDs: %q != %q", first, second)
 	}
 }
 

@@ -251,7 +251,7 @@ func (m *Manager) ListKnowledgeViews(ctx context.Context, userID int64, f ViewFi
 	if limit == 0 {
 		limit = 40
 	}
-	query += ` ORDER BY updated_at DESC LIMIT ?`
+	query += ` ORDER BY updated_at DESC, view_type ASC, subject_key ASC, id ASC LIMIT ?`
 	args = append(args, max(1, min(limit, 100)))
 	return collect(ctx, m.db.R, func(r rowScanner) (KnowledgeView, error) {
 		var v KnowledgeView

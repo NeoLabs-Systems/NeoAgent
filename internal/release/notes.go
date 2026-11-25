@@ -162,8 +162,8 @@ func UpdateDownloadNotes(ctx context.Context, tag, repository string, dryRun boo
 	return true, next, cmd.Run()
 }
 
-// WebBuildID is NEOAGENT_WEB_BUILD_ID when set, else base36 milliseconds and
-// the short commit.
+// WebBuildID is NEOAGENT_WEB_BUILD_ID when set, else the checked-out commit.
+// A commit-stable value keeps independently built runtime bundles in sync.
 func WebBuildID(getenv func(string) string, now time.Time) string {
 	if v := strings.TrimSpace(getenv("NEOAGENT_WEB_BUILD_ID")); v != "" {
 		return v
@@ -172,5 +172,5 @@ func WebBuildID(getenv func(string) string, now time.Time) string {
 	if out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
 		sha = strings.TrimSpace(string(out))
 	}
-	return strconv.FormatInt(now.UnixMilli(), 36) + "-" + sha
+	return sha
 }
