@@ -13,12 +13,30 @@ import (
 // tree: run npm install from bin/neoagent.js. The install must leave
 // node_modules alone, fail (so the updater rolls back), and start install.sh
 // once the updater has exited. install.sh is a stand-in that records its run.
+// The updater runs as bin/neoagent.js or, after a global npm install, through
+// the "neoagent" link ("neoagent update").
 func TestNodeUpdaterHandsOver(t *testing.T) {
 	node, errNode := exec.LookPath("node")
 	_, errNpm := exec.LookPath("npm")
 	if errNode != nil || errNpm != nil {
 		t.Skip("node and npm are needed to replay the old updater")
 	}
+	t.Run("script", func(t *testing.T) {
+		replayHandover(t, func(tree string) []string { return []string{node, filepath.Join(tree, "bin", "neoagent.js"), tree} })
+	})
+	t.Run("npm link", func(t *testing.T) {
+		replayHandover(t, func(tree string) []string {
+			link := filepath.Join(tree, "global", "bin", "neoagent")
+			os.MkdirAll(filepath.Dir(link), 0o755)
+			if err := os.Symlink(filepath.Join(tree, "bin", "neoagent.js"), link); err != nil {
+				t.Fatal(err)
+			}
+			return []string{node, link, "update", tree}
+		})
+	})
+}
+
+func replayHandover(t *testing.T, invoke func(tree string) []string) {
 	tree := t.TempDir()
 	copyInto := func(rel string) {
 		raw, err := os.ReadFile(filepath.Join("..", "..", rel))
@@ -37,7 +55,7 @@ func TestNodeUpdaterHandsOver(t *testing.T) {
 	os.WriteFile(filepath.Join(tree, "node_modules", "kept", "package.json"), []byte(`{"name":"kept","version":"1.0.0"}`), 0o644)
 	os.MkdirAll(filepath.Join(tree, "bin"), 0o755)
 	os.WriteFile(filepath.Join(tree, "bin", "neoagent.js"), []byte(`
-const r = require('child_process').spawnSync('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], { cwd: process.argv[2], encoding: 'utf8' });
+const r = require('child_process').spawnSync('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], { cwd: process.argv[process.argv.length - 1], encoding: 'utf8' });
 process.stdout.write(String(r.status) + '\n' + r.stderr);
 `), 0o644)
 	home := t.TempDir()
@@ -50,7 +68,8 @@ process.stdout.write(String(r.status) + '\n' + r.stderr);
 		t.Fatalf("direct npm install: %v\n%s", err, out)
 	}
 
-	updater := exec.Command(node, filepath.Join(tree, "bin", "neoagent.js"), tree)
+	args := invoke(tree)
+	updater := exec.Command(args[0], args[1:]...)
 	updater.Env = env
 	out, err := updater.CombinedOutput()
 	if err != nil || !strings.HasPrefix(string(out), "1\n") || !strings.Contains(string(out), "switch then finishes by itself") {

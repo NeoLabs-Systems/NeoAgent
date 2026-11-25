@@ -35,7 +35,9 @@ for _ in 1 2 3 4 5 6 7 8; do
   pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
   [ -n "$pid" ] && [ "$pid" != "1" ] || break
   case "$(ps -o command= -p "$pid" 2>/dev/null)" in
-    *bin/neoagent.js*|*update_runner.js*) updater="$pid"; break ;;
+    # Run as bin/neoagent.js, through the npm link (".../bin/neoagent update"),
+    # or as the admin UI's update runner.
+    *bin/neoagent.js*|*/neoagent\ update*|*update_runner.js*) updater="$pid"; break ;;
   esac
 done
 if [ -z "$updater" ]; then

@@ -1,0 +1,72 @@
+name: Update Shared Modules
+
+# Keeps NeoAgent on the newest shared NeoLabs code: the latest neolabs-go
+# release tag and the latest neolabs-flutter commit on main. A change is
+# committed to beta and starts the beta release, which publishes only when CI
+# passes.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: update-shared-modules
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update neolabs-go and neolabs-flutter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: beta
+
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.9'
+          cache: true
+
+      - name: Update modules
+        env:
+          GOWORK: 'off'
+        run: |
+          go get github.com/NeoLabs-Systems/neolabs-go@latest
+          go mod tidy
+          (cd flutter_app && flutter pub upgrade neolabs_flutter)
+
+      - name: Check the build
+        env:
+          GOWORK: 'off'
+        run: |
+          go build ./...
+          go vet ./...
+          (cd flutter_app && flutter analyze --no-pub)
+
+      - name: Commit and start the beta release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "Shared modules are current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add go.mod go.sum flutter_app/pubspec.lock
+          git commit -m "chore(deps): update shared NeoLabs modules"
+          git push origin HEAD:beta
+          # Pushes made with the workflow token start no workflows, so the
+          # release is started explicitly.
+          gh workflow run release-beta.yml --ref beta
