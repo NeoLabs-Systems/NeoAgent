@@ -3,7 +3,7 @@ module github.com/NeoLabs-Systems/neoagent
 go 1.27
 
 require (
-	github.com/NeoLabs-Systems/neolabs-go v0.3.1
+	github.com/NeoLabs-Systems/neolabs-go v0.3.2
 	github.com/andybalholm/brotli v1.2.7
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/coder/websocket v1.8.15
