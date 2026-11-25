@@ -215,7 +215,7 @@ func (c *Controller) ensureBrowser(ctx context.Context) error {
 	if err := browserx.StartDetached(executable, args, env); err != nil {
 		return err
 	}
-	if ok, err := browserx.WaitForEndpoint(ctx, c.endpoint, 15*time.Second); err != nil {
+	if ok, err := browserx.WaitForEndpoint(ctx, c.endpoint, 45*time.Second); err != nil {
 		return err
 	} else if !ok {
 		return errors.New("Chromium started without a debugging session.")
