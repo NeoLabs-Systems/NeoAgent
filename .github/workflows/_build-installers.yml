@@ -354,7 +354,18 @@ jobs:
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
-          choco install qemu --yes --no-progress
+          $maxAttempts = 5
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            choco install qemu --yes --no-progress
+            $installExitCode = $LASTEXITCODE
+            if ($installExitCode -eq 0) { break }
+            if ($attempt -eq $maxAttempts) {
+              throw "Chocolatey could not install QEMU after $maxAttempts attempts (exit $installExitCode)."
+            }
+            $delaySeconds = 10 * $attempt
+            Write-Host "QEMU install failed with exit $installExitCode; retrying in $delaySeconds seconds ($attempt/$maxAttempts)."
+            Start-Sleep -Seconds $delaySeconds
+          }
           $qemuBin = "C:\Program Files\qemu"
           if (-not (Test-Path $qemuBin)) { throw "QEMU installation directory was not found." }
           $env:Path = "$qemuBin;$env:Path"
