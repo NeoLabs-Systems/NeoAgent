@@ -7,22 +7,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"time"
 
 	"github.com/NeoLabs-Systems/neoagent/internal/release"
 	"github.com/NeoLabs-Systems/neoagent/internal/setupcontract"
 	"github.com/NeoLabs-Systems/neolabs-go/cli"
-	"github.com/NeoLabs-Systems/neolabs-go/cli/envfile"
 	nlrelease "github.com/NeoLabs-Systems/neolabs-go/cli/release"
 )
 
 // Installed runtime packages live in <home>/app/versions/<version>, and
 // <home>/app/current.json names the active one. The desktop app uses the
 // same layout.
-
-var versionPattern = regexp.MustCompile(`^[0-9A-Za-z.+_-]+$`)
 
 // installedRuntime is one unpacked runtime package.
 type installedRuntime struct {
@@ -77,32 +72,23 @@ func (a *App) versionsDir() string { return filepath.Join(a.Paths.Home, "app", "
 
 func (a *App) currentMarker() string { return filepath.Join(a.Paths.Home, "app", "current.json") }
 
-// currentRuntime is the activated runtime package, if it is complete.
-func (a *App) currentRuntime() *installedRuntime {
-	raw, err := os.ReadFile(a.currentMarker())
-	if err != nil {
-		return nil
+// runtimeStore is shared with the other NeoLabs applications.
+func (a *App) runtimeStore() nlrelease.RuntimeStore {
+	return nlrelease.RuntimeStore{
+		Root: filepath.Join(a.Paths.Home, "app"), SchemaVersion: setupcontract.C.SchemaVersion,
+		RequiredFiles: []string{filepath.Join("app", "bin", release.BinaryName(Platform())), filepath.Join("app", "public", "index.html")},
 	}
-	var marker struct {
-		Version string `json:"version"`
-	}
-	if json.Unmarshal(raw, &marker) != nil || !versionPattern.MatchString(strings.TrimSpace(marker.Version)) {
-		return nil
-	}
-	r := installedRuntime{Version: strings.TrimSpace(marker.Version), Dir: filepath.Join(a.versionsDir(), strings.TrimSpace(marker.Version))}
-	if !exists(r.binary()) || !exists(filepath.Join(r.appDir(), "public", "index.html")) {
-		return nil
-	}
-	return &r
 }
 
-func (a *App) writeCurrent(version string) error {
-	data, err := json.Marshal(map[string]any{"schemaVersion": setupcontract.C.SchemaVersion, "version": version, "activatedAt": cli.ISOTime(time.Now())})
+func (a *App) currentRuntime() *installedRuntime {
+	marker, err := a.runtimeStore().Current()
 	if err != nil {
-		return err
+		return nil
 	}
-	return envfile.WriteAtomic(a.currentMarker(), append(data, '\n'), 0o600)
+	return &installedRuntime{Version: marker.Version, Dir: filepath.Join(a.versionsDir(), marker.Version)}
 }
+
+func (a *App) writeCurrent(version string) error { return a.runtimeStore().Activate(version) }
 
 func (a *App) releaseClient() *nlrelease.Client {
 	c := &nlrelease.Client{UserAgent: "NeoAgent CLI " + version()}
@@ -207,21 +193,7 @@ func (a *App) installRuntime(_ context.Context, rt availableRuntime, archive str
 	if exists(target.binary()) && !force {
 		return target, nil
 	}
-	extracted := filepath.Join(staging, "extracted")
-	if err := nlrelease.ExtractZip(archive, extracted); err != nil {
-		return target, err
-	}
-	candidate := installedRuntime{Version: rt.Version, Dir: extracted}
-	if !exists(candidate.binary()) || !exists(filepath.Join(candidate.appDir(), "public", "index.html")) {
-		return target, cli.Errorf("SETUP_RUNTIME_INCOMPLETE", "The installed NeoAgent runtime is incomplete.")
-	}
-	if current := a.currentRuntime(); current != nil && current.Version == rt.Version {
-		return target, fmt.Errorf("cannot replace the active NeoAgent runtime")
-	}
-	if err := os.RemoveAll(target.Dir); err != nil {
-		return target, err
-	}
-	if err := os.Rename(extracted, target.Dir); err != nil {
+	if err := a.runtimeStore().InstallArchive(rt.Version, archive); err != nil {
 		return target, err
 	}
 	return target, nil
@@ -230,23 +202,11 @@ func (a *App) installRuntime(_ context.Context, rt availableRuntime, archive str
 // pruneRuntimes keeps the active runtime and the previous rollback target.
 // Unknown entries and staging directories are not managed here.
 func (a *App) pruneRuntimes(active installedRuntime, previous *installedRuntime) error {
-	entries, err := os.ReadDir(a.versionsDir())
-	if err != nil {
-		return err
+	old := ""
+	if previous != nil {
+		old = previous.Version
 	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if !entry.IsDir() || name[0] < '0' || name[0] > '9' || name == active.Version || (previous != nil && name == previous.Version) {
-			continue
-		}
-		if normalized, err := nlrelease.NormalizeVersion(name); err != nil || normalized != name {
-			continue
-		}
-		if err := os.RemoveAll(filepath.Join(a.versionsDir(), name)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.runtimeStore().Prune(active.Version, old)
 }
 
 func (a *App) channel() string {

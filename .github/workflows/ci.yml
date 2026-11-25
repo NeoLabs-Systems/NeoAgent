@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: ./.github/actions/setup-go
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-go@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       - name: Check formatting
         run: |
@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: ./.github/actions/setup-go
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-go@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       - name: Staticcheck
         run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
@@ -87,7 +87,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Flutter
-        uses: ./.github/actions/setup-flutter
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-flutter@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       - name: Analyze Flutter app
         working-directory: flutter_app
@@ -99,7 +99,7 @@ jobs:
 
       - name: Set up Go for web build
         if: ${{ inputs.upload_web == true }}
-        uses: ./.github/actions/setup-go
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-go@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       - name: Build web client
         if: ${{ inputs.upload_web == true }}

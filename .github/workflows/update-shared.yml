@@ -1,7 +1,6 @@
 name: Update Shared Modules
 
-# Keeps NeoAgent on the newest shared NeoLabs code: the latest neolabs-go
-# release tag and the latest neolabs-flutter commit on main. A change is
+# Keeps NeoAgent on the newest shared NeoLabs code: the neolabs-go beta branch and the latest neolabs-flutter commit on main. A change is
 # committed to beta and starts the beta release, which publishes only when CI
 # passes.
 
@@ -29,10 +28,10 @@ jobs:
           ref: beta
 
       - name: Set up Go
-        uses: ./.github/actions/setup-go
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-go@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       - name: Set up Flutter
-        uses: ./.github/actions/setup-flutter
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-flutter@1cd3668653c972a8c10cffcf52be95638bba74f8
         with:
           pub-get: 'false'
 
@@ -40,7 +39,7 @@ jobs:
         env:
           GOWORK: 'off'
         run: |
-          go get github.com/NeoLabs-Systems/neolabs-go@latest
+          go get github.com/NeoLabs-Systems/neolabs-go@beta
           go mod tidy
           (cd flutter_app && flutter pub upgrade neolabs_flutter)
 

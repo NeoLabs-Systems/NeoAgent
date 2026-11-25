@@ -127,45 +127,18 @@ func (a *App) cmdDefault(ctx context.Context) error {
 	}
 	a.printHomeHeader(f, problems)
 	a.UI.Blank()
-	if !a.UI.Interactive() {
-		a.UI.Print("  " + a.UI.Faint("Every command:") + " " + a.UI.Command("neoagent help"))
-		a.UI.Blank()
-		return nil
-	}
-	type action struct {
-		choice cli.Choice
-		run    func() error
-	}
-	var actions []action
-	if f.Running {
-		actions = append(actions, action{cli.Choice{Label: "Open NeoAgent in my browser"}, func() error { openInBrowser(f.URL); return nil }})
-	} else {
-		actions = append(actions, action{cli.Choice{Label: "Start NeoAgent"}, func() error { return a.cmdStart(ctx, nil) }})
-	}
-	if f.Update != "" {
-		actions = append(actions, action{cli.Choice{Label: "Get the latest version", Hint: f.Update + " is ready"}, func() error { return a.cmdUpdate(ctx, nil) }})
-	}
-	actions = append(actions, action{cli.Choice{Label: "Check that everything works"}, func() error { return a.cmdStatus(ctx, nil) }})
-	if f.Running {
-		actions = append(actions, action{cli.Choice{Label: "Restart NeoAgent"}, func() error { return a.cmdRestart(ctx, nil) }})
-	}
-	actions = append(actions,
-		action{cli.Choice{Label: "Change settings", Hint: "AI, address, integrations"}, func() error { return a.cmdSetup(ctx, nil) }},
-		action{cli.Choice{Label: "Something's wrong — help me fix it"}, func() error { return a.cmdDoctor(ctx, nil) }},
-		action{cli.Choice{Label: "More…", Hint: "every command"}, func() error { a.printHelp(false); return nil }},
-	)
-	choices := make([]cli.Choice, len(actions))
-	for i := range actions {
-		actions[i].choice.Value = fmt.Sprint(i)
-		choices[i] = actions[i].choice
-	}
-	picked, ok, err := a.UI.SelectOrQuit("What would you like to do?", choices)
-	if err != nil || !ok {
-		return err
-	}
-	var index int
-	fmt.Sscan(picked, &index)
-	return actions[index].run()
+	return a.UI.HomeMenu("neoagent", cli.HomeActions{
+		AppName: "NeoAgent", Running: f.Running, UpdateVersion: f.Update,
+		SettingsHint: "AI, address, integrations",
+		Open:         func() error { openInBrowser(f.URL); return nil },
+		Start:        func() error { return a.cmdStart(ctx, nil) },
+		Status:       func() error { return a.cmdStatus(ctx, nil) },
+		Restart:      func() error { return a.cmdRestart(ctx, nil) },
+		Update:       func() error { return a.cmdUpdate(ctx, nil) },
+		Settings:     func() error { return a.cmdSetup(ctx, nil) },
+		Doctor:       func() error { return a.cmdDoctor(ctx, nil) },
+		Help:         func() error { a.printHelp(false); return nil },
+	})
 }
 
 // installed reports evidence of an existing installation: its data, its

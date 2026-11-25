@@ -376,6 +376,18 @@ func TestPruneRuntimesKeepsActiveAndPrevious(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	active := installedRuntime{Version: "3.0.0", Dir: filepath.Join(a.versionsDir(), "3.0.0")}
+	for _, name := range []string{active.binary(), filepath.Join(active.appDir(), "public", "index.html")} {
+		if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte("active"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := a.writeCurrent(active.Version); err != nil {
+		t.Fatal(err)
+	}
 	if err := a.pruneRuntimes(installedRuntime{Version: "3.0.0"}, &installedRuntime{Version: "2.0.0"}); err != nil {
 		t.Fatal(err)
 	}

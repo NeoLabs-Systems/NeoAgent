@@ -42,11 +42,11 @@ jobs:
 
       - name: Set up Go
         if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
-        uses: ./.github/actions/setup-go
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-go@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       - name: Set up Flutter
         if: ${{ inputs.use_ci_web != true || steps.dl_web.outcome != 'success' }}
-        uses: ./.github/actions/setup-flutter
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-flutter@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       # Same as the installers: the image ships the web client built from this exact ref.
       - name: Build bundled web client

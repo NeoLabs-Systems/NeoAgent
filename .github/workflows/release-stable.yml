@@ -43,7 +43,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Set up Go
-        uses: ./.github/actions/setup-go
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-go@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       # semantic-release is a CI tool here: it decides the stable version from
       # the commit history and creates the tag and GitHub release.

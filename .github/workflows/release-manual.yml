@@ -41,7 +41,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: ./.github/actions/setup-go
+        uses: NeoLabs-Systems/neolabs-go/.github/actions/setup-go@1cd3668653c972a8c10cffcf52be95638bba74f8
 
       - name: Configure Git identity
         run: |

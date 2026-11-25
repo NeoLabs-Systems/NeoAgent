@@ -4,6 +4,8 @@ github.com/DATA-DOG/go-sqlmock v1.5.2 h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7Oputl
 github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ+JlNzwDqpNU=
 github.com/NeoLabs-Systems/neolabs-go v0.3.4 h1:WnTPnmR+uHCedRyNn97g/txKp8mhzJfzM36gjQybr8w=
 github.com/NeoLabs-Systems/neolabs-go v0.3.4/go.mod h1:0buWNj1NgQRg0mo1wWdDq+MJf8FTwDlYZnwd+jjDNqA=
+github.com/NeoLabs-Systems/neolabs-go v0.3.5-0.20261125185441-1cd3668653c9 h1:phMxB/C2hfoou9mrH0AxJELbtytwzTtjKqQf2XJtWPw=
+github.com/NeoLabs-Systems/neolabs-go v0.3.5-0.20261125185441-1cd3668653c9/go.mod h1:0buWNj1NgQRg0mo1wWdDq+MJf8FTwDlYZnwd+jjDNqA=
 github.com/agnivade/levenshtein v1.2.1 h1:EHBY3UOn1gwdy/VbFwgo4cxecRznFk7fKWN1KOX7eoM=
 github.com/agnivade/levenshtein v1.2.1/go.mod h1:QVVI16kDrtSuwcpd0p1+xMC6Z/VfhtCyDIjcwga4/DU=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 h1:bvNMNQO63//z+xNgfBlViaCIJKLlCJ6/fmUseuG0wVQ=
