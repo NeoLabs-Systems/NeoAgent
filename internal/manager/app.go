@@ -122,6 +122,11 @@ func (a *App) resolveAppDir() string {
 			return parent
 		}
 	}
+	// The standalone binary (install.sh puts it in ~/.local/bin) manages the
+	// runtime package it installed.
+	if rt := a.currentRuntime(); rt != nil {
+		return rt.appDir()
+	}
 	cwd, _ := os.Getwd()
 	return cwd
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -173,7 +174,10 @@ func withApp(log *slog.Logger, start bool, use func(ctx context.Context, s *stac
 }
 
 // serve runs the server until SIGINT/SIGTERM.
-func serve(log *slog.Logger) error { return withApp(log, true, serveHTTP) }
+// The background services start after the listener is up (as the Node server
+// did), so the server answers at once even when reconnecting chats, MCP
+// servers and interrupted runs takes a while.
+func serve(log *slog.Logger) error { return withApp(log, false, serveHTTP) }
 
 func serveHTTP(ctx context.Context, s *stack) error {
 	cfg, sessions, auth, app, log := s.cfg, s.sessions, s.auth, s.app, s.log
@@ -183,28 +187,60 @@ func serveHTTP(ctx context.Context, s *stack) error {
 		Routes: app.Routes, RuntimeValidation: app.RuntimeValidation, Front: app.Front,
 	})
 	srv := httpserver.NewHTTPServer(":"+strconv.Itoa(cfg.Port), handler, log)
-
+	ln, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		return err
+	}
 	errc := make(chan error, 1)
-	go func() {
-		startup := cfg.PublicURL
-		if startup == "" {
-			startup = "http://localhost:" + strconv.Itoa(cfg.Port)
-		}
-		log.Info("NeoAgent running", "url", startup, "version", buildinfo.Version)
-		errc <- srv.ListenAndServe()
-	}()
+	go func() { errc <- srv.Serve(ln) }()
+	startup := cfg.PublicURL
+	if startup == "" {
+		startup = "http://localhost:" + strconv.Itoa(cfg.Port)
+	}
+	log.Info("NeoAgent running", "url", startup, "version", buildinfo.Version)
 
-	select {
-	case err := <-errc:
-		if !errors.Is(err, http.ErrServerClosed) {
-			return err
+	startCtx, cancelStart := context.WithCancel(ctx)
+	defer cancelStart()
+	started := make(chan error, 1)
+	go func() { started <- app.Start(startCtx) }()
+	running := false
+	// stop ends the services once their start has returned; App.Start cleans up
+	// after itself when it fails.
+	stop := func() {
+		cancelStart()
+		if !running {
+			running = <-started == nil
 		}
-	case <-ctx.Done():
+		if running {
+			app.Stop()
+		}
+	}
+	shutdown := func() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	}
-	return nil
+	for {
+		select {
+		case err := <-started:
+			if err != nil {
+				_ = shutdown()
+				return fmt.Errorf("starting services: %w", err)
+			}
+			running = true
+			started = nil
+		case err := <-errc:
+			stop()
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			return err
+		case <-ctx.Done():
+			err := shutdown()
+			stop()
+			return err
+		}
+	}
 }
 
 // applyAdminGrants grants admin to the accounts named in NEOAGENT_ADMIN_USERS on
