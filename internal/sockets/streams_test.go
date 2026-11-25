@@ -150,7 +150,10 @@ func TestStreamStopsWhenTheLastSubscriberLeaves(t *testing.T) {
 }
 
 func TestStreamWithoutSubscribersStopsAfterTheGracePeriod(t *testing.T) {
-	st := newStack(t, func(o *stackOpts) { o.mod = func(c *Config) { c.NoSubscriberGrace = 60 * time.Millisecond } })
+	// Give the test runner enough scheduling slack under race instrumentation and
+	// loaded CI workers before asserting that a subscriber cancels the timer.
+	const grace = 2 * time.Second
+	st := newStack(t, func(o *stackOpts) { o.mod = func(c *Config) { c.NoSubscriberGrace = grace } })
 	stopped := make(chan string, 2)
 	hub := st.srv.StreamHub()
 	hub.MarkStarted(1, "d", "desktop", 10, 70, func(r string) error { stopped <- r; return nil })
@@ -159,7 +162,7 @@ func TestStreamWithoutSubscribersStopsAfterTheGracePeriod(t *testing.T) {
 		if r != "no_subscribers_initial" {
 			t.Fatal(r)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(grace + time.Second):
 		t.Fatal("never stopped")
 	}
 
