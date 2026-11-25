@@ -237,7 +237,7 @@ func (a *App) waitForShared(ctx context.Context, store *sharedmessaging.Store, p
 		if qr := store.QR(row); qr != "" && qr != shown && !a.JSON {
 			shown = qr
 			if code, err := qrcode.New(qr, qrcode.Low); err == nil {
-				a.UI.Print("%s", code.ToSmallString(false))
+				a.UI.Printf("%s", code.ToSmallString(false))
 			}
 			a.UI.Print("Scan this in WhatsApp › Linked devices with the shared number.")
 		}

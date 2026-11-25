@@ -31,7 +31,9 @@ func (a *App) cmdInstall(ctx context.Context, args []string) error {
 	if !o.RuntimePackage && !exists(filepath.Join(a.AppDir, "public", "index.html")) {
 		return a.bootstrapInstall(ctx, args, o)
 	}
+	a.printSetupProgress(0)
 	a.UI.Title("Welcome to "+appName, "Let's get it running on this computer. It takes a few minutes.")
+	a.UI.Blank()
 	profile, err := a.resolveProfile(o)
 	if err != nil {
 		return err
@@ -68,42 +70,63 @@ func (a *App) install(ctx context.Context, profile string, o SetupOptions) error
 	}
 	downloadImage := false
 	if profile == "full" && !o.NonInteractive && a.UI.Interactive() {
-		downloadImage, _ = a.UI.Confirm("Download the agent's computer now? (about 1 GB; otherwise on first use)", false)
+		downloadImage, _ = a.UI.Confirm("Download the agent's computer now? (about 1 GB; otherwise on first use)", true)
 	}
+	a.printSetupProgress(2)
 	a.UI.Title("Installing "+appName, "")
-	a.Events.Start("dependencies", "Preparing NeoAgent runtime", 0.2)
-	a.Events.Complete("dependencies", "Runtime prepared", 0.45)
-	_ = a.UI.Step("Setting up the agent's computer", "Set up the agent's computer", func() error {
-		a.ensureComputerRuntime(ctx, false, downloadImage)
-		return nil
-	})
+	a.UI.Blank()
 	// An existing installation (also a Node.js one being replaced) is backed
 	// up first, and its service definition comes back if the new server does
 	// not answer.
 	snapshot := a.snapshotService()
-	if exists(a.dbPath()) {
-		if err := a.UI.Step("Saving a backup of your settings and chats", "Saved a backup of your settings and chats", func() error {
+	list := a.UI.Steps([]cli.Label{
+		{Doing: "Preparing NeoAgent's files", Done: "Prepared NeoAgent's files"},
+		{Doing: "Preparing the app", Done: "Prepared the app"},
+		{Doing: "Setting up the agent's computer", Done: "Set up the agent's computer"},
+		{Doing: "Starting NeoAgent", Done: "Started NeoAgent"},
+		{Doing: "Checking it's answering", Done: "It's answering"},
+	}, true)
+	started := false
+	err = func() error {
+		a.Events.Start("dependencies", "Preparing NeoAgent runtime", 0.2)
+		if err := list.Run(0, func() error {
+			if !exists(a.dbPath()) {
+				return nil
+			}
 			_, err := a.backupRuntimeData(ctx, "pre-install")
+			if err == nil {
+				a.UI.OK("Saved a backup of your settings and chats")
+			}
 			return err
 		}); err != nil {
 			return err
 		}
-	}
-	if err := a.ensureInstance(ctx); err != nil {
-		return err
-	}
-	a.Events.Start("service", "Starting NeoAgent in the background", 0.55)
-	started := false
-	err = a.UI.Step("Starting NeoAgent", "Started NeoAgent", func() error {
-		if err := a.releasePort(ctx, port); err != nil {
+		if err := list.Run(1, func() error {
+			if !exists(filepath.Join(a.AppDir, "public", "index.html")) {
+				return cli.Errorf("SETUP_RUNTIME_INCOMPLETE", "The verified runtime package does not contain the web client.")
+			}
+			return nil
+		}); err != nil {
 			return err
 		}
-		started = true
-		return a.Service.Install()
-	})
-	if err == nil {
-		err = a.UI.Step("Checking it's answering", "It's answering", func() error { return a.waitForServerReady(ctx, port, 45*time.Second) })
-	}
+		a.Events.Complete("dependencies", "Runtime prepared", 0.45)
+		_ = list.Run(2, func() error { return a.ensureComputerRuntime(ctx, false, downloadImage) })
+		if err := a.ensureInstance(ctx); err != nil {
+			return err
+		}
+		a.Events.Start("service", "Starting NeoAgent in the background", 0.55)
+		if err := list.Run(3, func() error {
+			if err := a.releasePort(ctx, port); err != nil {
+				return err
+			}
+			started = true
+			return a.Service.Install()
+		}); err != nil {
+			return err
+		}
+		return list.Run(4, func() error { return a.waitForServerReady(ctx, port, 45*time.Second) })
+	}()
+	list.Close()
 	if err != nil {
 		if started && snapshot.content != nil {
 			if rerr := a.restoreService(ctx, snapshot, port); rerr == nil {
@@ -126,6 +149,8 @@ func (a *App) install(ctx context.Context, profile string, o SetupOptions) error
 	return nil
 }
 
+// finishInstall is the last screen: where NeoAgent is, and anything still to
+// do, collected as install notes along the way.
 func (a *App) finishInstall(ctx context.Context, backendURL string) {
 	env := a.env()
 	publicURL := strings.TrimSpace(env["PUBLIC_URL"])
@@ -134,23 +159,16 @@ func (a *App) finishInstall(ctx context.Context, backendURL string) {
 		notes = append([]string{"On this computer you can also use " + backendURL + "."}, notes...)
 	}
 	target := orDefault(publicURL, backendURL)
-	a.UI.Blank()
-	a.UI.Item("ok", a.UI.Bold(appName+" is running"), target)
-	if !a.hasAccount(ctx) {
-		a.UI.Note("Open it and create your account; the first account becomes the admin.")
-	}
-	if !a.Service.Managed() {
-		a.UI.Note("It does not start by itself; run " + a.UI.Command("neoagent start") + " after a restart.")
-	}
 	backtick := regexp.MustCompile("`([^`]+)`")
-	for _, n := range notes {
-		a.UI.Note(backtick.ReplaceAllStringFunc(n, func(m string) string { return a.UI.Command(strings.Trim(m, "`")) }))
+	shown := make([]string, len(notes))
+	for i, n := range notes {
+		shown[i] = backtick.ReplaceAllStringFunc(n, func(m string) string { return a.UI.Command(strings.Trim(m, "`")) })
 	}
-	a.UI.Blank()
-	if a.UI.Interactive() {
-		if ok, _ := a.UI.Confirm("Open it in your browser now?", true); ok {
-			openInBrowser(target)
-		}
+	a.printSetupProgress(3)
+	a.printSetupFinished(target, a.Service.Managed(), a.hasAccount(ctx), shown)
+	a.UI.Keys([2]string{"enter", "open it"}, [2]string{"q", "done"})
+	if key, _ := a.UI.WaitForKey("return", "q", "escape"); key == "return" {
+		openInBrowser(target)
 	}
 }
 

@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"github.com/NeoLabs-Systems/neoagent/internal/agent"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,11 +26,15 @@ func (a *App) ensureStartPort(ctx context.Context) (int, error) {
 	if !a.UI.Interactive() {
 		return 0, portInUseError(port)
 	}
-	a.UI.Blank()
-	a.UI.Item("error", a.UI.Bold("NeoAgent couldn't start"), "Nothing is broken — your data is safe.")
-	a.UI.Print("  Another app on this computer is already using the address NeoAgent wants (port %d).", port)
+	u := a.UI
+	u.Blank()
+	u.Print("  " + u.Error("✕") + " " + u.Bold("NeoAgent couldn't start"))
+	u.Print("    " + u.Muted("Nothing is broken — your data is safe."))
+	u.Section("What happened")
+	u.Printf("  Another app on this computer is already using the address NeoAgent wants (port %d).", port)
+	u.Blank()
 	for {
-		choice, err := a.UI.Select("What would you like to do?", []cli.Choice{
+		choice, ok, err := u.SelectOrQuit("What would you like to do?", []cli.Choice{
 			{Value: "move", Label: "Use a free address instead", Hint: "NeoAgent moves to the next free port"},
 			{Value: "show", Label: "Show me which app is using it"},
 			{Value: "cancel", Label: "Cancel"},
@@ -37,15 +42,16 @@ func (a *App) ensureStartPort(ctx context.Context) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		switch choice {
-		case "cancel":
+		if !ok || choice == "cancel" {
 			return 0, cli.ErrCancelled
-		case "show":
+		}
+		if choice == "show" {
 			if pid, command := portOwner(port); pid > 0 {
-				a.UI.Info(fmt.Sprintf("%s (process %d) is using port %d.", command, pid, port))
+				u.Item("info", fmt.Sprintf("%s (process %d) is using port %d.", command, pid, port), "")
 			} else {
-				a.UI.Info("This computer can't tell which app it is.")
+				u.Item("info", "This computer can't tell which app it is.", "")
 			}
+			u.Blank()
 			continue
 		}
 		next, err := cli.FindAvailablePort(port+1, port+1)
@@ -55,10 +61,11 @@ func (a *App) ensureStartPort(ctx context.Context) (int, error) {
 		if err := a.setEnv("PORT", fmt.Sprint(next)); err != nil {
 			return 0, err
 		}
-		a.UI.OK(fmt.Sprintf("NeoAgent will use port %d", next))
+		u.Item("ok", fmt.Sprintf("NeoAgent will use port %d", next), "")
 		if strings.TrimSpace(a.env()["PUBLIC_URL"]) != "" {
-			a.UI.Warn("If a proxy forwards your public address to NeoAgent, point it at the new port too.")
+			u.Warn("If a proxy forwards your public address to NeoAgent, point it at the new port too.")
 		}
+		u.Blank()
 		return next, nil
 	}
 }
@@ -66,7 +73,41 @@ func (a *App) ensureStartPort(ctx context.Context) (int, error) {
 func (a *App) printRunning(headline string) {
 	a.UI.Blank()
 	a.UI.Item("ok", a.UI.Bold(headline), "")
-	a.UI.Print("    %s", a.UI.Accent(a.url()))
+	a.UI.Print("    " + a.UI.Accent(a.url()))
+}
+
+// countResumableRuns is how many runs a stop cut off mid-task; the server
+// resumes them on its next start.
+func (a *App) countResumableRuns(ctx context.Context) int {
+	if !exists(a.dbPath()) {
+		return 0
+	}
+	db, err := a.openDB(ctx)
+	if err != nil {
+		return 0
+	}
+	defer db.Close()
+	return agent.CountResumable(ctx, db)
+}
+
+func (a *App) printResumeNote(count int, when string) {
+	switch {
+	case count == 1:
+		a.UI.Note("1 task that was running picks up where it left off " + when + ".")
+	case count > 1:
+		a.UI.Note(fmt.Sprintf("%d tasks that were running pick up where they left off %s.", count, when))
+	}
+}
+
+// stopAndCount stops NeoAgent and returns how many cut-off tasks it resumes.
+func (a *App) stopAndCount(ctx context.Context, resumable *int) func() error {
+	return func() error {
+		if err := a.stopAndWait(ctx); err != nil {
+			return err
+		}
+		*resumable = a.countResumableRuns(ctx)
+		return nil
+	}
 }
 
 func (a *App) cmdStart(ctx context.Context, _ []string) error {
@@ -77,21 +118,30 @@ func (a *App) cmdStart(ctx context.Context, _ []string) error {
 	if err != nil {
 		return err
 	}
-	if err := a.UI.Step("Starting NeoAgent", "Started NeoAgent", a.Service.Launch); err != nil {
+	// Launching only spawns the process. Callers (the desktop app included)
+	// treat success as "the backend answers now", so wait for the handshake.
+	if err := a.UI.RunSteps(false,
+		cli.Step{Label: cli.Label{Doing: "Starting NeoAgent", Done: "Started NeoAgent"}, Run: a.Service.Launch},
+		cli.Step{Label: cli.Label{Doing: "Checking it's answering", Done: "It's answering"}, Run: func() error { return a.waitForServerReady(ctx, port, 30*time.Second) }},
+	); err != nil {
 		return err
 	}
-	if err := a.UI.Step("Checking it's answering", "It's answering", func() error { return a.waitForServerReady(ctx, port, 30*time.Second) }); err != nil {
-		return err
+	if a.JSON {
+		a.UI.OK(appName + " is reachable")
+	} else {
+		a.printRunning(appName + " is running.")
 	}
-	a.printRunning(appName + " is running.")
 	return nil
 }
 
 func (a *App) cmdStop(ctx context.Context, _ []string) error {
-	if err := a.UI.Step("Stopping NeoAgent", "Stopped NeoAgent", func() error { return a.stopAndWait(ctx) }); err != nil {
+	var resumable int
+	if err := a.UI.Step("Stopping NeoAgent", "Stopped NeoAgent", a.stopAndCount(ctx, &resumable)); err != nil {
 		return err
 	}
+	a.UI.Blank()
 	a.UI.OK(appName + " stopped")
+	a.printResumeNote(resumable, "when NeoAgent starts again")
 	return nil
 }
 
@@ -104,19 +154,32 @@ func (a *App) cmdRestart(ctx context.Context, _ []string) error {
 	if err != nil {
 		return err
 	}
-	for _, s := range []struct {
-		doing, done string
-		fn          func() error
-	}{
-		{"Stopping NeoAgent", "Stopped NeoAgent", func() error { return a.stopAndWait(ctx) }},
-		{"Starting it again", "Started it again", a.Service.Launch},
-		{"Checking it's answering", "It's answering", func() error { return a.waitForServerReady(ctx, port, 30*time.Second) }},
-	} {
-		if err := a.UI.Step(s.doing, s.done, s.fn); err != nil {
-			return err
-		}
+	var resumable int
+	if err := a.UI.RunSteps(false,
+		cli.Step{Label: cli.Label{Doing: "Getting the app ready", Done: "Got the app ready"}, Run: a.checkWebClient},
+		cli.Step{Label: cli.Label{Doing: "Stopping NeoAgent", Done: "Stopped NeoAgent"}, Run: a.stopAndCount(ctx, &resumable)},
+		cli.Step{Label: cli.Label{Doing: "Starting it again", Done: "Started it again"}, Run: a.Service.Launch},
+		cli.Step{Label: cli.Label{Doing: "Checking it's answering", Done: "It's answering"}, Run: func() error { return a.waitForServerReady(ctx, port, 30*time.Second) }},
+	); err != nil {
+		return err
+	}
+	if a.JSON {
+		a.UI.OK(appName + " is reachable")
+		return nil
 	}
 	a.printRunning("Back online in " + cli.FormatDuration(time.Since(started)) + ".")
+	a.printResumeNote(resumable, "now")
+	a.UI.Blank()
+	return nil
+}
+
+// checkWebClient makes sure the browser app is there. It never builds it:
+// release packages carry it, and `neoagent rebuild-web` builds it from source.
+func (a *App) checkWebClient() error {
+	if !exists(filepath.Join(a.AppDir, "public", "index.html")) {
+		return cli.Errorf("SETUP_RUNTIME_INCOMPLETE", "The bundled web client is missing.")
+	}
+	a.UI.Info("Using the app that came with NeoAgent")
 	return nil
 }
 
@@ -141,22 +204,15 @@ func (a *App) computerReadiness() (ready, imageReady, isolated bool, detail stri
 }
 
 func (a *App) cmdStatus(ctx context.Context, args []string) error {
-	port := a.Port()
-	running := cli.PortOpen(port)
-	var runningVersion any
-	if running {
-		if h := fetchHandshake(ctx, port); h != nil {
-			runningVersion = h.ServerVersion
-		}
-	}
-	processes := a.serverProcesses()
-	webClient := exists(filepath.Join(a.AppDir, "public", "index.html"))
-	configPresent := exists(a.Paths.EnvFile)
-	channel := a.channel()
+	f := a.collectStatusFacts(ctx, !a.JSON && a.UI.Interactive())
 	if a.JSON {
 		msg := "NeoAgent is not reachable"
-		if running {
+		if f.Running {
 			msg = "NeoAgent is reachable"
+		}
+		var runningVersion any
+		if f.RunningVersion != "" {
+			runningVersion = f.RunningVersion
 		}
 		a.Events.Ready("status", msg, struct {
 			Running          bool   `json:"running"`
@@ -167,39 +223,10 @@ func (a *App) cmdStatus(ctx context.Context, args []string) error {
 			RunningVersion   any    `json:"runningVersion"`
 			ReleaseChannel   string `json:"releaseChannel"`
 			ProcessCount     int    `json:"processCount"`
-		}{running, a.url(), configPresent, webClient, version(), runningVersion, channel, len(processes)})
+		}{f.Running, f.URL, f.ConfigPresent, f.WebClientPresent, f.Version, runningVersion, f.Channel, len(f.PIDs)})
 		return nil
 	}
-	ready, _, _, computer := a.computerReadiness()
-	tone := func(ok bool) string {
-		if ok {
-			return "ok"
-		}
-		return "warn"
-	}
-	a.UI.Title(appName+" "+version(), a.url())
-	state := "Not running"
-	if running {
-		state = "Running"
-		if v, ok := runningVersion.(string); ok && v != "" {
-			state += " (" + v + ")"
-		}
-	}
-	a.UI.Item(tone(running), "Server", state)
-	a.UI.Item(tone(a.Service.Active()), "Starts with this computer", map[bool]string{true: "Yes", false: "No"}[a.Service.Installed()])
-	a.UI.Item(tone(configPresent), "Settings", a.Paths.EnvFile)
-	a.UI.Item(tone(webClient), "App in your browser", map[bool]string{true: "Installed", false: "Missing"}[webClient])
-	a.UI.Item(tone(ready), "Agent's computer", computer)
-	a.UI.Item("info", "Updates", release.ChannelLabel(channel)+" channel")
-	if cli.HasFlag(args, "--details") {
-		a.UI.Item("info", "Binary", a.Exe)
-		a.UI.Item("info", "App files", a.AppDir)
-		a.UI.Item("info", "Data", a.Paths.Home)
-		for _, p := range processes {
-			a.UI.Item("info", fmt.Sprintf("Process %d", p.PID), p.Command)
-		}
-	}
-	a.UI.Blank()
+	a.printStatus(f, cli.HasFlag(args, "--details"))
 	return nil
 }
 
@@ -278,29 +305,34 @@ func (a *App) cmdDoctor(ctx context.Context, _ []string) error {
 		return nil
 	}
 	a.UI.Title("Checking "+appName, "Nothing is changed while this runs.")
-	for _, c := range checks {
-		if c.OK {
-			a.UI.Item("ok", c.Label, c.Message)
-		} else {
-			fix := ""
+	shown := make([]statusCheck, len(checks))
+	for i, c := range checks {
+		shown[i] = statusCheck{Tone: "ok", Label: c.Label, Detail: c.Message}
+		if !c.OK {
+			shown[i].Tone = "error"
 			if c.Action != nil {
-				fix = " — fix: " + *c.Action
+				shown[i].Fix = *c.Action
 			}
-			a.UI.Item("error", c.Label, c.Message+fix)
 		}
 	}
+	a.printChecks(shown)
 	a.UI.Blank()
-	switch {
-	case healthy:
+	if healthy {
 		a.UI.Item("ok", a.UI.Bold("No problems found"), "")
-	case a.UI.Interactive():
-		if ok, _ := a.UI.Confirm("Fix these for you now? Your data is backed up first.", true); ok {
+		a.UI.Blank()
+		return nil
+	}
+	if a.UI.Interactive() {
+		ok, err := a.UI.Confirm("Fix these for you now? Your data is backed up first.", true)
+		if err != nil {
+			return err
+		}
+		if ok {
 			return a.cmdRepair(ctx, nil)
 		}
-		fallthrough
-	default:
-		a.UI.Note("Most problems are fixed by " + a.UI.Command("neoagent repair") + ".")
 	}
+	a.UI.Note("Most problems are fixed by " + a.UI.Command("neoagent repair") + ".")
+	a.UI.Blank()
 	return nil
 }
 
@@ -321,6 +353,7 @@ func (a *App) cmdLogs(ctx context.Context, _ []string) error {
 		return nil
 	}
 	a.UI.Title("What NeoAgent is doing", "Press Ctrl+C to stop watching.")
+	a.UI.Blank()
 	cmd := exec.CommandContext(ctx, "tail", append([]string{"-f"}, logs...)...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil && ctx.Err() == nil {
@@ -345,28 +378,35 @@ func (a *App) cmdUninstall(_ context.Context, _ []string) error {
 func (a *App) cmdRepair(ctx context.Context, args []string) error {
 	runtimePackage := cli.HasFlag(args, "--runtime-package")
 	a.UI.Title("Repairing "+appName, "Your data is backed up first. This can take a few minutes.")
-	steps := []struct {
-		doing, done string
-		fn          func() error
-	}{
-		{"Stopping NeoAgent", "Stopped NeoAgent", func() error {
+	a.UI.Blank()
+	missing := func(what string) error {
+		return cli.Errorf("SETUP_RUNTIME_INCOMPLETE", "The verified runtime package is missing %s.", what)
+	}
+	if err := a.UI.RunSteps(true,
+		cli.Step{Label: cli.Label{Doing: "Stopping NeoAgent", Done: "Stopped NeoAgent"}, Run: func() error {
 			a.stopService()
 			if !a.waitForServerExit(ctx, 15*time.Second) {
 				return fmt.Errorf("NeoAgent did not stop in time for a consistent repair backup.")
 			}
 			return nil
 		}},
-		{"Saving a backup of your settings and chats", "Saved a backup of your settings and chats", func() error {
+		cli.Step{Label: cli.Label{Doing: "Saving a backup of your settings and chats", Done: "Saved a backup of your settings and chats"}, Run: func() error {
 			_, err := a.backupRuntimeData(ctx, "pre-update")
 			return err
 		}},
-		{"Checking NeoAgent's files", "Checked NeoAgent's files", func() error {
-			if !exists(filepath.Join(a.AppDir, "public", "index.html")) {
-				return cli.Errorf("SETUP_RUNTIME_INCOMPLETE", "The verified runtime package is missing the bundled web client.")
+		cli.Step{Label: cli.Label{Doing: "Reinstalling what it needs", Done: "Reinstalled what it needs"}, Run: func() error {
+			if !exists(a.Exe) {
+				return missing("required dependencies")
 			}
 			return nil
 		}},
-		{"Checking the agent's computer", "Checked the agent's computer", func() error {
+		cli.Step{Label: cli.Label{Doing: "Preparing the app", Done: "Prepared the app"}, Run: func() error {
+			if !exists(filepath.Join(a.AppDir, "public", "index.html")) {
+				return missing("the bundled web client")
+			}
+			return nil
+		}},
+		cli.Step{Label: cli.Label{Doing: "Checking the agent's computer", Done: "Checked the agent's computer"}, Run: func() error {
 			if err := a.ensureComputerRuntime(ctx, runtimePackage, true); err != nil {
 				return err
 			}
@@ -376,31 +416,34 @@ func (a *App) cmdRepair(ctx context.Context, args []string) error {
 			}
 			return err
 		}},
-		{"Starting NeoAgent", "Started NeoAgent", func() error {
+		cli.Step{Label: cli.Label{Doing: "Starting NeoAgent", Done: "Started NeoAgent"}, Run: func() error {
 			if err := a.ensureSecrets(); err != nil {
 				return err
 			}
-			return a.Service.Install()
+			if err := a.Service.Install(); err != nil {
+				return err
+			}
+			return a.waitForServerReady(ctx, a.Port(), 30*time.Second)
 		}},
-		{"Checking it's answering", "It's answering", func() error { return a.waitForServerReady(ctx, a.Port(), 30*time.Second) }},
+	); err != nil {
+		return err
 	}
-	for _, s := range steps {
-		if err := a.UI.Step(s.doing, s.done, s.fn); err != nil {
-			return err
-		}
+	if a.JSON {
+		return nil
 	}
-	if !a.JSON {
-		a.printRunning("Repair complete.")
-		a.UI.Note("Check on it any time with " + a.UI.Command("neoagent status") + ".")
-	}
+	a.printRunning("Repair complete.")
+	a.UI.Note("Check on it any time with " + a.UI.Command("neoagent status") + ".")
+	a.UI.Blank()
 	return nil
 }
 
 func (a *App) cmdChannel(_ context.Context, args []string) error {
 	pos := cli.Positionals(args)
 	if len(pos) == 0 {
+		a.UI.Blank()
 		a.UI.Item("info", "Updates come from the "+release.ChannelLabel(a.channel())+" channel.", "")
 		a.UI.Note("Switch with " + a.UI.Command("neoagent channel stable") + " or " + a.UI.Command("neoagent channel beta") + ".")
+		a.UI.Blank()
 		return nil
 	}
 	next := release.ParseChannel(pos[0])

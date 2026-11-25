@@ -268,60 +268,46 @@ func (a *App) cmdBackup(ctx context.Context, _ []string) error {
 		sub = "NeoAgent pauses while the backup is made."
 	}
 	a.UI.Title("Backing up "+appName, sub)
+	a.UI.Blank()
 	var target string
-	steps := []struct {
-		doing, done string
-		fn          func() error
-	}{
-		{"Saving your settings and chats", "Saved your settings and chats", func() (err error) {
+	steps := []cli.Step{
+		{Label: cli.Label{Doing: "Saving your settings and chats", Done: "Saved your settings and chats"}, Run: func() (err error) {
 			target, err = a.backupRuntimeData(ctx, "manual")
 			return err
 		}},
-		{"Saving the agent's computer", "Saved the agent's computer", func() error {
+		{Label: cli.Label{Doing: "Saving the agent's computer", Done: "Saved the agent's computer"}, Run: func() error {
 			_, err := a.backupComputerDisks(ctx, target)
 			return err
 		}},
 	}
 	if wasRunning {
-		pause := struct {
-			doing, done string
-			fn          func() error
-		}{"Pausing NeoAgent", "Paused NeoAgent", func() error {
+		steps = append([]cli.Step{{Label: cli.Label{Doing: "Pausing NeoAgent", Done: "Paused NeoAgent"}, Run: func() error {
 			a.stopService()
 			if !a.waitForServerExit(ctx, 15*time.Second) {
 				return fmt.Errorf("NeoAgent did not stop in time for a consistent computer backup.")
 			}
 			return nil
-		}}
-		steps = append([]struct {
-			doing, done string
-			fn          func() error
-		}{pause}, steps...)
-	}
-	var failure error
-	for _, s := range steps {
-		if failure = a.UI.Step(s.doing, s.done, s.fn); failure != nil {
-			break
-		}
-	}
-	if wasRunning {
-		// A backup must never leave NeoAgent switched off.
-		if err := a.UI.Step("Starting NeoAgent again", "Started NeoAgent again", func() error {
+		}}}, steps...)
+		steps = append(steps, cli.Step{Label: cli.Label{Doing: "Starting NeoAgent again", Done: "Started NeoAgent again"}, Run: func() error {
 			if err := a.Service.Launch(); err != nil {
 				return err
 			}
 			return a.waitForServerReady(ctx, a.Port(), 30*time.Second)
-		}); err != nil && failure == nil {
-			failure = err
+		}})
+	}
+	if err := a.UI.RunSteps(false, steps...); err != nil {
+		// A failed backup must not leave NeoAgent switched off.
+		if wasRunning && len(a.serverProcesses()) == 0 && !cli.PortOpen(a.Port()) {
+			_ = a.cmdStart(ctx, nil)
 		}
+		return err
 	}
-	if failure != nil {
-		return failure
-	}
-	a.UI.Item("ok", a.UI.Bold("Backup saved"), target)
 	if a.JSON {
 		return cli.WriteJSONLine(a.Out, map[string]string{"backup": target})
 	}
+	a.UI.Blank()
+	a.UI.Item("ok", a.UI.Bold("Backup saved"), target)
+	a.UI.Blank()
 	return nil
 }
 
@@ -346,30 +332,29 @@ func (a *App) cmdRestore(ctx context.Context, args []string) error {
 		}
 	}
 	wasRunning := len(a.serverProcesses()) > 0 || cli.PortOpen(a.Port())
+	a.UI.Title("Restoring "+appName, "Your current settings and chats are backed up first.")
+	a.UI.Blank()
 	var safety string
-	steps := []struct {
-		doing, done string
-		fn          func() error
-	}{
-		{"Stopping NeoAgent", "Stopped NeoAgent", func() error { return a.stopAndWait(ctx) }},
-		{"Saving the current data first", "Saved the current data", func() (err error) {
+	if err := a.UI.RunSteps(false,
+		cli.Step{Label: cli.Label{Doing: "Stopping NeoAgent", Done: "Stopped NeoAgent"}, Run: func() error { return a.stopAndWait(ctx) }},
+		cli.Step{Label: cli.Label{Doing: "Saving the current data first", Done: "Saved the current data"}, Run: func() (err error) {
 			safety, err = a.backupRuntimeData(ctx, "pre-restore")
 			return err
 		}},
-		{"Restoring the backup", "Restored the backup", func() error { return a.restoreFrom(ctx, src) }},
-	}
-	for _, s := range steps {
-		if err := a.UI.Step(s.doing, s.done, s.fn); err != nil {
-			if safety != "" {
-				a.UI.Warn("The data from before the restore is in " + safety)
-			}
-			return err
+		cli.Step{Label: cli.Label{Doing: "Restoring the backup", Done: "Restored the backup"}, Run: func() error { return a.restoreFrom(ctx, src) }},
+	); err != nil {
+		if safety != "" {
+			a.UI.Warn("The data from before the restore is in " + safety)
 		}
+		return err
 	}
+	a.UI.Blank()
+	a.UI.Item("ok", a.UI.Bold("Backup restored"), src)
 	a.UI.Note("The data from before the restore is in " + safety)
 	if wasRunning || a.Service.Installed() {
 		return a.cmdStart(ctx, nil)
 	}
+	a.UI.Blank()
 	return nil
 }
 

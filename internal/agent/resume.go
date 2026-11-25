@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/NeoLabs-Systems/neolabs-go/dbx"
 	"strings"
 
 	"github.com/google/uuid"
@@ -296,9 +297,13 @@ func (e *Engine) ResumeInterruptedRuns(ctx context.Context) int {
 }
 
 // CountResumableRuns is how many runs the next boot will resume.
-func (e *Engine) CountResumableRuns(ctx context.Context) int {
+func (e *Engine) CountResumableRuns(ctx context.Context) int { return CountResumable(ctx, e.deps.DB) }
+
+// CountResumable is how many runs the next boot of the server with this
+// database will resume.
+func CountResumable(ctx context.Context, db *dbx.DB) int {
 	var n int
-	_ = e.deps.DB.R.QueryRowContext(ctx, `SELECT COUNT(*) FROM agent_runs WHERE `+resumableRunsWhere, resumeWindow).Scan(&n)
+	_ = db.R.QueryRowContext(ctx, `SELECT COUNT(*) FROM agent_runs WHERE `+resumableRunsWhere, resumeWindow).Scan(&n)
 	return n
 }
 

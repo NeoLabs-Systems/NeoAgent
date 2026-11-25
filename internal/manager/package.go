@@ -131,20 +131,42 @@ func (a *App) findRuntime(ctx context.Context, channel string) (availableRuntime
 // versions/<version> without activating it.
 func (a *App) unpackRuntime(ctx context.Context, rt availableRuntime, force bool) (installedRuntime, error) {
 	target := installedRuntime{Version: rt.Version, Dir: filepath.Join(a.versionsDir(), rt.Version)}
-	if err := os.MkdirAll(a.versionsDir(), 0o700); err != nil {
-		return target, err
-	}
 	if exists(target.binary()) && !force {
 		return target, nil
 	}
-	staging, err := os.MkdirTemp(a.versionsDir(), ".staging-")
+	archive, err := a.downloadRuntime(ctx, rt)
 	if err != nil {
 		return target, err
 	}
-	defer os.RemoveAll(staging)
+	return a.installRuntime(ctx, rt, archive, force)
+}
+
+// downloadRuntime downloads and verifies rt's package into a staging folder
+// under the versions folder and returns the archive's path.
+func (a *App) downloadRuntime(ctx context.Context, rt availableRuntime) (string, error) {
+	if err := os.MkdirAll(a.versionsDir(), 0o700); err != nil {
+		return "", err
+	}
+	staging, err := os.MkdirTemp(a.versionsDir(), ".staging-")
+	if err != nil {
+		return "", err
+	}
 	archive := filepath.Join(staging, rt.Artifact.AssetName)
 	if err := a.releaseClient().Download(ctx, rt.Release.Assets[rt.Artifact.AssetName], archive, rt.Artifact.SizeBytes, rt.Artifact.SHA256); err != nil {
-		return target, err
+		os.RemoveAll(staging)
+		return "", err
+	}
+	return archive, nil
+}
+
+// installRuntime unpacks a downloaded package into its versions folder and
+// removes the staging folder.
+func (a *App) installRuntime(_ context.Context, rt availableRuntime, archive string, force bool) (installedRuntime, error) {
+	staging := filepath.Dir(archive)
+	defer os.RemoveAll(staging)
+	target := installedRuntime{Version: rt.Version, Dir: filepath.Join(a.versionsDir(), rt.Version)}
+	if exists(target.binary()) && !force {
+		return target, nil
 	}
 	extracted := filepath.Join(staging, "extracted")
 	if err := nlrelease.ExtractZip(archive, extracted); err != nil {

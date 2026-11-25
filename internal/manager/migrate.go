@@ -58,7 +58,7 @@ func plural(n int, word, many string) string {
 func (a *App) printSourceCard(s agentimport.SourceView) {
 	a.UI.Blank()
 	home, _ := os.UserHomeDir()
-	a.UI.Print("  %s  %s", a.UI.Bold(s.Label), a.UI.Muted(strings.Replace(s.Path, home, "~", 1)))
+	a.UI.Printf("  %s  %s", a.UI.Bold(s.Label), a.UI.Muted(strings.Replace(s.Path, home, "~", 1)))
 	for _, c := range s.Contents {
 		label, detail := "", strings.Join(c.Names, ", ")
 		switch c.Part {
@@ -98,7 +98,7 @@ func (a *App) migrateHelp() {
 		{"neoagent migrate --from <folder>", "A copied or non-default folder"},
 		{"neoagent migrate --yes", "No questions: import everything and restart"},
 	} {
-		a.UI.Print("  %-36s%s", a.UI.Command(line[0]), a.UI.Muted(line[1]))
+		a.UI.Printf("  %-36s%s", a.UI.Command(line[0]), a.UI.Muted(line[1]))
 	}
 	a.UI.Note("Nothing is removed from the old agent, and running it twice does not duplicate anything.")
 }

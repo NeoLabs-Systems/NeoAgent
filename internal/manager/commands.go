@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"strings"
 
 	"github.com/NeoLabs-Systems/neoagent/internal/setupcontract"
 	"github.com/NeoLabs-Systems/neolabs-go/cli"
@@ -45,15 +43,11 @@ func (a *App) commands() []cli.Command {
 		}},
 		{Name: "update-runner", Hidden: true, Run: a.cmdUpdateRunner},
 		{Name: "repair-runtime", Hidden: true, Run: func(ctx context.Context, _ []string) error { return a.ensureComputerRuntime(ctx, false, false) }},
-		{Name: "help", Aliases: []string{"--help", "-h"}, Usage: "help", Summary: "Show this list", Run: func(context.Context, []string) error {
-			a.printHelp(a.Out)
+		{Name: "help", Aliases: []string{"--help", "-h"}, Usage: "help", Summary: "Show this list", Run: func(_ context.Context, args []string) error {
+			a.printHelp(cli.HasFlag(args, "--all"))
 			return nil
 		}},
 	}
-}
-
-func (a *App) printHelp(w io.Writer) {
-	fmt.Fprintf(w, "\n  %s %s\n\n  Usage: neoagent <command>\n\n%s\n", appName, version(), cli.Help(a.commands()))
 }
 
 // Run executes one CLI command. The caller handles serve and healthcheck,
@@ -64,15 +58,14 @@ func Run(ctx context.Context, args []string, boot Booter) error {
 		return err
 	}
 	a.boot = boot
-	if len(args) == 0 {
-		a.printHelp(a.Out)
-		return nil
-	}
 	if o, perr := ParseSetupArguments(args[1:]); (args[0] == "install" || args[0] == "setup") && perr == nil && o.Profile != "" {
 		a.Events.Profile = o.Profile
 	}
 	if err := a.Paths.Ensure(); err != nil {
 		return err
+	}
+	if len(args) == 0 {
+		return a.cmdDefault(ctx)
 	}
 	cmd := cli.Find(a.commands(), args[0])
 	if cmd == nil || cmd.Run == nil {
@@ -82,16 +75,13 @@ func Run(ctx context.Context, args []string, boot Booter) error {
 }
 
 // ReportError prints a failed command: a JSON failure event when --json is
-// set and none was emitted yet, otherwise a readable message.
+// set and none was emitted yet, otherwise what happened and what to try.
 func ReportError(args []string, err error) {
-	var emitted eventEmitted
-	if errors.As(err, &emitted) {
-		if !cli.HasFlag(args, "--json") {
-			fmt.Fprintln(os.Stderr, "\n  ✕ "+strings.ReplaceAll(err.Error(), "\n", "\n    "))
-		}
-		return
-	}
 	if cli.HasFlag(args, "--json") {
+		var emitted eventEmitted
+		if errors.As(err, &emitted) {
+			return
+		}
 		code := cli.CodeOf(err, "SETUP_FAILED")
 		argumentError := code == "SETUP_PROFILE_CONFLICT" || code == "SETUP_REQUIRED_VALUE_MISSING"
 		action := "retry"
@@ -108,9 +98,76 @@ func ReportError(args []string, err error) {
 		})
 		return
 	}
-	if errors.Is(err, cli.ErrCancelled) {
-		fmt.Fprintln(os.Stderr, "  Cancelled. Nothing was changed.")
-		return
+	printError(cli.NewUI(false), err, cli.HasFlag(args, "--details"))
+}
+
+// cmdDefault is plain `neoagent`: it finishes or starts setup, and otherwise
+// shows how NeoAgent is doing and a menu of what to do next.
+func (a *App) cmdDefault(ctx context.Context) error {
+	if st := a.readState(); st != nil && st.Status != "completed" {
+		a.UI.Blank()
+		a.UI.Note("Picking up the setup you started earlier.")
+		return a.cmdInstall(ctx, []string{"--resume"})
 	}
-	fmt.Fprintln(os.Stderr, "\n  ✕ "+strings.ReplaceAll(err.Error(), "\n", "\n    ")+"\n")
+	if !a.installed() {
+		if exists(a.Paths.EnvFile) {
+			a.UI.Info("Your existing settings in " + a.Paths.EnvFile + " are kept.")
+		}
+		return a.cmdInstall(ctx, nil)
+	}
+	f := a.collectStatusFacts(ctx, a.UI.Interactive())
+	// Running state and updates are in the header and the menu already.
+	var problems []statusCheck
+	for _, c := range statusChecks(f) {
+		if c.ID != "server" && c.ID != "version" && needsAttention(c) {
+			problems = append(problems, c)
+		}
+	}
+	a.printHomeHeader(f, problems)
+	a.UI.Blank()
+	if !a.UI.Interactive() {
+		a.UI.Print("  " + a.UI.Faint("Every command:") + " " + a.UI.Command("neoagent help"))
+		a.UI.Blank()
+		return nil
+	}
+	type action struct {
+		choice cli.Choice
+		run    func() error
+	}
+	var actions []action
+	if f.Running {
+		actions = append(actions, action{cli.Choice{Label: "Open NeoAgent in my browser"}, func() error { openInBrowser(f.URL); return nil }})
+	} else {
+		actions = append(actions, action{cli.Choice{Label: "Start NeoAgent"}, func() error { return a.cmdStart(ctx, nil) }})
+	}
+	if f.Update != "" {
+		actions = append(actions, action{cli.Choice{Label: "Get the latest version", Hint: f.Update + " is ready"}, func() error { return a.cmdUpdate(ctx, nil) }})
+	}
+	actions = append(actions, action{cli.Choice{Label: "Check that everything works"}, func() error { return a.cmdStatus(ctx, nil) }})
+	if f.Running {
+		actions = append(actions, action{cli.Choice{Label: "Restart NeoAgent"}, func() error { return a.cmdRestart(ctx, nil) }})
+	}
+	actions = append(actions,
+		action{cli.Choice{Label: "Change settings", Hint: "AI, address, integrations"}, func() error { return a.cmdSetup(ctx, nil) }},
+		action{cli.Choice{Label: "Something's wrong — help me fix it"}, func() error { return a.cmdDoctor(ctx, nil) }},
+		action{cli.Choice{Label: "More…", Hint: "every command"}, func() error { a.printHelp(false); return nil }},
+	)
+	choices := make([]cli.Choice, len(actions))
+	for i := range actions {
+		actions[i].choice.Value = fmt.Sprint(i)
+		choices[i] = actions[i].choice
+	}
+	picked, ok, err := a.UI.SelectOrQuit("What would you like to do?", choices)
+	if err != nil || !ok {
+		return err
+	}
+	var index int
+	fmt.Sscan(picked, &index)
+	return actions[index].run()
+}
+
+// installed reports evidence of an existing installation: its data, its
+// service definition or a running server.
+func (a *App) installed() bool {
+	return exists(a.dbPath()) || a.Service.Installed() || len(a.serverProcesses()) > 0
 }

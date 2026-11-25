@@ -22,6 +22,7 @@ import (
 )
 
 func (a *App) cmdEnv(_ context.Context, args []string) error {
+	a.UI.Section("Environment Variables")
 	pos := cli.Positionals(args)
 	action := ""
 	if len(pos) > 0 {
@@ -44,12 +45,18 @@ func (a *App) cmdEnv(_ context.Context, args []string) error {
 			fmt.Fprintf(a.Out, "%s=%s\n", k, envfile.Mask(k, values[k]))
 		}
 	case "get":
-		if len(pos) < 2 {
+		key := ""
+		if len(pos) > 1 {
+			key = pos[1]
+		} else if k, err := a.UI.Ask("Key", "PORT"); err == nil {
+			key = k
+		}
+		if key == "" {
 			return usageError("Usage: neoagent env get <KEY>")
 		}
-		v, ok := a.env()[pos[1]]
+		v, ok := a.env()[key]
 		if !ok {
-			return fmt.Errorf("Key not found: %s", pos[1])
+			return fmt.Errorf("Key not found: %s", key)
 		}
 		fmt.Fprintln(a.Out, v)
 	case "set":

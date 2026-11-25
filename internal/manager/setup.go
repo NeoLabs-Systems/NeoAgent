@@ -200,9 +200,10 @@ const pickAINote = "Pick an AI any time from the Admin tab in the app, or run `n
 // provider's label, or "" when skipped.
 func (a *App) chooseAIProvider() (string, error) {
 	a.UI.Title("Which AI should NeoAgent use?", `This is the "brain" that reads your messages and decides what to do.`)
+	a.UI.Blank()
 	method, err := a.UI.Select("Connect an AI", []cli.Choice{
-		{Value: "key", Label: "Paste an API key", Hint: "OpenAI, Anthropic, Google, xAI and more"},
 		{Value: "login", Label: "Sign in with an account I already have", Hint: "Claude, ChatGPT, Copilot or Grok"},
+		{Value: "key", Label: "Paste an API key", Hint: "OpenAI, Anthropic, Google, xAI and more"},
 		{Value: "later", Label: "I'll decide later", Hint: "NeoAgent can't answer until you pick one"},
 	})
 	if err != nil {
@@ -291,6 +292,7 @@ func (a *App) runSetupProfile(ctx context.Context, profile string, o SetupOption
 		state.Stage, state.CompletedSections = "provider", completed
 		_, _ = a.writeState(state)
 		if interactive {
+			a.printSetupProgress(1)
 			connected, err := a.chooseAIProvider()
 			if err != nil {
 				return 0, err
@@ -305,6 +307,7 @@ func (a *App) runSetupProfile(ctx context.Context, profile string, o SetupOption
 		if err := a.writeDefaultEnv(port); err != nil {
 			return 0, err
 		}
+		a.note("Running this for several people? `neoagent messaging setup telegram` gives them one shared bot to link to.")
 		a.note("Configure AI providers from the Admin tab in the app or `neoagent env`. Continue integrations, voice, and optional tools in the NeoAgent app.")
 	default:
 		start, done, values := prepareResume(previous)

@@ -85,6 +85,7 @@ func (a *App) cmdLogin(ctx context.Context, args []string) error {
 		}
 	}
 	if provider == nil && len(pos) == 0 && a.UI.Interactive() {
+		a.UI.Blank()
 		var choices []cli.Choice
 		for _, p := range loginProviders {
 			choices = append(choices, cli.Choice{Value: p.ID, Label: p.Label})
@@ -118,13 +119,16 @@ func (a *App) cmdLogin(ctx context.Context, args []string) error {
 func (a *App) printBrowserSignIn(service, link string) {
 	a.UI.Title("Sign in to "+service, "Your browser opens to finish signing in.")
 	a.UI.Note("If it doesn't open, visit this address:")
-	a.UI.Print("  %s", link)
+	a.UI.Printf("  %s", link)
+	a.UI.Blank()
 }
 
 func (a *App) printDeviceCode(service, link, code string) {
 	a.UI.Title("Sign in to "+service, "")
-	a.UI.Print("  Go to %s", a.UI.Accent(link))
-	a.UI.Print("  and enter %s", a.UI.Command(code))
+	a.UI.Blank()
+	a.UI.Printf("  Go to %s", a.UI.Accent(link))
+	a.UI.Printf("  and enter %s", a.UI.Command(code))
+	a.UI.Blank()
 	a.UI.Info("Waiting for you to finish signing in (up to 15 minutes)…")
 }
 

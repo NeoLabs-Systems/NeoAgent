@@ -269,7 +269,8 @@ func (a *App) runFullSetup(suggested int, start string, done []string, initial m
 	for k, v := range initial {
 		draft[k] = v
 	}
-	a.UI.Title("Full setup", "Values are validated before any configuration is changed.")
+	a.UI.Section("Full setup")
+	a.UI.Info("Values are validated before any configuration is changed.")
 	sections := setupcontract.C.WizardSections
 	index := max(slices.IndexFunc(sections, func(s setupcontract.Section) bool { return s.ID == start }), 0)
 	var completed, skipped []string

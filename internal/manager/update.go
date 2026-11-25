@@ -55,22 +55,25 @@ func (a *App) restoreService(ctx context.Context, s serviceSnapshot, port int) e
 	return a.waitForServerReady(ctx, port, 45*time.Second)
 }
 
-// switchTo stops the running NeoAgent (Go or Node.js), points the service at
-// rt and waits until it answers with rt's version.
-func (a *App) switchTo(ctx context.Context, rt installedRuntime, port int) error {
+// restartInto stops the running NeoAgent and starts rt in its place. It
+// returns how many cut-off tasks the new server resumes.
+func (a *App) restartInto(ctx context.Context, rt installedRuntime) (int, error) {
 	if err := a.ensureSecrets(); err != nil {
-		return err
+		return 0, err
 	}
 	if err := a.stopAndWait(ctx); err != nil {
-		return err
+		return 0, err
 	}
+	resumable := a.countResumableRuns(ctx)
 	if err := a.writeCurrent(rt.Version); err != nil {
-		return err
+		return 0, err
 	}
 	a.useBinary(rt.binary(), rt.appDir())
-	if err := a.Service.Install(); err != nil {
-		return err
-	}
+	return resumable, a.Service.Install()
+}
+
+// verifyRunning waits until NeoAgent answers on port with rt's version.
+func (a *App) verifyRunning(ctx context.Context, rt installedRuntime, port int) error {
 	if err := a.waitForServerReady(ctx, port, 60*time.Second); err != nil {
 		return err
 	}
@@ -114,55 +117,89 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	}
 	newer := release.CompareVersions(available.Version, before) > 0
 	if !newer && !(requested != "" && available.Version != before) {
+		a.UI.Blank()
 		a.UI.OK(fmt.Sprintf("You have the latest version (%s)", before))
+		a.UI.Blank()
 		return a.reportUpdate(before, before, "You have the latest version ("+before+")")
 	}
 	if notesOnly {
+		a.UI.Blank()
 		a.UI.Item("warn", a.UI.Bold(available.Version+" is ready"), "you have "+before)
+		a.UI.Blank()
 		a.UI.Note("Get it with " + a.UI.Command("neoagent update") + ".")
+		a.UI.Blank()
 		return a.reportUpdate(before, available.Version, available.Version+" is ready")
 	}
 	a.reportProgress(map[string]any{"progress": 10, "phase": "preparing", "message": "Preparing the update", "versionAfter": available.Version, "targetBranch": channelBranch(channel), "changelog": []any{}})
 	a.UI.Title("Updating "+appName, fmt.Sprintf("%s → %s · %s", before, available.Version, channel))
+	a.UI.Blank()
 	port := a.Port()
 	var installed installedRuntime
+	var archive string
 	snapshot := a.snapshotService()
+	resumable := 0
 	switched := false
 	steps := []struct {
-		phase, doing, done string
-		fn                 func() error
+		phase string
+		run   func() error
 	}{
-		{"backup", "Saving a backup of your settings and chats", "Saved a backup of your settings and chats", func() error {
+		{"backup", func() error {
 			_, err := a.backupRuntimeData(ctx, "pre-update")
 			return err
 		}},
-		{"downloading", "Downloading the new version", "Downloaded the new version", func() (err error) {
-			installed, err = a.unpackRuntime(ctx, available, true)
+		{"downloading", func() (err error) {
+			archive, err = a.downloadRuntime(ctx, available)
 			return err
 		}},
-		{"restarting", "Restarting NeoAgent", "Restarted NeoAgent", func() error {
+		{"installing", func() (err error) {
+			installed, err = a.installRuntime(ctx, available, archive, true)
+			return err
+		}},
+		{"restarting", func() (err error) {
 			switched = true
-			return a.switchTo(ctx, installed, port)
+			resumable, err = a.restartInto(ctx, installed)
+			return err
+		}},
+		{"verifying", func() error {
+			if err := a.verifyRunning(ctx, installed, port); err != nil {
+				return err
+			}
+			// The new binary prepares the computer runtime it ships with.
+			_ = a.delegateQuiet(ctx, installed, "repair-runtime")
+			return nil
 		}},
 	}
+	list := a.UI.Steps([]cli.Label{
+		{Doing: "Saving a backup of your settings and chats", Done: "Saved a backup of your settings and chats"},
+		{Doing: "Downloading the new version", Done: "Downloaded the new version"},
+		{Doing: "Installing it", Done: "Installed it"},
+		{Doing: "Restarting NeoAgent", Done: "Restarted NeoAgent"},
+		{Doing: "Making sure it all works", Done: "Made sure it all works"},
+	}, true)
 	for i, s := range steps {
-		a.reportProgress(map[string]any{"progress": 15 + i*16, "phase": s.phase, "message": s.doing})
-		if err := a.UI.Step(s.doing, s.done, s.fn); err != nil {
+		a.reportProgress(map[string]any{"progress": 15 + i*16, "phase": s.phase, "message": list.Doing(i)})
+		if err := list.Run(i, s.run); err != nil {
 			if !switched {
+				list.Close()
 				return err
 			}
 			a.reportProgress(map[string]any{"progress": 85, "phase": "rollback", "message": fmt.Sprintf("Restoring %s after the update failed", before)})
-			a.UI.Info("Going back to " + before)
-			if rerr := a.restoreService(ctx, snapshot, port); rerr != nil {
+			rollback := list.Add(cli.Label{Doing: "Going back to " + before, Done: "Went back to " + before})
+			rerr := list.Run(rollback, func() error { return a.restoreService(ctx, snapshot, port) })
+			list.Close()
+			if rerr != nil {
 				return &codedErr{code: "UPDATE_ROLLBACK_FAILED", msg: fmt.Sprintf("%s\nGoing back to %s also failed: %s", err, before, rerr)}
 			}
 			return &codedErr{code: "UPDATE_ROLLED_BACK", msg: fmt.Sprintf("%s\nNeoAgent is running %s again; nothing was lost.", err, before)}
 		}
 	}
-	// The new binary prepares the computer runtime it ships with.
-	_ = a.delegateQuiet(ctx, installed, "repair-runtime")
+	list.Close()
+	a.UI.Blank()
 	a.UI.Item("ok", a.UI.Bold(fmt.Sprintf("%s %s is ready", appName, installed.Version)), a.url())
+	a.UI.Blank()
+	a.printResumeNote(resumable, "now")
 	a.UI.Note("Your chats, settings and accounts were kept.")
+	a.UI.Blank()
 	return a.reportUpdate(before, installed.Version, fmt.Sprintf("NeoAgent %s is ready. Your chats, settings and accounts were kept.", installed.Version))
 }
 
