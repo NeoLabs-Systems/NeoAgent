@@ -47,14 +47,33 @@ runs:
           exit 1
         fi
 
+        existing_assets="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets 2>/dev/null || echo '{"assets":[]}')"
+        pending_files=()
+        for f in "${files[@]}"; do
+          name="$(basename "$f")"
+          size="$(wc -c < "$f" | tr -d ' ')"
+          if jq --exit-status --arg name "$name" --argjson size "$size" \
+            '.assets | any(.name == $name and .size == $size)' <<<"$existing_assets" >/dev/null; then
+            echo "Already attached with matching size: $name"
+            continue
+          fi
+          pending_files+=("$f")
+        done
+
         uploaded=0
+        if [ "${#pending_files[@]}" -eq 0 ]; then
+          uploaded=1
+        fi
         for attempt in 1 2 3 4 5; do
-          if gh release upload "$RELEASE_TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"; then
+          if [ "$uploaded" -eq 1 ]; then
+            break
+          fi
+          if gh release upload "$RELEASE_TAG" "${pending_files[@]}" --clobber --repo "$GITHUB_REPOSITORY"; then
             uploaded=1
             break
           fi
           echo "GitHub release upload failed (attempt ${attempt}); retrying..."
-          sleep $((attempt * 3))
+          sleep $((attempt * 5))
         done
         if [ "$uploaded" -ne 1 ]; then
           echo "Could not attach files to ${RELEASE_TAG}."
