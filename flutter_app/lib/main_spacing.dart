@@ -30,4 +30,3 @@ abstract class AppRadius {
 
 /// Deep dark color used for QR code modules rendered on a white background.
 /// Matches the dark theme's deep-olive background hue for brand consistency.
-const Color _qrDarkColor = Color(0xFF0E1511);

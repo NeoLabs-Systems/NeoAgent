@@ -502,64 +502,19 @@ class _AuthViewState extends State<AuthView> {
   InputDecoration _authInputDecoration({
     String? errorText,
     Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      filled: true,
-      fillColor: _bgPrimary,
-      errorText: errorText,
-      suffixIcon: suffixIcon,
-    );
-  }
-
-  /// A field with its label above it; [trailing] ends the label row. The
-  /// label is the field's accessible name.
-  Widget _labeledField(String label, Widget field, {Widget? trailing}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              // The field announces the label itself, below.
-              child: ExcludeSemantics(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-            if (trailing != null) trailing,
-          ],
-        ),
-        const SizedBox(height: 6),
-        Semantics(label: label, child: field),
-      ],
-    );
-  }
-
-  ButtonStyle get _inlineLinkStyle => TextButton.styleFrom(
-    padding: const EdgeInsets.symmetric(horizontal: 4),
-    minimumSize: const Size(0, 32),
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+  }) => neoAuthInputDecoration(
+    _palette,
+    errorText: errorText,
+    suffixIcon: suffixIcon,
   );
 
-  Widget _orDivider(String label) {
-    return Row(
-      children: <Widget>[
-        Expanded(child: Divider(color: _border)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(label, style: TextStyle(color: _textMuted, fontSize: 12)),
-        ),
-        Expanded(child: Divider(color: _border)),
-      ],
-    );
-  }
+  Widget _labeledField(String label, Widget field, {Widget? trailing}) =>
+      NeoLabeledField(
+        palette: _palette,
+        label: label,
+        field: field,
+        trailing: trailing,
+      );
 
   List<Widget> _buildCredentialFields() {
     final controller = widget.controller;
@@ -575,7 +530,7 @@ class _AuthViewState extends State<AuthView> {
             onPressed: controller.isAuthenticating
                 ? null
                 : _showForgotPasswordDialog,
-            style: _inlineLinkStyle,
+            style: neoAuthLinkStyle(),
             child: Text(appStrings.forgotPassword),
           )
         : null;
@@ -670,7 +625,7 @@ class _AuthViewState extends State<AuthView> {
             onPressed: widget.controller.isAuthenticating
                 ? null
                 : _changeSignupKey,
-            style: _inlineLinkStyle,
+            style: neoAuthLinkStyle(),
             child: Text(appStrings.signupKeyChange),
           ),
         ],
@@ -684,156 +639,32 @@ class _AuthViewState extends State<AuthView> {
     final challenge = controller.qrLoginChallenge;
     final canShowQr =
         challenge?.isUsable == true && !(challenge?.isExpired ?? true);
-    final countdown = challenge?.secondsRemaining ?? 0;
-    final decoration = BoxDecoration(
-      color: _bgPrimary,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: _accent.withValues(alpha: 0.38)),
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final inline = constraints.maxWidth >= 340;
-        _setInlineQrVisible(inline);
-        final Widget block;
-        if (inline) {
-          block = Container(
-            padding: const EdgeInsets.all(16),
-            decoration: decoration,
-            child: Row(
-              children: <Widget>[
-                NeoAuthQrPlate(
-                  size: 116,
-                  payload: canShowQr ? challenge!.qrPayload : null,
-                  preparing: controller.isPreparingQrLogin,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        appStrings.scanWithNeoagentOnYourPhone,
-                        style: TextStyle(
-                          color: _textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        appStrings.onASignedInAndroidDevice,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 12.5,
-                          height: 1.45,
-                        ),
-                      ),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              canShowQr
-                                  ? appStrings.refreshesInArg1S(countdown)
-                                  : appStrings.waitingForCode,
-                              style: GoogleFonts.geistMono(
-                                color: _textMuted,
-                                fontSize: 11,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: appStrings.refreshCode,
-                            onPressed: controller.isPreparingQrLogin
-                                ? null
-                                : () => unawaited(
-                                    controller.prepareQrLoginChallenge(
-                                      force: true,
-                                    ),
-                                  ),
-                            color: _textSecondary,
-                            icon: const Icon(Icons.refresh_rounded, size: 18),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        } else {
-          block = Material(
-            color: Colors.transparent,
-            child: Ink(
-              decoration: decoration,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: controller.isPreparingQrLogin
-                    ? null
-                    : _showQrLoginDialog,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: <Widget>[
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: NeoAuthQrPlate.paper,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.qr_code_2_rounded,
-                          color: _qrDarkColor,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              canShowQr
-                                  ? appStrings.showQrCode
-                                  : appStrings.prepareQrCode,
-                              style: TextStyle(
-                                color: _textPrimary,
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              appStrings.scanWithNeoagentOnYourPhone,
-                              style: TextStyle(
-                                color: _textSecondary,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right_rounded, color: _textMuted),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            block,
-            if (controller.qrLoginErrorMessage != null) ...<Widget>[
-              const SizedBox(height: 10),
-              _InlineError(message: controller.qrLoginErrorMessage!),
-            ],
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        NeoQrSignInCard(
+          palette: _palette,
+          payload: canShowQr ? challenge!.qrPayload : null,
+          preparing: controller.isPreparingQrLogin,
+          title: appStrings.scanWithNeoagentOnYourPhone,
+          instructions: appStrings.onASignedInAndroidDevice,
+          status: canShowQr
+              ? appStrings.refreshesInArg1S(challenge!.secondsRemaining)
+              : appStrings.waitingForCode,
+          refreshLabel: appStrings.refreshCode,
+          openLabel: canShowQr
+              ? appStrings.showQrCode
+              : appStrings.prepareQrCode,
+          onRefresh: () =>
+              unawaited(controller.prepareQrLoginChallenge(force: true)),
+          onOpen: _showQrLoginDialog,
+          onLayout: _setInlineQrVisible,
+        ),
+        if (controller.qrLoginErrorMessage != null) ...<Widget>[
+          const SizedBox(height: 10),
+          _InlineError(message: controller.qrLoginErrorMessage!),
+        ],
+      ],
     );
   }
 
@@ -1093,24 +924,12 @@ class _AuthViewState extends State<AuthView> {
           ),
           const SizedBox(height: 8),
         ],
-        Text(
-          awaitingTwoFactor ? appStrings.enter2faCode : title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: _textPrimary,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.5,
-            height: 1.15,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          awaitingTwoFactor
+        NeoAuthHeading(
+          palette: _palette,
+          title: awaitingTwoFactor ? appStrings.enter2faCode : title,
+          subtitle: awaitingTwoFactor
               ? appStrings.openYourAuthenticatorAppAndEnterThe
               : subtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: _textSecondary, fontSize: 14, height: 1.45),
         ),
         if (showErrorBanner) ...<Widget>[
           const SizedBox(height: 20),
@@ -1130,7 +949,10 @@ class _AuthViewState extends State<AuthView> {
           else
             _ScanToPairButton(controller: controller),
           const SizedBox(height: 22),
-          _orDivider(appStrings.authOrUsePassword),
+          NeoOrDivider(
+            palette: _palette,
+            label: appStrings.authOrUsePassword,
+          ),
           const SizedBox(height: 16),
         ] else
           const SizedBox(height: 24),
@@ -1207,7 +1029,10 @@ class _AuthViewState extends State<AuthView> {
               const SizedBox(height: 12)
             else ...<Widget>[
               const SizedBox(height: 20),
-              _orDivider(appStrings.orContinueWith),
+              NeoOrDivider(
+              palette: _palette,
+              label: appStrings.orContinueWith,
+            ),
               const SizedBox(height: 14),
             ],
             _buildAlternativeSignIns(
@@ -1239,43 +1064,6 @@ class _AuthViewState extends State<AuthView> {
             ),
           ),
         ],
-      ],
-    );
-  }
-
-  /// The card, with the mascot set into its top edge.
-  Widget _buildAuthCard({required Widget child, required bool compact}) {
-    const mascotSize = 76.0;
-    const ring = 6.0;
-    const overlap = mascotSize / 2 + ring;
-    final side = compact ? 20.0 : 32.0;
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.topCenter,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(top: overlap),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: _bgCard,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: _border),
-              boxShadow: _softPanelShadow,
-            ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(side, overlap + 18, side, 28),
-              child: child,
-            ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(ring),
-          decoration: BoxDecoration(
-            color: _bgCard,
-            borderRadius: BorderRadius.circular(34),
-          ),
-          child: NeoMascot(mood: _authMood, size: mascotSize),
-        ),
       ],
     );
   }
@@ -1319,7 +1107,7 @@ class _AuthViewState extends State<AuthView> {
               onPressed: controller.isAuthenticating
                   ? null
                   : () => unawaited(controller.changeBackend()),
-              style: _inlineLinkStyle,
+              style: neoAuthLinkStyle(),
               child: Text(appStrings.authChangeServer),
             ),
           ],
@@ -1374,63 +1162,31 @@ class _AuthViewState extends State<AuthView> {
               : appStrings.createAnotherNeoagentAccount)
         : appStrings.authSignInSubtitle;
 
-    return NeoAuthBackdrop(
+    final compact = MediaQuery.sizeOf(context).width < AppBreakpoints.mobile;
+    return NeoAuthPage(
       palette: _palette,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, viewportConstraints) {
-              final compact =
-                  viewportConstraints.maxWidth < AppBreakpoints.mobile;
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: viewportConstraints.maxHeight,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: compact ? 14 : 24,
-                      vertical: compact ? 20 : 32,
-                    ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        child: _EntranceMotion(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              _buildAuthCard(
-                                compact: compact,
-                                child: _buildAuthCardContent(
-                                  controller: controller,
-                                  availableProviders: availableProviders,
-                                  awaitingTwoFactor: awaitingTwoFactor,
-                                  showQrLogin: showQrLogin,
-                                  showScanToPair: showScanToPair,
-                                  title: title,
-                                  subtitle: subtitle,
-                                ),
-                              ),
-                              ..._buildAuthFooter(
-                                controller,
-                                awaitingTwoFactor:
-                                    awaitingTwoFactor || waitingForPhone,
-                                showRegisterToggle: showRegisterToggle,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
+      compact: compact,
+      children: <Widget>[
+        NeoAuthCard(
+          palette: _palette,
+          compact: compact,
+          mark: NeoMascot(mood: _authMood, size: 76),
+          child: _buildAuthCardContent(
+            controller: controller,
+            availableProviders: availableProviders,
+            awaitingTwoFactor: awaitingTwoFactor,
+            showQrLogin: showQrLogin,
+            showScanToPair: showScanToPair,
+            title: title,
+            subtitle: subtitle,
           ),
         ),
-      ),
+        ..._buildAuthFooter(
+          controller,
+          awaitingTwoFactor: awaitingTwoFactor || waitingForPhone,
+          showRegisterToggle: showRegisterToggle,
+        ),
+      ],
     );
   }
 }
