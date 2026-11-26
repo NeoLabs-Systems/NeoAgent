@@ -110,6 +110,20 @@ func TestStageRuntimeAndMetadata(t *testing.T) {
 	if !found {
 		t.Fatal("archive lacks app/bin/neoagent")
 	}
+	// A release missing a platform gets no manifest, so no updater picks it.
+	manifest := filepath.Join(dist, RuntimeManifestPrefix+"1.2.3.json")
+	err = WriteRuntimeManifest(dist, manifest, "1.2.3", "")
+	if err == nil || !strings.Contains(err.Error(), "macos-arm64") {
+		t.Fatal("partial release accepted:", err)
+	}
+	for platform, architectures := range setupcontract.C.RuntimeTargets {
+		for _, architecture := range architectures {
+			name := RuntimeMetadataPrefix + platform + "-" + architecture + ".json"
+			if err := WriteRuntimeMetadata(asset, filepath.Join(dist, name), platform, architecture); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	// Without the real private key the manifest cannot be signed.
 	if err := WriteRuntimeManifest(dist, filepath.Join(dist, RuntimeManifestPrefix+"1.2.3.json"), "1.2.3", ""); err == nil {
 		t.Fatal("signed without a key")

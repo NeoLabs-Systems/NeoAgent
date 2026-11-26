@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/NeoLabs-Systems/neoagent/internal/setupcontract"
@@ -51,7 +52,9 @@ func WriteRuntimeMetadata(asset, output, platform, architecture string) error {
 }
 
 // WriteRuntimeManifest collects every runtime metadata file in dir into the
-// signed runtime manifest at output (and output.sig).
+// signed runtime manifest at output (and output.sig). Every supported target
+// must be there: updaters take the newest release that has a manifest, so a
+// partial one would leave the missing computers unable to update.
 func WriteRuntimeManifest(dir, output, version, privateKey string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -72,6 +75,9 @@ func WriteRuntimeManifest(dir, output, version, privateKey string) error {
 		}
 		artifacts = append(artifacts, a)
 	}
+	if missing := missingTargets(artifacts); len(missing) > 0 {
+		return fmt.Errorf("runtime builds are missing for %s; no manifest was written", strings.Join(missing, ", "))
+	}
 	m, err := nlrelease.NewRuntimeManifest(setupcontract.C.SchemaVersion, version, artifacts, setupcontract.C.RuntimeTargets)
 	if err != nil {
 		return err
@@ -81,6 +87,24 @@ func WriteRuntimeManifest(dir, output, version, privateKey string) error {
 		return err
 	}
 	return nlrelease.WriteSigned(output, data, privateKey, setupcontract.PublicKey())
+}
+
+// missingTargets lists the supported platforms that have no runtime.
+func missingTargets(artifacts []nlrelease.Artifact) []string {
+	have := map[string]bool{}
+	for _, a := range artifacts {
+		have[a.Platform+"-"+a.Architecture] = true
+	}
+	var missing []string
+	for platform, architectures := range setupcontract.C.RuntimeTargets {
+		for _, architecture := range architectures {
+			if target := platform + "-" + architecture; !have[target] {
+				missing = append(missing, target)
+			}
+		}
+	}
+	slices.Sort(missing)
+	return missing
 }
 
 // WriteReleaseManifest digests every release asset in dir into the signed

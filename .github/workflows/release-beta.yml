@@ -154,7 +154,9 @@ jobs:
 
   publish-release-assets:
     name: Publish Release Assets
-    if: always() && needs.release.result == 'success'
+    # Runs when a build failed, so what did build is attached, but not for a
+    # cancelled run. The manifest step refuses an incomplete platform set.
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
     needs:
       - release
       - build-installers
