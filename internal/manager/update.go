@@ -12,6 +12,7 @@ import (
 	"github.com/NeoLabs-Systems/neolabs-go/cli"
 	"github.com/NeoLabs-Systems/neolabs-go/cli/envfile"
 	"github.com/NeoLabs-Systems/neolabs-go/cli/release"
+	"github.com/NeoLabs-Systems/neolabs-go/cli/update"
 )
 
 // serviceSnapshot is the service definition before a switch, so a failed
@@ -158,74 +159,46 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 		return a.reportUpdate(before, available.Version, available.Version+" is ready")
 	}
 	a.reportProgress(map[string]any{"progress": 10, "phase": "preparing", "message": "Preparing the update", "versionAfter": available.Version, "targetBranch": channelBranch(channel), "changelog": []any{}})
-	a.UI.Title("Updating "+appName, fmt.Sprintf("%s → %s · %s", before, available.Version, channel))
-	a.UI.Blank()
 	port := a.Port()
 	var installed installedRuntime
 	var archive string
 	aLauncher := a.LauncherPath
 	snapshot := a.snapshotService()
 	resumable := 0
-	switched := false
-	steps := []struct {
-		phase string
-		run   func() error
-	}{
-		{"backup", func() error {
+	err = update.Apply(ctx, a.UI, update.Plan{
+		App: appName, From: before, To: available.Version, Channel: channel,
+		Progress: func(phase string, percent int, message string) {
+			a.reportProgress(map[string]any{"progress": percent, "phase": phase, "message": message})
+		},
+		Backup: func(ctx context.Context) error {
 			_, err := a.backupRuntimeData(ctx, "pre-update")
 			return err
-		}},
-		{"downloading", func() (err error) {
+		},
+		Download: func(ctx context.Context) (err error) {
 			archive, err = a.downloadRuntime(ctx, available)
 			return err
-		}},
-		{"installing", func() (err error) {
+		},
+		Install: func(ctx context.Context) (err error) {
 			installed, err = a.installRuntime(ctx, available, archive, true)
 			return err
-		}},
-		{"restarting", func() (err error) {
-			switched = true
+		},
+		Restart: func(ctx context.Context) (err error) {
 			resumable, err = a.restartInto(ctx, installed)
 			return err
-		}},
-		{"verifying", func() error {
+		},
+		Verify: func(ctx context.Context) error {
 			if err := a.verifyRunning(ctx, installed, port); err != nil {
 				return err
 			}
 			// The new binary prepares the computer runtime it ships with.
 			_ = a.delegateQuiet(ctx, installed, "repair-runtime")
 			return nil
-		}},
+		},
+		Rollback: func(ctx context.Context) error { return a.restoreService(ctx, snapshot, port) },
+	})
+	if err != nil {
+		return err
 	}
-	list := a.UI.Steps([]cli.Label{
-		{Doing: "Saving a backup of your settings and chats", Done: "Saved a backup of your settings and chats"},
-		{Doing: "Downloading the new version", Done: "Downloaded the new version"},
-		{Doing: "Installing it", Done: "Installed it"},
-		{Doing: "Restarting NeoAgent", Done: "Restarted NeoAgent"},
-		{Doing: "Making sure it all works", Done: "Made sure it all works"},
-	}, true)
-	for i, s := range steps {
-		a.reportProgress(map[string]any{"progress": 15 + i*16, "phase": s.phase, "message": list.Doing(i)})
-		if err := list.Run(i, s.run); err != nil {
-			if !switched {
-				list.Close()
-				return err
-			}
-			a.reportProgress(map[string]any{"progress": 85, "phase": "rollback", "message": fmt.Sprintf("Restoring %s after the update failed", before)})
-			rollback := list.Add(cli.Label{Doing: "Going back to " + before, Done: "Went back to " + before})
-			rerr := list.Run(rollback, func() error {
-				rollbackCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-				defer cancel()
-				return a.restoreService(rollbackCtx, snapshot, port)
-			})
-			list.Close()
-			if rerr != nil {
-				return &codedErr{code: "UPDATE_ROLLBACK_FAILED", msg: fmt.Sprintf("%s\nGoing back to %s also failed: %s", err, before, rerr)}
-			}
-			return &codedErr{code: "UPDATE_ROLLED_BACK", msg: fmt.Sprintf("%s\nNeoAgent is running %s again; nothing was lost.", err, before)}
-		}
-	}
-	list.Close()
 	if err := a.refreshLauncher(aLauncher, installed); err != nil {
 		a.UI.Warn("NeoAgent updated, but the command-line launcher could not be refreshed: " + err.Error())
 	}
@@ -240,11 +213,6 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	a.UI.Blank()
 	return a.reportUpdate(before, installed.Version, fmt.Sprintf("NeoAgent %s is ready. Your chats, settings and accounts were kept.", installed.Version))
 }
-
-type codedErr struct{ code, msg string }
-
-func (e *codedErr) Error() string { return e.msg }
-func (e *codedErr) Code() string  { return e.code }
 
 func (a *App) reportUpdate(before, after, message string) error {
 	a.updateResult = map[string]any{"message": message, "versionBefore": before, "versionAfter": after}
@@ -292,7 +260,7 @@ func (a *App) cmdUpdateRunner(ctx context.Context, _ []string) error {
 	if err != nil {
 		_, _ = updatestatus.Write(file, map[string]any{
 			"state": "failed", "phase": "failed", "message": err.Error(),
-			"rolledBack": cli.CodeOf(err, "") == "UPDATE_ROLLED_BACK", "completedAt": done, "runnerPid": nil,
+			"rolledBack": update.RolledBack(err), "completedAt": done, "runnerPid": nil,
 		})
 		return err
 	}

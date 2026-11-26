@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"github.com/NeoLabs-Systems/neoagent/internal/setupcontract"
 	"github.com/NeoLabs-Systems/neolabs-go/cli"
 	nlrelease "github.com/NeoLabs-Systems/neolabs-go/cli/release"
+	"github.com/NeoLabs-Systems/neolabs-go/cli/update"
 )
 
 // Installed runtime packages live in <home>/app/versions/<version>, and
@@ -29,23 +29,9 @@ func (r installedRuntime) binary() string {
 	return filepath.Join(r.appDir(), "bin", release.BinaryName(Platform()))
 }
 
-// refreshLauncher updates the standalone command installed by install.sh. The
-// packaged server binary and other installation methods are left untouched.
+// refreshLauncher updates the standalone command installed by install.sh.
 func (a *App) refreshLauncher(exe string, rt installedRuntime) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	binDir := strings.TrimSpace(os.Getenv("NEOAGENT_BIN_DIR"))
-	if binDir == "" {
-		binDir = filepath.Join(home, ".local", "bin")
-	}
-	launcher, err := filepath.Abs(filepath.Join(binDir, release.BinaryName(Platform())))
-	if err != nil {
-		return err
-	}
-	_, err = nlrelease.RefreshCommandLauncher(exe, launcher, rt.binary())
-	return err
+	return update.RefreshLauncher(exe, os.Getenv("NEOAGENT_BIN_DIR"), release.BinaryName(Platform()), rt.binary())
 }
 
 func (a *App) versionsDir() string { return filepath.Join(a.Paths.Home, "app", "versions") }
@@ -88,48 +74,27 @@ func signingKey() (string, error) {
 
 // availableRuntime is the newest verified runtime of the channel for this
 // computer.
-type availableRuntime struct {
-	Release  nlrelease.Release
-	Version  string
-	Artifact nlrelease.Artifact
+type availableRuntime = update.Candidate
+
+// runtimeSource is where NeoAgent's signed runtimes are published.
+func (a *App) runtimeSource() (update.Source, error) {
+	key, err := signingKey()
+	if err != nil {
+		return update.Source{}, cli.Errorf("SETUP_TRUST_NOT_CONFIGURED", "The runtime verification key is invalid.")
+	}
+	return update.Source{
+		Client: a.releaseClient(), Repository: release.Repository, ManifestPrefix: release.RuntimeManifestPrefix,
+		PublicKey: key, SchemaVersion: setupcontract.C.SchemaVersion, Targets: setupcontract.C.RuntimeTargets,
+		Platform: Platform(), Architecture: Architecture(),
+	}, nil
 }
 
 func (a *App) findRuntime(ctx context.Context, channel string) (availableRuntime, error) {
-	client := a.releaseClient()
-	rel, err := client.ResolveRelease(ctx, release.Repository, channel, release.RuntimeManifestPrefix)
+	source, err := a.runtimeSource()
 	if err != nil {
 		return availableRuntime{}, err
 	}
-	key, err := signingKey()
-	if err != nil {
-		return availableRuntime{}, cli.Errorf("SETUP_TRUST_NOT_CONFIGURED", "The runtime verification key is invalid.")
-	}
-	raw, err := client.FetchVerifiedManifest(ctx, rel, key)
-	if err != nil {
-		return availableRuntime{}, err
-	}
-	var m nlrelease.RuntimeManifest
-	if json.Unmarshal(raw, &m) != nil || m.SchemaVersion != setupcontract.C.SchemaVersion {
-		return availableRuntime{}, cli.Errorf("SETUP_MANIFEST_INVALID", "The runtime manifest is invalid.")
-	}
-	v, err := nlrelease.NormalizeVersion(m.Version)
-	if err != nil {
-		return availableRuntime{}, cli.Errorf("SETUP_MANIFEST_INVALID", "The runtime manifest is invalid.")
-	}
-	for _, art := range m.Artifacts {
-		if art.Platform != Platform() || art.Architecture != Architecture() {
-			continue
-		}
-		n, err := nlrelease.NormalizeArtifact(art, setupcontract.C.RuntimeTargets)
-		if err != nil {
-			return availableRuntime{}, cli.Errorf("SETUP_MANIFEST_INVALID", "%s", err)
-		}
-		if rel.Assets[n.AssetName] == "" {
-			return availableRuntime{}, cli.Errorf("SETUP_RUNTIME_ASSET_MISSING", "The selected runtime asset is missing.")
-		}
-		return availableRuntime{Release: rel, Version: v, Artifact: n}, nil
-	}
-	return availableRuntime{}, cli.Errorf("SETUP_PLATFORM_UNSUPPORTED", "No NeoAgent runtime is available for this computer.")
+	return source.Find(ctx, channel)
 }
 
 // unpackRuntime downloads, verifies and unpacks a runtime package into
@@ -149,34 +114,15 @@ func (a *App) unpackRuntime(ctx context.Context, rt availableRuntime, force bool
 // downloadRuntime downloads and verifies rt's package into a staging folder
 // under the versions folder and returns the archive's path.
 func (a *App) downloadRuntime(ctx context.Context, rt availableRuntime) (string, error) {
-	if err := os.MkdirAll(a.versionsDir(), 0o700); err != nil {
-		return "", err
-	}
-	staging, err := os.MkdirTemp(a.versionsDir(), ".staging-")
-	if err != nil {
-		return "", err
-	}
-	archive := filepath.Join(staging, rt.Artifact.AssetName)
-	if err := a.releaseClient().Download(ctx, rt.Release.Assets[rt.Artifact.AssetName], archive, rt.Artifact.SizeBytes, rt.Artifact.SHA256); err != nil {
-		os.RemoveAll(staging)
-		return "", err
-	}
-	return archive, nil
+	source := update.Source{Client: a.releaseClient()}
+	return source.Download(ctx, a.runtimeStore(), rt)
 }
 
 // installRuntime unpacks a downloaded package into its versions folder and
 // removes the staging folder.
 func (a *App) installRuntime(_ context.Context, rt availableRuntime, archive string, force bool) (installedRuntime, error) {
-	staging := filepath.Dir(archive)
-	defer os.RemoveAll(staging)
 	target := installedRuntime{Version: rt.Version, Dir: filepath.Join(a.versionsDir(), rt.Version)}
-	if exists(target.binary()) && !force {
-		return target, nil
-	}
-	if err := a.runtimeStore().InstallArchive(rt.Version, archive); err != nil {
-		return target, err
-	}
-	return target, nil
+	return target, update.Unpack(a.runtimeStore(), rt.Version, archive, force)
 }
 
 // pruneRuntimes keeps the active runtime and the previous rollback target.
