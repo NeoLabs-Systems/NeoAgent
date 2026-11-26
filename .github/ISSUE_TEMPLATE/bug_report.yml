@@ -20,7 +20,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include the server operating system, architecture, Node.js version, install type, and runtime profile.
+      description: Include the server operating system, architecture, and install type.
     validations:
       required: true
   - type: textarea
