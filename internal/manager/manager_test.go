@@ -488,3 +488,44 @@ func TestUpdateRefusesUnknownArgumentsBeforeDoingAnything(t *testing.T) {
 		}
 	}
 }
+
+func TestRepairRuntimeHealsACommandAnOldUpdaterLeftBehind(t *testing.T) {
+	if Platform() == "windows" {
+		t.Skip("shell scripts")
+	}
+	a := newTestApp(t)
+	script := func(version string) []byte { return []byte("#!/bin/sh\necho " + version + "\n") }
+	rt := installedRuntime{Version: "3.9.1", Dir: filepath.Join(a.versionsDir(), "3.9.1")}
+	web := filepath.Join(rt.appDir(), "public", "index.html")
+	for path, data := range map[string][]byte{rt.binary(): script("3.9.1"), web: []byte("<html>")} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := a.writeCurrent(rt.Version); err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	launcher := filepath.Join(bin, filepath.Base(rt.binary()))
+	if err := os.WriteFile(launcher, script("3.9.1-beta.1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.Getenv = func(key string) string {
+		if key == "NEOAGENT_BIN_DIR" {
+			return bin
+		}
+		return ""
+	}
+	source, err := filepath.EvalSymlinks(rt.binary())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Exe = source
+	a.healLauncher(context.Background())
+	if got, _ := os.ReadFile(launcher); string(got) != string(script("3.9.1")) {
+		t.Fatalf("launcher %q", got)
+	}
+}

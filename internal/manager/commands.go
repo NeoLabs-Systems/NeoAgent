@@ -42,7 +42,7 @@ func (a *App) commands() []cli.Command {
 			return nil
 		}},
 		{Name: "update-runner", Hidden: true, Run: a.cmdUpdateRunner},
-		{Name: "repair-runtime", Hidden: true, Run: func(ctx context.Context, _ []string) error { return a.ensureComputerRuntime(ctx, false, false) }},
+		{Name: "repair-runtime", Hidden: true, Run: a.cmdRepairRuntime},
 		{Name: "help", Aliases: []string{"--help", "-h"}, Usage: "help", Summary: "Show this list", Run: func(_ context.Context, args []string) error {
 			a.printHelp(cli.HasFlag(args, "--all"))
 			return nil

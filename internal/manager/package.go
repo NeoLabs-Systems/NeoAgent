@@ -34,6 +34,22 @@ func (a *App) refreshLauncher(exe string, rt installedRuntime) error {
 	return update.RefreshLauncher(exe, os.Getenv("NEOAGENT_BIN_DIR"), release.BinaryName(Platform()), rt.binary())
 }
 
+// healLauncher replaces a `neoagent` command left behind by releases that
+// updated the runtime without it, which then reinstalled on every update.
+func (a *App) healLauncher(ctx context.Context) {
+	rt := a.currentRuntime()
+	if rt == nil {
+		return
+	}
+	source, err := filepath.EvalSymlinks(rt.binary())
+	if err != nil || source != a.Exe {
+		return
+	}
+	if _, err := update.HealLauncher(ctx, a.Getenv("NEOAGENT_BIN_DIR"), release.BinaryName(Platform()), source, rt.Version); err != nil {
+		a.UI.Warn("The command-line launcher could not be refreshed: " + err.Error())
+	}
+}
+
 func (a *App) versionsDir() string { return filepath.Join(a.Paths.Home, "app", "versions") }
 
 func (a *App) currentMarker() string { return filepath.Join(a.Paths.Home, "app", "current.json") }

@@ -145,9 +145,7 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 				a.UI.Warn("The command-line launcher could not be refreshed: " + err.Error())
 			}
 		}
-		a.UI.Blank()
-		a.UI.OK(fmt.Sprintf("You have the latest version (%s)", before))
-		a.UI.Blank()
+		update.UpToDate(a.UI, before, channel)
 		return a.reportUpdate(before, before, "You have the latest version ("+before+")")
 	}
 	if notesOnly {
@@ -165,6 +163,14 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	aLauncher := a.LauncherPath
 	snapshot := a.snapshotService()
 	resumable := 0
+	// The service's own progress lines would cut into the step list.
+	logf := a.Service.Logf
+	a.Service.Logf = func(level, msg string) {
+		if level == "warn" {
+			a.UI.Warn(msg)
+		}
+	}
+	defer func() { a.Service.Logf = logf }()
 	err = update.Apply(ctx, a.UI, update.Plan{
 		App: appName, From: before, To: available.Version, Channel: channel,
 		Progress: func(phase string, percent int, message string) {
@@ -205,12 +211,8 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	if err := a.pruneRuntimes(installed, previous); err != nil {
 		a.UI.Warn("NeoAgent updated, but old runtime cleanup failed: " + err.Error())
 	}
-	a.UI.Blank()
-	a.UI.Item("ok", a.UI.Bold(fmt.Sprintf("%s %s is ready", appName, installed.Version)), a.url())
-	a.UI.Blank()
 	a.printResumeNote(resumable, "now")
-	a.UI.Note("Your chats, settings and accounts were kept.")
-	a.UI.Blank()
+	update.Ready(a.UI, appName, installed.Version, a.url(), "Your chats, settings and accounts were kept.")
 	return a.reportUpdate(before, installed.Version, fmt.Sprintf("NeoAgent %s is ready. Your chats, settings and accounts were kept.", installed.Version))
 }
 
@@ -220,6 +222,13 @@ func (a *App) reportUpdate(before, after, message string) error {
 		return nil
 	}
 	return cli.WriteJSONLine(a.Out, map[string]string{"message": message, "versionBefore": before, "versionAfter": after})
+}
+
+// cmdRepairRuntime is what an updater runs with the new binary once it has
+// switched: it repairs what the old program could not know about.
+func (a *App) cmdRepairRuntime(ctx context.Context, _ []string) error {
+	a.healLauncher(ctx)
+	return a.ensureComputerRuntime(ctx, false, false)
 }
 
 // delegateQuiet runs a command of an installed runtime without output.
