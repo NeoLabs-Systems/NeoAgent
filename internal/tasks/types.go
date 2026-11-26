@@ -128,10 +128,17 @@ type SendRequest struct {
 	TaskID int64
 }
 
-// AccessTarget is a chat a messaging platform can list for a task to report to.
+// AccessTarget is a chat a task can report to, as the app's picker reads it.
 type AccessTarget struct {
-	To, Label, Subtitle         string
-	Connected, SupportsDelivery bool
+	Platform      string `json:"platform"`
+	PlatformLabel string `json:"platformLabel"`
+	To            string `json:"to"`
+	Label         string `json:"label"`
+	Subtitle      string `json:"subtitle"`
+	// Source is "discovered", "default" or "recent".
+	Source           string `json:"source"`
+	Connected        bool   `json:"connected"`
+	SupportsDelivery bool   `json:"supportsDelivery"`
 }
 
 // Messaging is the chat side of the server. A nil Messaging means no chat

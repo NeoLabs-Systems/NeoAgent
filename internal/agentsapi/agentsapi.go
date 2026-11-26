@@ -234,33 +234,6 @@ func (a *API) handleListRuns(w http.ResponseWriter, r *http.Request, userID int6
 	httpx.WriteJSON(w, http.StatusOK, jsonobj.New("runs", runs, "total", total, "limit", limit, "offset", offset, "agentId", agentID))
 }
 
-func (a *API) handleChatHistory(w http.ResponseWriter, r *http.Request, userID int64) {
-	limit := 40
-	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
-		limit = min(n, 100)
-	}
-	agentID := a.agentFromRequest(r, userID)
-	rows, err := a.cfg.DB.R.QueryContext(r.Context(), `SELECT id, role, content, COALESCE(json_extract(metadata, '$.platform'), 'web'), created_at, COALESCE(agent_run_id, '')
-		FROM conversation_history WHERE user_id = ? AND agent_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`, userID, agentID, limit)
-	if err != nil {
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"messages": []any{}, "hasMore": false})
-		return
-	}
-	defer rows.Close()
-	msgs := []map[string]any{}
-	for rows.Next() {
-		var id int64
-		var role, content, plat, createdAt, runID string
-		if rows.Scan(&id, &role, &content, &plat, &createdAt, &runID) == nil {
-			msgs = append(msgs, map[string]any{
-				"id": id, "role": role, "content": content, "platform": plat,
-				"created_at": createdAt, "run_id": runID, "history_source": "conversation",
-			})
-		}
-	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"messages": msgs, "hasMore": false, "agentId": agentID})
-}
-
 func (a *API) handleGetCaptureNext(w http.ResponseWriter, r *http.Request, userID int64) {
 	agentID := a.agentFromRequest(r, userID)
 	var val sql.NullString

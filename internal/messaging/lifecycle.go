@@ -154,6 +154,7 @@ func (m *Manager) attentionRequired(key connKey, reason string) {
 	if m.cfg.Emitter != nil {
 		m.cfg.Emitter.EmitToUser(key.userID, "messaging:attention_required", map[string]any{"agentId": key.agentID, "platform": key.platform, "reason": reason})
 	}
+	m.publish(key, "platform_disconnected", map[string]any{"reason": reason, "occurredAt": isoNow()})
 }
 
 // stopIfNeedsUser ends retrying for a failure only the user can fix.

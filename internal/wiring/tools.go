@@ -133,7 +133,7 @@ func buildToolBackend(s toolSources) *handlers.Backend {
 		d.MCP = toolMCP{m: s.MCP}
 	}
 	if s.Integrations != nil {
-		d.Integrations = toolIntegrations{m: s.Integrations}
+		d.Integrations = toolIntegrations{m: s.Integrations, artifacts: s.Artifacts, workspaces: s.Workspaces}
 	}
 	if s.Credentials != nil {
 		d.Credentials = toolCredentials{b: s.Credentials}

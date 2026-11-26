@@ -609,6 +609,7 @@ func (e *sharedEvents) Reaction(r Reaction) {
 		return
 	}
 	e.s.emit(link.UserID, "messaging:reaction", r)
+	e.s.m.reaction(connKey{userID: link.UserID, agentID: link.AgentID, platform: e.entry.platform}, r)
 }
 
 // Membership: shared accounts serve direct chats only.

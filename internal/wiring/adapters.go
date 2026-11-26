@@ -30,6 +30,7 @@ import (
 	"github.com/NeoLabs-Systems/neoagent/internal/neorouterapi"
 	"github.com/NeoLabs-Systems/neoagent/internal/security"
 	"github.com/NeoLabs-Systems/neoagent/internal/settings"
+	"github.com/NeoLabs-Systems/neoagent/internal/sharedmessaging"
 	"github.com/NeoLabs-Systems/neoagent/internal/sockets"
 	"github.com/NeoLabs-Systems/neoagent/internal/tasks"
 	"github.com/NeoLabs-Systems/neoagent/internal/tasks/jsv"
@@ -280,36 +281,35 @@ func (a taskIntegrationsAdapter) ExecuteTool(ctx context.Context, userID int64, 
 }
 
 type taskMessagingAdapter struct {
-	mgr *messaging.Manager
-	db  *dbx.DB
+	mgr          *messaging.Manager
+	db           *dbx.DB
+	integrations *integrations.Manager
+	shared       *sharedmessaging.Store
 }
 
-func (a taskMessagingAdapter) IsRefusedSharedRecipient(int64, string, tasks.Target) bool {
+func (a *taskMessagingAdapter) IsRefusedSharedRecipient(int64, string, tasks.Target) bool {
 	return false
 }
-func (a taskMessagingAdapter) ReachableSharedTarget(_ int64, _ string, t tasks.Target) tasks.Target {
+func (a *taskMessagingAdapter) ReachableSharedTarget(_ int64, _ string, t tasks.Target) tasks.Target {
 	return t
 }
-func (a taskMessagingAdapter) IsPublicPlatform(p string) bool {
+func (a *taskMessagingAdapter) IsPublicPlatform(p string) bool {
 	return a.mgr != nil && a.mgr.IsPublicPlatform(p)
 }
-func (a taskMessagingAdapter) PlatformConnected(uid int64, aid, p string) bool {
+func (a *taskMessagingAdapter) PlatformConnected(uid int64, aid, p string) bool {
 	return a.mgr != nil && a.mgr.PlatformConnected(uid, aid, p)
 }
-func (a taskMessagingAdapter) ChatContext(context.Context, int64, string, tasks.Target) (tasks.ChatContext, error) {
+func (a *taskMessagingAdapter) ChatContext(context.Context, int64, string, tasks.Target) (tasks.ChatContext, error) {
 	return tasks.ChatContext{}, nil
 }
-func (a taskMessagingAdapter) FormatOutgoing(platform, content string) string {
+func (a *taskMessagingAdapter) FormatOutgoing(platform, content string) string {
 	return messaging.NormalizeOutgoingMessage(platform, content, false)
 }
-func (a taskMessagingAdapter) Send(ctx context.Context, req tasks.SendRequest) (any, error) {
+func (a *taskMessagingAdapter) Send(ctx context.Context, req tasks.SendRequest) (any, error) {
 	if a.mgr == nil {
 		return nil, nil
 	}
 	return a.mgr.SendMessage(ctx, req.UserID, req.AgentID, req.Target.Platform, req.Target.To, req.Message, req.MediaPath)
-}
-func (a taskMessagingAdapter) AccessTargets(ctx context.Context, userID int64, agentID, platform string) ([]tasks.AccessTarget, error) {
-	return []tasks.AccessTarget{}, nil
 }
 
 type mobileSyncEventsAdapter struct {

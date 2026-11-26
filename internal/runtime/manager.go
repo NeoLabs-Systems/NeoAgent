@@ -528,6 +528,16 @@ func (m *Manager) Desktop(key, deviceTarget string) (Desktop, error) {
 	return c.OpenDesktop(key), nil
 }
 
+// KillUserRuntime stops an erased account's computer and deletes its disk.
+// Local devices keep no server-side state.
+func (m *Manager) KillUserRuntime(key string) error {
+	if m.backend != nil {
+		m.backend.vm.Kill(key)
+		m.backend.vm.RemoveUserData(key)
+	}
+	return nil
+}
+
 // HasVM reports a running computer.
 func (m *Manager) HasVM(key string) bool { return m.backend != nil && m.backend.vm.Alive(key) }
 

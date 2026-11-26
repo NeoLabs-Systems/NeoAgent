@@ -6,31 +6,41 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/NeoLabs-Systems/neoagent/internal/jsonobj"
+	"github.com/NeoLabs-Systems/neoagent/internal/tasks/jsv"
+	"github.com/NeoLabs-Systems/neoagent/internal/tasks/reqx"
 	"github.com/NeoLabs-Systems/neolabs-go/dbx"
 	"github.com/NeoLabs-Systems/neolabs-go/httpx"
-	"github.com/NeoLabs-Systems/neolabs-go/publicerr"
 	"github.com/NeoLabs-Systems/neolabs-go/secretbox"
 	"github.com/NeoLabs-Systems/neolabs-go/sessionx"
 )
 
-// EventDispatcher delivers accepted webhook payloads to the task runtime.
-type EventDispatcher interface {
-	HandleEvent(source, name string, event map[string]any)
+const (
+	maxPayloadBytes = 256 << 10
+	maxClockSkew    = 5 * time.Minute
+)
+
+// TaskRunner runs the task an authenticated delivery is for and returns the
+// run's result once it has ended.
+type TaskRunner interface {
+	FireWebhookTask(taskID, userID int64, requestID string, at time.Time, payload any) (result any, failed bool)
 }
 
 // Config configures the /api/task-webhooks routes.
 type Config struct {
 	DB         *dbx.DB
 	Box        *secretbox.Box
-	Dispatcher EventDispatcher
+	Dispatcher TaskRunner
 	UserID     func(*http.Request) (int64, bool)
 }
 
@@ -72,190 +82,223 @@ func parseTaskID(raw string) (int64, bool) {
 	return id, err == nil && id > 0
 }
 
-func randomHex(n int) string {
-	b := make([]byte, n)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+func (a *API) ownedTrigger(ctx context.Context, userID, taskID int64) (string, error) {
+	var trigger sql.NullString
+	err := a.cfg.DB.R.QueryRowContext(ctx, `SELECT trigger_type FROM scheduled_tasks WHERE id = ? AND user_id = ?`, taskID, userID).Scan(&trigger)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errors.New("Task not found.")
+	}
+	return trigger.String, err
 }
 
-func (a *API) seal(plain string) (string, error) {
+// configuration describes a task's webhook. The secret is only ever returned
+// by rotateSecret.
+func (a *API) configuration(ctx context.Context, userID, taskID int64) (*jsonobj.Object, error) {
+	if _, err := a.ownedTrigger(ctx, userID, taskID); err != nil {
+		return nil, err
+	}
+	var fingerprint, rotatedAt, createdAt *string
+	err := a.cfg.DB.R.QueryRowContext(ctx, `SELECT secret_fingerprint, rotated_at, created_at FROM task_webhook_secrets WHERE task_id = ? AND user_id = ?`, taskID, userID).
+		Scan(&fingerprint, &rotatedAt, &createdAt)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	return jsonobj.New("taskId", taskID, "configured", err == nil, "fingerprint", fingerprint, "rotatedAt", rotatedAt, "createdAt", createdAt), nil
+}
+
+func (a *API) rotateSecret(ctx context.Context, userID, taskID int64) (*jsonobj.Object, error) {
+	trigger, err := a.ownedTrigger(ctx, userID, taskID)
+	if err != nil {
+		return nil, err
+	}
+	if trigger != "webhook" {
+		return nil, errors.New("Task does not use the webhook trigger.")
+	}
 	if a.cfg.Box == nil {
-		return "", errors.New("encryption key is not configured")
+		return nil, errors.New("encryption key is not configured")
 	}
-	return a.cfg.Box.Seal(plain)
-}
-
-func (a *API) open(sealed string) (string, error) {
-	if a.cfg.Box == nil {
-		return "", errors.New("encryption key is not configured")
+	random := make([]byte, 32)
+	if _, err := rand.Read(random); err != nil {
+		return nil, err
 	}
-	return a.cfg.Box.Open(sealed)
-}
-
-func (a *API) ensureSecret(ctx context.Context, userID, taskID int64) (secret, fingerprint, rotatedAt string, err error) {
-	var sealed string
-	err = a.cfg.DB.R.QueryRowContext(ctx, `SELECT secret_encrypted, secret_fingerprint, rotated_at FROM task_webhook_secrets WHERE task_id = ? AND user_id = ?`, taskID, userID).
-		Scan(&sealed, &fingerprint, &rotatedAt)
-	if err == nil {
-		plain, openErr := a.open(sealed)
-		return plain, fingerprint, rotatedAt, openErr
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return "", "", "", err
-	}
-	return a.rotateSecret(ctx, userID, taskID)
-}
-
-func (a *API) rotateSecret(ctx context.Context, userID, taskID int64) (secret, fingerprint, rotatedAt string, err error) {
-	var owner int64
-	if err := a.cfg.DB.R.QueryRowContext(ctx, `SELECT user_id FROM scheduled_tasks WHERE id = ?`, taskID).Scan(&owner); err != nil || owner != userID {
-		return "", "", "", errors.New("Task not found.")
-	}
-	secret = "whsec_" + randomHex(24)
+	secret := base64.RawURLEncoding.EncodeToString(random)
 	sum := sha256.Sum256([]byte(secret))
-	fingerprint = hex.EncodeToString(sum[:8])
-	sealed, err := a.seal(secret)
+	fingerprint := hex.EncodeToString(sum[:8])
+	sealed, err := a.cfg.Box.Seal(secret)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
-	_, err = a.cfg.DB.W.ExecContext(ctx, `INSERT INTO task_webhook_secrets (task_id, user_id, secret_encrypted, secret_fingerprint, rotated_at, created_at)
-		VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+	if _, err := a.cfg.DB.W.ExecContext(ctx, `INSERT INTO task_webhook_secrets (task_id, user_id, secret_encrypted, secret_fingerprint)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT(task_id) DO UPDATE SET secret_encrypted = excluded.secret_encrypted, secret_fingerprint = excluded.secret_fingerprint, rotated_at = datetime('now')`,
-		taskID, userID, sealed, fingerprint)
-	if err != nil {
-		return "", "", "", err
+		taskID, userID, sealed, fingerprint); err != nil {
+		return nil, err
 	}
-	_ = a.cfg.DB.R.QueryRowContext(ctx, `SELECT rotated_at FROM task_webhook_secrets WHERE task_id = ?`, taskID).Scan(&rotatedAt)
-	return secret, fingerprint, rotatedAt, nil
+	return jsonobj.New("taskId", taskID, "secret", secret, "fingerprint", fingerprint), nil
 }
 
 func (a *API) handleGetConfig(w http.ResponseWriter, r *http.Request, userID int64) {
-	taskID, ok := parseTaskID(r.PathValue("taskId"))
-	if !ok {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid task id."})
-		return
-	}
-	secret, fp, rotatedAt, err := a.ensureSecret(r.Context(), userID, taskID)
-	if err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": publicerr.Sanitize(err.Error(), "", "")})
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"taskId":      taskID,
-		"secret":      secret,
-		"fingerprint": fp,
-		"rotatedAt":   rotatedAt,
-		"endpoint":    "/api/task-webhooks/" + strconv.FormatInt(taskID, 10) + "/deliver",
-	})
+	a.answerTask(w, r, userID, a.configuration)
 }
 
 func (a *API) handleRotate(w http.ResponseWriter, r *http.Request, userID int64) {
+	a.answerTask(w, r, userID, a.rotateSecret)
+}
+
+func (a *API) answerTask(w http.ResponseWriter, r *http.Request, userID int64, action func(context.Context, int64, int64) (*jsonobj.Object, error)) {
 	taskID, ok := parseTaskID(r.PathValue("taskId"))
 	if !ok {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid task id."})
+		httpx.Error(w, http.StatusBadRequest, "Invalid task id.")
 		return
 	}
-	secret, fp, rotatedAt, err := a.rotateSecret(r.Context(), userID, taskID)
+	out, err := action(r.Context(), userID, taskID)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": publicerr.Sanitize(err.Error(), "", "")})
+		reqx.Fail(w, http.StatusBadRequest, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"taskId":      taskID,
-		"secret":      secret,
-		"fingerprint": fp,
-		"rotatedAt":   rotatedAt,
-	})
+	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
 func (a *API) handleListDeliveries(w http.ResponseWriter, r *http.Request, userID int64) {
 	taskID, ok := parseTaskID(r.PathValue("taskId"))
 	if !ok {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid task id."})
+		httpx.Error(w, http.StatusBadRequest, "Invalid task id.")
 		return
 	}
-	limit := 25
-	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
-		limit = min(n, 100)
+	limit := 50
+	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n != 0 {
+		limit = min(max(n, 1), 200)
 	}
-	rows, err := a.cfg.DB.R.QueryContext(r.Context(), `SELECT id, request_id, payload_hash, status, response_json, created_at, COALESCE(completed_at, '')
-		FROM task_webhook_deliveries WHERE user_id = ? AND task_id = ? ORDER BY created_at DESC LIMIT ?`, userID, taskID, limit)
+	rows, err := a.cfg.DB.R.QueryContext(r.Context(), `SELECT id, request_id, payload_hash, status, response_json, created_at, completed_at
+		FROM task_webhook_deliveries WHERE task_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT ?`, taskID, userID, limit)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": publicerr.Sanitize(err.Error(), "", "")})
+		reqx.Fail(w, http.StatusBadRequest, err)
 		return
 	}
 	defer rows.Close()
-	out := []map[string]any{}
+	out := []*jsonobj.Object{}
 	for rows.Next() {
-		var id, reqID, hash, status, respJSON, createdAt, completedAt string
-		if rows.Scan(&id, &reqID, &hash, &status, &respJSON, &createdAt, &completedAt) == nil {
-			out = append(out, map[string]any{
-				"id": id, "requestId": reqID, "payloadHash": hash,
-				"status": status, "responseJson": respJSON,
-				"createdAt": createdAt, "completedAt": completedAt,
-			})
+		var id, requestID, hash, status string
+		var response, createdAt, completedAt *string
+		if err := rows.Scan(&id, &requestID, &hash, &status, &response, &createdAt, &completedAt); err != nil {
+			reqx.Fail(w, http.StatusBadRequest, err)
+			return
 		}
+		parsed := json.RawMessage("{}")
+		if response != nil && json.Valid([]byte(*response)) {
+			parsed = json.RawMessage(*response)
+		}
+		out = append(out, jsonobj.New("id", id, "requestId", requestID, "payloadHash", hash,
+			"status", status, "response", parsed, "createdAt", createdAt, "completedAt", completedAt))
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"deliveries": out})
+	if err := rows.Err(); err != nil {
+		reqx.Fail(w, http.StatusBadRequest, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
+// handleDeliver accepts a delivery signed as
+// HMAC-SHA256(secret, "<timestamp ms>.<raw body>"), runs the task and answers
+// with the run's result.
 func (a *API) handleDeliver(w http.ResponseWriter, r *http.Request) {
 	taskID, ok := parseTaskID(r.PathValue("taskId"))
 	if !ok {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid task id."})
+		httpx.Error(w, http.StatusBadRequest, "Invalid task id.")
 		return
 	}
-	rawBody, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	body, err := reqx.ReadBody(r)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid webhook body."})
+		reqx.RefuseBody(w, err)
 		return
 	}
+	// Without a JSON body, what is signed and delivered is an empty object.
+	raw, payload := body.Raw, body.Value
+	if payload == nil {
+		raw, payload = []byte("{}"), jsv.NewObject()
+	}
+	if len(raw) > maxPayloadBytes {
+		httpx.Error(w, http.StatusRequestEntityTooLarge, "Webhook payload exceeds 256 KiB.")
+		return
+	}
+	timestamp := math.NaN()
+	if values := r.Header.Values("X-NeoAgent-Timestamp"); len(values) > 0 {
+		timestamp = jsv.Number(values[0])
+	}
+	requestID := strings.TrimSpace(r.Header.Get("X-NeoAgent-Request-Id"))
+	supplied := strings.TrimPrefix(r.Header.Get("X-NeoAgent-Signature"), "sha256=")
+	if requestID == "" || math.IsNaN(timestamp) || math.IsInf(timestamp, 0) || supplied == "" {
+		httpx.Error(w, http.StatusUnauthorized, "Missing webhook authentication headers.")
+		return
+	}
+	if math.Abs(float64(time.Now().UnixMilli())-timestamp) > float64(maxClockSkew.Milliseconds()) {
+		httpx.Error(w, http.StatusUnauthorized, "Webhook timestamp is outside the allowed window.")
+		return
+	}
+
 	var userID int64
 	var sealed string
-	if err := a.cfg.DB.R.QueryRowContext(r.Context(), `SELECT user_id, secret_encrypted FROM task_webhook_secrets WHERE task_id = ?`, taskID).Scan(&userID, &sealed); err != nil {
-		httpx.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "Webhook not configured."})
+	var enabled sql.NullBool
+	var trigger sql.NullString
+	err = a.cfg.DB.R.QueryRowContext(r.Context(), `SELECT secrets.user_id, secrets.secret_encrypted, tasks.enabled, tasks.trigger_type
+		FROM task_webhook_secrets AS secrets JOIN scheduled_tasks AS tasks ON tasks.id = secrets.task_id
+		WHERE secrets.task_id = ?`, taskID).Scan(&userID, &sealed, &enabled, &trigger)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		reqx.Fail(w, http.StatusBadRequest, err)
 		return
 	}
-	secret, err := a.open(sealed)
+	if err != nil || !enabled.Bool || trigger.String != "webhook" || a.cfg.Dispatcher == nil {
+		httpx.Error(w, http.StatusNotFound, "Webhook task is unavailable.")
+		return
+	}
+	if a.cfg.Box == nil {
+		httpx.Error(w, http.StatusBadRequest, "encryption key is not configured")
+		return
+	}
+	secret, err := a.cfg.Box.Open(sealed)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": "Webhook verification unavailable."})
+		reqx.Fail(w, http.StatusBadRequest, err)
 		return
-	}
-
-	sig := strings.TrimPrefix(strings.TrimSpace(r.Header.Get("X-NeoAgent-Signature")), "sha256=")
-	if sig == "" {
-		sig = strings.TrimPrefix(strings.TrimSpace(r.Header.Get("X-Webhook-Signature")), "sha256=")
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(rawBody)
-	expected := hex.EncodeToString(mac.Sum(nil))
-	if !hmac.Equal([]byte(strings.ToLower(sig)), []byte(expected)) {
-		httpx.WriteJSON(w, http.StatusUnauthorized, map[string]any{"error": "Invalid webhook signature."})
+	mac.Write([]byte(jsv.NumberString(timestamp) + "."))
+	mac.Write(raw)
+	if !hmac.Equal([]byte(supplied), []byte(hex.EncodeToString(mac.Sum(nil)))) {
+		httpx.Error(w, http.StatusUnauthorized, "Invalid webhook signature.")
 		return
 	}
 
-	reqID := strings.TrimSpace(r.Header.Get("X-Request-Id"))
-	if reqID == "" {
-		reqID = randomHex(12)
+	deliveryID, err := reqx.NewUUID()
+	if err != nil {
+		reqx.Fail(w, http.StatusBadRequest, err)
+		return
 	}
-	sum := sha256.Sum256(rawBody)
-	payloadHash := hex.EncodeToString(sum[:])
-	deliveryID := randomHex(16)
+	sum := sha256.Sum256(raw)
+	// The unique (task_id, request_id) pair is the replay protection.
 	if _, err := a.cfg.DB.W.ExecContext(r.Context(), `INSERT INTO task_webhook_deliveries (id, task_id, user_id, request_id, payload_hash, status)
-		VALUES (?, ?, ?, ?, ?, 'accepted')`, deliveryID, taskID, userID, reqID, payloadHash); err != nil {
-		httpx.WriteJSON(w, http.StatusAccepted, map[string]any{"accepted": true, "duplicate": true, "requestId": reqID})
+		VALUES (?, ?, ?, ?, ?, 'accepted')`, deliveryID, taskID, userID, requestID, hex.EncodeToString(sum[:])); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			httpx.Error(w, http.StatusConflict, "Webhook request ID was already used.")
+			return
+		}
+		reqx.Fail(w, http.StatusBadRequest, err)
 		return
 	}
 
-	var payload any
-	_ = json.Unmarshal(rawBody, &payload)
-	if a.cfg.Dispatcher != nil {
-		a.cfg.Dispatcher.HandleEvent("webhook", "task_webhook", map[string]any{
-			"userId":    float64(userID),
-			"taskId":    float64(taskID),
-			"requestId": reqID,
-			"payload":   payload,
-		})
+	result, failed := a.cfg.Dispatcher.FireWebhookTask(taskID, userID, requestID, time.UnixMilli(int64(timestamp)), payload)
+	status := "completed"
+	if failed {
+		status = "failed"
 	}
-	httpx.WriteJSON(w, http.StatusAccepted, map[string]any{"accepted": true, "deliveryId": deliveryID, "requestId": reqID})
+	response, err := json.Marshal(result)
+	if err != nil || result == nil {
+		response = []byte("{}")
+	}
+	// The run happened, so it is recorded even if the sender has hung up.
+	if _, err := a.cfg.DB.W.ExecContext(context.WithoutCancel(r.Context()), `UPDATE task_webhook_deliveries
+		SET status = ?, response_json = ?, completed_at = datetime('now') WHERE id = ?`, status, string(response), deliveryID); err != nil {
+		reqx.Fail(w, http.StatusBadRequest, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusAccepted, jsonobj.New("deliveryId", deliveryID, "accepted", !failed, "result", json.RawMessage(response)))
 }

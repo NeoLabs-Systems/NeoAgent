@@ -47,6 +47,9 @@ type ManagerConfig struct {
 	Emitter   Emitter
 	Engine    Engine
 	Factories map[string]Factory
+	// OnEvent receives what triggers can wait for: member_joined, member_left,
+	// reaction_added and platform_disconnected.
+	OnEvent func(name string, event map[string]any)
 	// DataDir holds the platforms' logins (messaging-auth/...): the agent data
 	// directory. LegacyWhatsAppDir is the pre-scoping WhatsApp login, moved into
 	// the agent's folder on first use.
@@ -87,6 +90,9 @@ type Manager struct {
 	// shared runs the instance-wide accounts; nil when none are set up.
 	shared *SharedConnections
 
+	// suggestions are the refused senders the access screen offers to allow.
+	suggestions map[connKey][]Suggestion
+
 	// jobs tracks the inbound jobs being handled in this process.
 	jobs jobTracker
 
@@ -108,13 +114,14 @@ func NewManager(cfg ManagerConfig) *Manager {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{
-		cfg:    cfg,
-		store:  &Store{DB: cfg.DB, Agents: cfg.Agents},
-		queues: NewQueues(log),
-		log:    log,
-		conns:  make(map[connKey]*managedConn),
-		ctx:    ctx,
-		cancel: cancel,
+		cfg:         cfg,
+		store:       &Store{DB: cfg.DB, Agents: cfg.Agents},
+		queues:      NewQueues(log),
+		log:         log,
+		conns:       make(map[connKey]*managedConn),
+		suggestions: make(map[connKey][]Suggestion),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
@@ -474,32 +481,24 @@ func (m *Manager) GetPlatformStatus(ctx context.Context, userID int64, agentID, 
 	return map[string]any{"status": status}
 }
 
-// GetAccessCatalog returns capabilities, current policy, and known targets.
-func (m *Manager) GetAccessCatalog(ctx context.Context, userID int64, agentID, platform string) (map[string]any, error) {
-	agentID = m.resolveAgent(ctx, userID, agentID)
-	policy, err := m.store.LoadAccessPolicy(ctx, userID, agentID, platform)
-	if err != nil {
-		return nil, err
-	}
-	var targets []AccessTarget
+// ListAccessTargets names the people and spaces a live connection can see; a
+// platform that cannot list, or is not connected, has none.
+func (m *Manager) ListAccessTargets(ctx context.Context, userID int64, agentID, platform string) []AccessTarget {
 	m.mu.Lock()
-	mc := m.conns[connKey{userID: userID, agentID: agentID, platform: platform}]
+	mc := m.conns[connKey{userID: userID, agentID: m.resolveAgent(ctx, userID, agentID), platform: platform}]
 	m.mu.Unlock()
-	if mc != nil {
-		if lister, ok := mc.platform.(AccessTargetLister); ok {
-			targets, _ = lister.ListAccessTargets(ctx)
-		}
+	if mc == nil {
+		return nil
 	}
-	if targets == nil {
-		targets = []AccessTarget{}
+	lister, ok := mc.platform.(AccessTargetLister)
+	if !ok {
+		return nil
 	}
-	return map[string]any{
-		"platform":     platform,
-		"capabilities": PlatformCapabilities(platform),
-		"policy":       policy,
-		"summary":      SummarizeAccessPolicy(platform, policy),
-		"targets":      targets,
-	}, nil
+	targets, err := lister.ListAccessTargets(ctx)
+	if err != nil {
+		m.log.Warn("could not list chats", "platform", platform, "error", err)
+	}
+	return targets
 }
 
 // SetAccessPolicy persists and applies a normalized access policy.
@@ -798,6 +797,7 @@ func (e *connEvents) Error(info ErrorInfo) {
 }
 
 func (e *connEvents) BlockedSender(b BlockedSender) {
+	e.mgr.rememberSuggestions(e.conn.key, b.Suggestions)
 	var suggestions any
 	if len(b.Suggestions) > 0 {
 		suggestions = b.Suggestions
@@ -819,10 +819,18 @@ func (e *connEvents) ApprovalResponse(r ApprovalResponse) {
 	}
 }
 func (e *connEvents) Reaction(r Reaction) {
+	if !e.active() {
+		return
+	}
 	e.emit("messaging:reaction", r)
+	e.mgr.reaction(e.conn.key, r)
 }
 func (e *connEvents) Membership(m Membership) {
+	if !e.active() {
+		return
+	}
 	e.emit("messaging:membership", m)
+	e.mgr.publish(e.conn.key, m.Kind, m)
 }
 
 var (

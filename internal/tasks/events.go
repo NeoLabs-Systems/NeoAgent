@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/NeoLabs-Systems/neoagent/internal/tasks/jsv"
 )
@@ -53,11 +54,33 @@ func (r *Runtime) PublishEvent(name string, event map[string]any) {
 	r.HandleEvent("runtime", name, event)
 }
 
+// FireWebhookTask runs the task a webhook delivery is for, once the caller has
+// authenticated it, and returns the run's result and whether the run failed.
+func (r *Runtime) FireWebhookTask(taskID, userID int64, requestID string, at time.Time, payload any) (any, bool) {
+	r.executions.Add(1)
+	defer r.executions.Done()
+	// Not the request's context: a sender that hangs up must not stop the run.
+	result, err := r.fireTaskFromTrigger(r.context(), taskID, userID, Payload{
+		Fingerprint: requestID,
+		Timestamp:   jsv.ISO(at),
+		Context:     jsv.NewObject().Set("webhook", payload),
+	})
+	if err != nil {
+		return jsv.NewObject().Set("error", err.Error()), true
+	}
+	_, errText, _ := resultFields(result)
+	return result, errText != ""
+}
+
 // HandleEvent dispatches an event from source (e.g. "messaging", "mcp",
 // "wearable", "whatsapp_personal", "runtime") to matching enabled tasks.
 func (r *Runtime) HandleEvent(source, name string, event map[string]any) {
 	if r.isStopping() || event == nil {
 		return
+	}
+	// The phone's routes report what happened to the server itself.
+	if source == "mobile" || source == "mobilesync" {
+		source = "runtime"
 	}
 	userID := int64(jsv.Number(event["userId"]))
 	if userID <= 0 {

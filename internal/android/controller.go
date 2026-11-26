@@ -177,6 +177,9 @@ func (c *Controller) writeState(change func(*State)) {
 
 func (c *Controller) adbBin() string { return adbx.BinPath(c.sdkDir) }
 
+// SDKDir is the Android SDK the controller's emulator runs from.
+func (c *Controller) SDKDir() string { return c.sdkDir }
+
 // liveAdbSerial is the serial this account actually started, only while that
 // process is alive. The constructor serial is just a port guess.
 func (c *Controller) LiveAdbSerial() string {

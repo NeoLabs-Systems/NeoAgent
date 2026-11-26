@@ -3,6 +3,7 @@ package tasks
 import (
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -119,6 +120,12 @@ func (r *Runtime) handleDeliveryTargets(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": publicerr.Sanitize(err.Error(), "", "")})
 		return
+	}
+	query := strings.ToLower(strings.TrimSpace(req.URL.Query().Get("q")))
+	if query != "" {
+		targets = slices.DeleteFunc(targets, func(t AccessTarget) bool {
+			return !strings.Contains(strings.ToLower(t.PlatformLabel+" "+t.Label+" "+t.Subtitle+" "+t.To), query)
+		})
 	}
 	if targets == nil {
 		targets = []AccessTarget{}

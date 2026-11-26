@@ -2,11 +2,13 @@ package wiring
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/NeoLabs-Systems/neoagent/internal/commands"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -41,11 +43,6 @@ import (
 	"github.com/NeoLabs-Systems/neoagent/internal/mcpserver"
 	"github.com/NeoLabs-Systems/neoagent/internal/memory"
 	"github.com/NeoLabs-Systems/neoagent/internal/messaging"
-	"github.com/NeoLabs-Systems/neoagent/internal/messaging/discord"
-	msggithub "github.com/NeoLabs-Systems/neoagent/internal/messaging/github"
-	msgslack "github.com/NeoLabs-Systems/neoagent/internal/messaging/slack"
-	"github.com/NeoLabs-Systems/neoagent/internal/messaging/telegram"
-	"github.com/NeoLabs-Systems/neoagent/internal/messaging/whatsapp"
 	"github.com/NeoLabs-Systems/neoagent/internal/mobilesync"
 	"github.com/NeoLabs-Systems/neoagent/internal/neorouterapi"
 	"github.com/NeoLabs-Systems/neoagent/internal/providersignin"
@@ -66,12 +63,12 @@ import (
 	"github.com/NeoLabs-Systems/neoagent/internal/timeline"
 	"github.com/NeoLabs-Systems/neoagent/internal/triggers"
 	"github.com/NeoLabs-Systems/neoagent/internal/voice"
+	"github.com/NeoLabs-Systems/neoagent/internal/wearable"
 	"github.com/NeoLabs-Systems/neoagent/internal/webshares"
 	"github.com/NeoLabs-Systems/neoagent/internal/workspace"
 	"github.com/NeoLabs-Systems/neolabs-go/dbx"
 	"github.com/NeoLabs-Systems/neolabs-go/embedding"
 	"github.com/NeoLabs-Systems/neolabs-go/publicerr"
-	"github.com/NeoLabs-Systems/neolabs-go/realtime"
 	"github.com/NeoLabs-Systems/neolabs-go/secretbox"
 	"github.com/NeoLabs-Systems/neolabs-go/sessionx"
 	"github.com/NeoLabs-Systems/neolabs-go/ssrf"
@@ -111,6 +108,7 @@ type App struct {
 	tasks     *tasks.Runtime
 	sockets   *sockets.Server
 	computer  *computer
+	wearables *wearable.Gateway
 	// Front serves shared web pages ahead of the app.
 	Front func(http.Handler) http.Handler
 	// engine runs the agent; learning learns skills from its runs.
@@ -243,10 +241,13 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		},
 	}
 
+	var taskRt *tasks.Runtime
 	mcpStore := &mcpserver.Store{DB: d.DB, Box: localBox}
 	mcpMgr := mcpserver.NewManager(mcpserver.ManagerConfig{
-		Store: mcpStore,
-		Log:   d.Log,
+		Store:       mcpStore,
+		Log:         d.Log,
+		RedirectURL: mcpRedirectURL(d.Cfg),
+		OnStatus:    func(e mcpserver.StatusEvent) { publishMCPStatus(taskRt, e) },
 	})
 
 	app.mcp = mcpMgr
@@ -256,19 +257,14 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 	inbound := &inboundHandler{link: link, db: d.DB, store: &messaging.Store{DB: d.DB, Agents: agentScopeAdapter{r: agents}},
 		manager: func() *messaging.Manager { return msgMgr }, memory: memMgr, emitter: emitter}
 	msgMgr = messaging.NewManager(messaging.ManagerConfig{
-		Engine:  inbound,
-		DB:      d.DB,
-		Box:     localBox,
-		Agents:  agentScopeAdapter{r: agents},
-		Emitter: emitter,
-		Factories: map[string]messaging.Factory{
-			"telegram": telegram.Factory(telegram.Deps{}),
-			"discord":  discord.Factory(discord.Deps{Media: discordMedia{media}}),
-			"slack":    msgslack.Factory(msgslack.Deps{}),
-			"github":   msggithub.Factory(msggithub.Deps{Credentials: githubMentions{intSvc}, Cursors: githubCursors{d.DB}}),
-			"whatsapp": whatsapp.Factory(whatsapp.Deps{Media: whatsappMedia{media}, AgentName: agentDisplayName(d.DB)}),
-		},
+		Engine:            inbound,
+		DB:                d.DB,
+		Box:               localBox,
+		Agents:            agentScopeAdapter{r: agents},
+		Emitter:           emitter,
+		Factories:         messagingFactories(d.DB, intSvc, media),
 		DataDir:           d.Cfg.Paths.AgentDataDir,
+		OnEvent:           func(name string, event map[string]any) { taskRt.HandleEvent("messaging", name, event) },
 		LegacyWhatsAppDir: filepath.Join(d.Cfg.Paths.DataDir, "whatsapp-auth"),
 		Log:               d.Log,
 	})
@@ -279,7 +275,8 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 	sharedAdm := sharedAdmin{store: sharedStore, shared: app.shared}
 
 	tlSvc := &timeline.Service{DB: d.DB}
-	taskRt := tasks.New(tasks.Config{
+	taskMessaging := &taskMessagingAdapter{mgr: msgMgr, db: d.DB, shared: sharedStore, integrations: intMgr}
+	taskRt = tasks.New(tasks.Config{
 		DB:           d.DB,
 		Box:          localBox,
 		Log:          d.Log,
@@ -287,7 +284,7 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		Emitter:      emitter,
 		Engine:       link,
 		Timeline:     tlSvc,
-		Messaging:    taskMessagingAdapter{mgr: msgMgr, db: d.DB},
+		Messaging:    taskMessaging,
 		Integrations: taskIntegrationsAdapter{mgr: intMgr},
 	})
 	app.tasks = taskRt
@@ -404,10 +401,59 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 
 	socketBackend := &socketServices{link: link, db: d.DB, users: d.Users, agents: agents, mem: memMgr, msg: msgMgr, mcp: mcpMgr, integrations: intMgr, settings: baseSettings.Store}
 
+	svSvc := socialvideo.New(socialvideo.Config{Transcriber: videoTranscriber{voiceMgr}})
+	srSvc := socialreach.New(socialreach.Config{DB: d.DB, Box: localBox, Video: svSvc})
+
+	skillsDir := filepath.Join(agentDataDir, "skills")
+	_ = os.MkdirAll(skillsDir, 0o700)
+	workspaces, err := workspace.New(filepath.Join(agentDataDir, "workspaces"), false)
+	if err != nil {
+		return nil, err
+	}
+	inbound.workspaces = workspaces
+	app.computer = newComputer(d, emitter, &artifacts.Store{DB: d.DB, Root: artifactsDir}, workspaces, runPauser{link})
+	batch2.bindComputer(app.computer.Manager)
+	batch1.broker.SetBrowsers(credentialBrowsers{app.computer.Manager})
+	eraser.Runtime = app.computer.Manager
+	reschedule := func(userID int64) error { return taskRt.RescheduleUserTasks(context.Background(), userID) }
+	baseSettings.Store.Hooks.RescheduleTasks, settingsAPI.Store.Hooks.RescheduleTasks = reschedule, reschedule
+	skillRunner := skills.NewRunner(skills.RunnerConfig{DB: d.DB, Dir: skillsDir, Log: d.Log, Commands: skillCommands{app.computer.Manager}})
+	_ = skillRunner.Load(ctx)
+	app.importer = agentimport.New(agentimport.Config{Env: agentimport.Env{
+		DB: d.DB, Box: localBox, EnvFile: d.Cfg.Paths.EnvFile, RuntimeHome: d.Cfg.Paths.Home, AgentDataDir: d.Cfg.Paths.AgentDataDir, AIProviders: importAIProviders,
+		Host: importHost{db: d.DB, memory: memMgr, skills: skillRunner, settings: baseSettings.Store, tasks: taskRt},
+	}, Scanner: agentimport.Scanner{Getenv: os.Getenv}, Log: d.Log})
+
+	androidHost, err := android.NewHost(android.HostConfig{
+		DataDir:     d.Cfg.Paths.DataDir,
+		RuntimeHome: d.Cfg.Paths.Home,
+		LogoPath:    filepath.Join(d.Cfg.AppDir, "flutter_app", "assets", "branding", "app_icon_512.png"),
+		Artifacts:   androidArtifacts{app.computer.Artifacts},
+		URLCheck:    checkIntentURL,
+		Log:         d.Log,
+	})
+	if err != nil {
+		return nil, err
+	}
+	androidAPI, err := android.NewAPI(android.APIConfig{
+		Provider:          androidHost,
+		ValidateIntentURL: androidHost.ValidateIntentURL,
+		UploadDir:         filepath.Join(d.Cfg.Paths.DataDir, "uploads", "android-apks"),
+		Log:               d.Log,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	sockSrv, err := sockets.New(sockets.Config{
 		DB:  d.DB,
 		Log: d.Log,
-		Hub: realtime.Options{Log: d.Log},
+		Hub: sockets.HubOptions(os.Getenv, d.Cfg.Origins, d.Log),
+
+		NoSubscriberGrace: sockets.StreamGrace(os.Getenv),
+		Controllers:       streamControllers(app.computer, androidHost),
+		Home:              d.Cfg.Paths.Home,
+		Root:              d.Cfg.AppDir,
 		Services: sockets.Services{
 			Access:        socketBackend,
 			Agents:        socketBackend,
@@ -429,46 +475,9 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		return nil, err
 	}
 	app.sockets = sockSrv
+	app.computer.Gateway.Frames = streamFrames{hub: sockSrv.StreamHub()}
 	emitter.Set(sockSrv)
 	app.Admin = adminAPI
-
-	svSvc := socialvideo.New(socialvideo.Config{})
-	srSvc := socialreach.New(socialreach.Config{DB: d.DB, Box: localBox, Video: svSvc})
-
-	skillsDir := filepath.Join(agentDataDir, "skills")
-	_ = os.MkdirAll(skillsDir, 0o700)
-	workspaces, err := workspace.New(filepath.Join(agentDataDir, "workspaces"), false)
-	if err != nil {
-		return nil, err
-	}
-	inbound.workspaces = workspaces
-	app.computer = newComputer(d, emitter, &artifacts.Store{DB: d.DB, Root: artifactsDir}, workspaces, runPauser{link})
-	app.computer.Gateway.Frames = streamFrames{hub: sockSrv.StreamHub()}
-	batch2.bindComputer(app.computer.Manager)
-	skillRunner := skills.NewRunner(skills.RunnerConfig{DB: d.DB, Dir: skillsDir, Log: d.Log, Commands: skillCommands{app.computer.Manager}})
-	_ = skillRunner.Load(ctx)
-	app.importer = agentimport.New(agentimport.Config{Env: agentimport.Env{
-		DB: d.DB, Box: localBox, EnvFile: d.Cfg.Paths.EnvFile, RuntimeHome: d.Cfg.Paths.Home, AgentDataDir: d.Cfg.Paths.AgentDataDir, AIProviders: importAIProviders,
-		Host: importHost{db: d.DB, memory: memMgr, skills: skillRunner, settings: baseSettings.Store, tasks: taskRt},
-	}, Scanner: agentimport.Scanner{Getenv: os.Getenv}, Log: d.Log})
-
-	androidHost, err := android.NewHost(android.HostConfig{
-		DataDir:     d.Cfg.Paths.DataDir,
-		RuntimeHome: d.Cfg.Paths.DataDir,
-		Log:         d.Log,
-	})
-	if err != nil {
-		return nil, err
-	}
-	androidAPI, err := android.NewAPI(android.APIConfig{
-		Provider:          androidHost,
-		ValidateIntentURL: androidHost.ValidateIntentURL,
-		UploadDir:         filepath.Join(d.Cfg.Paths.DataDir, "uploads", "android-apks"),
-		Log:               d.Log,
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	app.behavior = &behavior.Pipeline{DB: d.DB, Emitter: emitter, Log: d.Log, Memory: behaviorMemory{memMgr},
 		Inference: behaviorInference{link: link, systemOne: func() *systemone.Service { return app.SystemOne }},
@@ -481,7 +490,9 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		tasks: taskRt, systemOne: app.SystemOne, socket: socketBackend, android: androidHost, workspaces: workspaces, router: nrSvc,
 		socialVideo: svSvc, socialReach: srSvc, inbound: inbound, behavior: app.behavior, gitProxy: gitProxy, voice: voiceMgr, calls: agentCalls, voiceDir: voiceDir, credentials: batch1.broker, embedder: embedder,
 	})
-	intAPI := integrations.New(integrations.Config{Manager: intMgr, Log: d.Log, BindState: d.BindOAuthState})
+	intAPI := integrations.New(integrations.Config{Manager: intMgr, Log: d.Log, BindState: d.BindOAuthState, Home: d.Cfg.Paths.Home, Root: d.Cfg.AppDir})
+	wearableAPI, wearableGateway := newWearable(d, voiceMgr, taskRt, sanitize)
+	app.wearables = wearableGateway
 	app.Routes = []interface{ Routes(*http.ServeMux) }{
 		miscRoutes{rateLimits: &aimodels.RateLimiter{DB: d.DB, Config: aimodels.RateLimitConfigFromEnv(os.Getenv)}},
 		adminAPI,
@@ -496,21 +507,27 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		taskwebhooks.New(taskwebhooks.Config{DB: d.DB, Box: localBox, Dispatcher: taskRt}),
 		triggers.New(triggers.Config{DB: d.DB, Tasks: triggersTasksAdapter{rt: taskRt}, Log: d.Log}),
 		nrSvc,
-		skills.New(skills.Config{DB: d.DB, Runner: skillRunner, Log: d.Log, Audit: skillRunner}),
+		skills.New(skills.Config{DB: d.DB, Runner: skillRunner, Log: d.Log, Audit: skillRunner, SkillsSh: newSkillsSh()}),
 		androidAPI,
 		mobilesync.New(mobilesync.Config{DB: d.DB, Box: localBox, Agents: agentScopeAdapter{r: agents}, Events: mobileSyncEventsAdapter{rt: taskRt}, Log: d.Log}),
 		accounterase.New(accounterase.Config{Eraser: eraser, SecureCookie: d.Cfg.SecureCookie, TrustProxy: d.Cfg.TrustProxy}),
 		gitProxy,
 		app.importer,
-		socialvideo.NewAPI(socialvideo.APIConfig{Extractor: svSvc, Log: d.Log}),
+		socialvideo.NewAPI(socialvideo.APIConfig{Extractor: svSvc, Log: d.Log, AgentID: func(r *http.Request, userID int64, body map[string]json.RawMessage) (string, error) {
+			return agents.Resolve(r.Context(), userID, agentscope.Candidate(r, body))
+		}}),
 		socialreach.NewAPI(socialreach.APIConfig{Backend: srSvc, Log: d.Log}),
 		publicstatus.New(publicstatus.Config{
-			DB: d.DB, HasAI: func() bool { return true }, HasMessaging: func() bool { return true },
+			DB: d.DB, RuntimeReady: func() bool { ready, _ := app.computer.Validation(); return ready },
+			HasComputer: func() bool { return true }, HasVoice: func() bool { return true },
+			HasAI: func() bool { return true }, HasMessaging: func() bool { return true },
 			HasIntegration: func() bool { return true }, HasMCP: func() bool { return true },
 			HasTasks: func() bool { return true }, HasMemory: func() bool { return true },
 		}),
 		setupapi.New(setupapi.Config{DB: d.DB, Version: d.Version}),
-		webshares.New(webshares.Config{DB: d.DB}),
+		webshares.New(webshares.Config{DB: d.DB, ComputerRunning: func(userID int64) bool {
+			return app.computer.Manager.HasVM(strconv.FormatInt(userID, 10))
+		}}),
 		&datasharing.API{Users: d.Users, TrustProxy: d.Cfg.TrustProxy},
 		artifacts.New(artifacts.Config{DB: d.DB, Root: artifactsDir}),
 		runtimeapi.New(),
@@ -523,6 +540,8 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		delegation.New(delegation.Config{DB: d.DB, IsAdmin: func(ctx context.Context, uid int64) bool { return d.Users.IsAdmin(ctx, uid) }, PublicURL: d.Cfg.PublicURL, Log: d.Log}),
 		agentsapi.New(agentsapi.Config{DB: d.DB, IsAdmin: func(ctx context.Context, uid int64) bool { return d.Users.IsAdmin(ctx, uid) }}),
 		engineAPI,
+		wearableAPI,
+		wearableGateway,
 		voice.NewAPI(voice.RoutesConfig{Manager: voiceMgr, Log: d.Log, Sanitize: sanitize,
 			AgentCandidate: func(r *http.Request) string { return agentscope.Candidate(r, nil) }}),
 	}
@@ -603,6 +622,9 @@ func (a *App) Start(ctx context.Context) error {
 
 // Stop shuts down background domain services cleanly.
 func (a *App) Stop() {
+	if a.wearables != nil {
+		a.wearables.Close()
+	}
 	a.stopEngine()
 	if a.ingestion != nil {
 		a.ingestion.Stop()
