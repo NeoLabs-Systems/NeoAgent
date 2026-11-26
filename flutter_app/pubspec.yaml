@@ -10,16 +10,14 @@ dependencies:
   neolabs_flutter:
     git:
       url: https://github.com/NeoLabs-Systems/neolabs-flutter.git
-      ref: 9452769c0cf4187a9c1baab24ae5c617315f83eb
+      ref: 306551391c74b06baef27e7007d84a5c55e09d0b
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
   intl: any
-  archive: ^4.0.9
   cupertino_icons: ^1.0.8
   crypto: ^3.0.7
-  cryptography: ^2.9.0
   flutter_markdown: ^0.7.4+1
   file_picker: ^8.0.7
   google_fonts: ^8.1.0

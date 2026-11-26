@@ -2,7 +2,7 @@
 # See https://dart.dev/tools/pub/glossary#lockfile
 packages:
   archive:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: archive
       sha256: a96e8b390886ee8abb49b7bd3ac8df6f451c621619f52a26e815fdcf568959ff
@@ -98,7 +98,7 @@ packages:
     source: hosted
     version: "3.0.7"
   cryptography:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: cryptography
       sha256: "3eda3029d34ec9095a27a198ac9785630fe525c0eb6a49f3d575272f8e792ef0"
@@ -584,8 +584,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "9452769c0cf4187a9c1baab24ae5c617315f83eb"
-      resolved-ref: "9452769c0cf4187a9c1baab24ae5c617315f83eb"
+      ref: "306551391c74b06baef27e7007d84a5c55e09d0b"
+      resolved-ref: "306551391c74b06baef27e7007d84a5c55e09d0b"
       url: "https://github.com/NeoLabs-Systems/neolabs-flutter.git"
     source: git
     version: "0.1.0"

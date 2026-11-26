@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'local_runtime_app.dart';
 import 'local_runtime_paths.dart';
-import 'runtime_activation_service.dart';
 import 'package:neoagent_flutter/src/l10n/app_language.dart';
+import 'package:neolabs_flutter/installer.dart';
 
 enum LocalRuntimeAction { start, stop, restart }
 
@@ -38,7 +39,7 @@ class LocalRuntimeLogFile {
 class LocalRuntimeManager {
   LocalRuntimeManager({
     LocalRuntimePaths? paths,
-    RuntimeActivationService? activationService,
+    NeoRuntimeActivation? activationService,
   }) : _paths =
            paths ??
            LocalRuntimePaths.fromEnvironment(
@@ -46,14 +47,14 @@ class LocalRuntimeManager {
              isWindows: Platform.isWindows,
            ),
        _activationService =
-           activationService ?? RuntimeActivationService(onEvent: (_) {});
+           activationService ?? NeoRuntimeActivation(neoAgentRuntimeApp);
 
   final LocalRuntimePaths _paths;
-  final RuntimeActivationService _activationService;
+  final NeoRuntimeActivation _activationService;
 
   Future<LocalRuntimeStatus> inspect() async {
     final runtimeRoot = Directory(_paths.runtimeHome);
-    final version = _activationService.readCurrentVersion(runtimeRoot);
+    final version = _activationService.currentVersion(runtimeRoot);
     if (version == null) {
       return const LocalRuntimeStatus(installed: false, running: false);
     }
@@ -144,7 +145,7 @@ class LocalRuntimeManager {
 
   Future<LocalRuntimeStatus> runAction(LocalRuntimeAction action) async {
     final runtimeRoot = Directory(_paths.runtimeHome);
-    final version = _activationService.readCurrentVersion(runtimeRoot);
+    final version = _activationService.currentVersion(runtimeRoot);
     if (version == null) {
       throw LocalRuntimeManagerException(
         'SETUP_RUNTIME_NOT_INSTALLED',
@@ -173,7 +174,7 @@ class LocalRuntimeManager {
   }
 
   bool _runtimeFilesExist(Directory versionDirectory) {
-    return _activationService.runtimeExecutable(versionDirectory).existsSync();
+    return _activationService.executable(versionDirectory).existsSync();
   }
 
   Future<List<Map<String, dynamic>>> _runCli(
@@ -182,7 +183,7 @@ class LocalRuntimeManager {
     Duration timeout = const Duration(seconds: 20),
   }) async {
     final process = await Process.start(
-      _activationService.runtimeExecutable(versionDirectory).path,
+      _activationService.executable(versionDirectory).path,
       arguments,
       environment: <String, String>{
         ...Platform.environment,

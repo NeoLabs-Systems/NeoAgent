@@ -1,54 +1,38 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
+import 'package:neolabs_flutter/installer.dart';
 
 import 'local_backend_installer_models.dart';
-import 'error_text.dart';
-import 'host_architecture.dart';
+import 'local_runtime_app.dart';
 import 'local_runtime_paths.dart';
 import 'local_setup_engine.dart';
-import 'runtime_activation_service.dart';
-import 'runtime_archive_service.dart';
-import 'runtime_release_service.dart';
-import 'package:neoagent_flutter/src/l10n/app_language.dart';
 
+/// Runs the shared NeoLabs runtime installer, then NeoAgent's own setup.
 class LocalBackendInstaller {
-  LocalBackendInstaller({http.Client? client})
-    : _httpClient = client ?? http.Client() {
-    _setupEngine = LocalSetupEngine(
-      onEvent: (event) {
-        if (!_events.isClosed) _events.add(event);
-      },
+  LocalBackendInstaller({http.Client? client}) {
+    _runtime = NeoRuntimeInstaller(
+      app: neoAgentRuntimeApp,
+      client: client,
+      onEvent: (event) => _add(
+        LocalBackendInstallEvent(
+          stage: LocalBackendInstallStage.values.byName(event.stage.name),
+          state: event.state,
+          message: event.message,
+          progress: event.progress,
+          errorCode: event.errorCode,
+          retryable: event.retryable,
+        ),
+      ),
     );
-    _releaseService = RuntimeReleaseService(
-      client: _httpClient,
-      checkCancelled: _throwIfCancelled,
-      onDownloadProgress: (progress) {
-        _emit(
-          LocalBackendInstallStage.download,
-          'progress',
-          appStrings.downloadingTheNeoagentBackend,
-          progress: 0.12 + progress * 0.36,
-        );
-      },
-    );
-    _activationService = RuntimeActivationService(
-      onEvent: (event) {
-        if (!_events.isClosed) _events.add(event);
-      },
-    );
+    _setupEngine = LocalSetupEngine(onEvent: _add);
   }
 
-  final http.Client _httpClient;
+  late final NeoRuntimeInstaller _runtime;
   late final LocalSetupEngine _setupEngine;
-  late final RuntimeReleaseService _releaseService;
-  late final RuntimeActivationService _activationService;
   final StreamController<LocalBackendInstallEvent> _events =
       StreamController<LocalBackendInstallEvent>.broadcast();
-  bool _cancelled = false;
-  bool _disposed = false;
 
   Stream<LocalBackendInstallEvent> get events => _events.stream;
 
@@ -56,271 +40,50 @@ class LocalBackendInstaller {
     LocalBackendSetupProfile profile, {
     required String channel,
   }) async {
-    if (_disposed) {
-      throw LocalBackendInstallerException(
-        'SETUP_INSTALLER_DISPOSED',
-        appStrings.theInstallerIsNoLongerAvailable,
-        retryable: false,
-      );
-    }
-    _cancelled = false;
-    _emit(
-      LocalBackendInstallStage.prepare,
-      'started',
-      appStrings.findingTheCorrectNeoagentRuntime,
-      progress: 0.02,
-    );
-    Directory? stagingDirectory;
-    File? archiveFile;
     try {
-      final release = await _releaseService.prepare(
-        platform: _platformName(),
-        architecture: hostArchitecture() ?? 'x64',
-        channel: channel,
-      );
-      final artifact = release.artifact;
-
       final paths = LocalRuntimePaths.fromEnvironment(
         Platform.environment,
         isWindows: Platform.isWindows,
       );
-      final runtimeRoot = Directory(paths.runtimeHome);
-      final versionsRoot = Directory(
-        '${runtimeRoot.path}${Platform.pathSeparator}app'
-        '${Platform.pathSeparator}versions',
-      );
-      final versionDirectory = Directory(
-        '${versionsRoot.path}${Platform.pathSeparator}${release.manifest.version}',
-      );
-      deleteOrphanRuntimeStaging(versionsRoot);
-      if (!_activationService.isCompleteRuntime(versionDirectory)) {
-        stagingDirectory = await createRuntimeStagingDirectory(versionsRoot);
-        archiveFile = File(
-          '${stagingDirectory.path}${Platform.pathSeparator}${artifact.assetName}',
-        );
-
-        _emit(
-          LocalBackendInstallStage.download,
-          'started',
-          appStrings.downloadingTheNeoagentBackend,
-          progress: 0.12,
-        );
-        await _releaseService.downloadArtifact(release, archiveFile);
-        _throwIfCancelled();
-
-        _emit(
-          LocalBackendInstallStage.verify,
-          'started',
-          appStrings.verifyingTheDownloadedRuntime,
-          progress: 0.5,
-        );
-        final digest = await sha256.bind(archiveFile.openRead()).first;
-        if (digest.toString() != artifact.sha256) {
-          throw LocalBackendInstallerException(
-            'SETUP_RUNTIME_HASH_MISMATCH',
-            appStrings.theDownloadedNeoagentRuntimeDidNot,
-          );
-        }
-
-        final extractedDirectory = Directory(
-          '${stagingDirectory.path}${Platform.pathSeparator}extracted',
-        );
-        extractedDirectory.createSync(recursive: true);
-        _emit(
-          LocalBackendInstallStage.install,
-          'started',
-          appStrings.extractingTheNeoagentRuntime,
-          progress: 0.58,
-        );
-        var extractProgress = 0.58;
-        final extractTicker = Timer.periodic(const Duration(seconds: 2), (_) {
-          if (_cancelled) return;
-          extractProgress = (extractProgress + 0.008)
-              .clamp(0.58, 0.69)
-              .toDouble();
-          _emit(
-            LocalBackendInstallStage.install,
-            'progress',
-            appStrings.extractingTheNeoagentRuntime,
-            progress: extractProgress,
-          );
-        });
-        try {
-          await extractVerifiedRuntimeArchive(
-            archiveFile.path,
-            extractedDirectory.path,
-          );
-        } finally {
-          extractTicker.cancel();
-        }
-        _activationService.validateExtractedRuntime(extractedDirectory);
-        if (!versionDirectory.existsSync()) {
-          extractedDirectory.renameSync(versionDirectory.path);
-        }
-      } else {
-        _emit(
-          LocalBackendInstallStage.install,
-          'started',
-          appStrings.usingTheInstalledNeoagentRuntime,
-          progress: 0.7,
-        );
-      }
-      final previousVersion = await _activationService.activate(
-        runtimeRoot,
-        release.manifest.version,
-      );
-      _throwIfCancelled();
-
-      LocalBackendInstallResult result;
-      try {
-        result = await _setupEngine.run(
-          versionDirectory: versionDirectory,
+      return await _runtime.install(
+        channel: channel,
+        runtimeHome: Directory(paths.runtimeHome),
+        environment: <String, String>{'NEOAGENT_HOME': paths.runtimeHome},
+        rollbackArguments: (hasPrevious) => <String>[
+          hasPrevious ? 'repair' : 'stop',
+          '--runtime-package',
+          '--json',
+        ],
+        configure: (version, executable) => _setupEngine.run(
+          versionDirectory: version,
           paths: paths,
           profile: profile,
-          executable: _activationService.runtimeExecutable(versionDirectory),
+          executable: executable,
           channel: channel,
-        );
-      } on Object {
-        await _activationService.rollback(
-          runtimeRoot: runtimeRoot,
-          paths: paths,
-          failedVersion: release.manifest.version,
-          previousVersion: previousVersion,
-        );
-        rethrow;
-      }
-      _emit(
-        LocalBackendInstallStage.complete,
-        'completed',
-        appStrings.neoagentIsReady,
-        progress: 1,
+        ),
       );
-      return result;
-    } on LocalBackendInstallerException catch (error) {
-      _emit(
-        LocalBackendInstallStage.install,
-        'failed',
+    } on NeoInstallerException catch (error) {
+      // A failure of the setup engine arrives wrapped; keep its own code.
+      throw LocalBackendInstallerException(
+        error.code,
         error.message,
-        errorCode: error.code,
         retryable: error.retryable,
       );
-      rethrow;
-    } on Object catch (error) {
-      final wrapped = LocalBackendInstallerException(
-        'SETUP_INSTALL_FAILED',
-        rawErrorText(error),
-      );
-      _emit(
-        LocalBackendInstallStage.install,
-        'failed',
-        wrapped.message,
-        errorCode: wrapped.code,
-      );
-      throw wrapped;
-    } finally {
-      try {
-        archiveFile?.deleteSync();
-      } on Object {
-        _emit(
-          LocalBackendInstallStage.install,
-          'message',
-          appStrings.aTemporaryDownloadWillBeCleaned,
-        );
-      }
-      try {
-        stagingDirectory?.deleteSync(recursive: true);
-      } on Object {
-        _emit(
-          LocalBackendInstallStage.install,
-          'message',
-          appStrings.temporarySetupFilesWillBeCleaned,
-        );
-      }
     }
   }
 
-  String _platformName() {
-    if (Platform.isMacOS) return 'macos';
-    if (Platform.isWindows) return 'windows';
-    if (Platform.isLinux) return 'linux';
-    throw LocalBackendInstallerException(
-      'SETUP_PLATFORM_UNSUPPORTED',
-      appStrings.localBackendInstallationIsNotAvailable,
-      retryable: false,
-    );
-  }
-
-  void _emit(
-    LocalBackendInstallStage stage,
-    String state,
-    String message, {
-    double? progress,
-    String? errorCode,
-    bool retryable = true,
-  }) {
-    if (_events.isClosed) return;
-    _events.add(
-      LocalBackendInstallEvent(
-        stage: stage,
-        state: state,
-        message: message,
-        progress: progress,
-        errorCode: errorCode,
-        retryable: retryable,
-      ),
-    );
-  }
-
-  void _throwIfCancelled() {
-    if (_cancelled) {
-      throw LocalBackendInstallerException(
-        'SETUP_CANCELLED',
-        appStrings.setupWasCancelled,
-      );
-    }
+  void _add(LocalBackendInstallEvent event) {
+    if (!_events.isClosed) _events.add(event);
   }
 
   void cancel() {
-    _cancelled = true;
+    _runtime.cancel();
     _setupEngine.cancel();
   }
 
   void dispose() {
-    if (_disposed) return;
-    _disposed = true;
     cancel();
-    _httpClient.close();
+    _runtime.dispose();
     unawaited(_events.close());
   }
-}
-
-Future<Directory> createRuntimeStagingDirectory(Directory versionsRoot) async {
-  versionsRoot.createSync(recursive: true);
-  return versionsRoot.createTemp('.staging-');
-}
-
-void deleteOrphanRuntimeStaging(Directory versionsRoot) {
-  if (!versionsRoot.existsSync()) return;
-  for (final entity in versionsRoot.listSync(followLinks: false)) {
-    if (entity is! Directory) continue;
-    final name = entity.path.split(Platform.pathSeparator).last;
-    if (!name.startsWith('.staging-')) continue;
-    try {
-      entity.deleteSync(recursive: true);
-    } on Object {
-      // A leftover staging directory is removed on the next successful setup.
-    }
-  }
-}
-
-Future<void> verifyRuntimeManifestSignature({
-  required List<int> manifestBytes,
-  required String signatureBase64,
-  required String publicKeyBase64,
-}) {
-  return verifyRuntimeManifestSignatureData(
-    manifestBytes: manifestBytes,
-    signatureBase64: signatureBase64,
-    publicKeyBase64: publicKeyBase64,
-  );
 }
