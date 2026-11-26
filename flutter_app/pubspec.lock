@@ -584,8 +584,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "306551391c74b06baef27e7007d84a5c55e09d0b"
-      resolved-ref: "306551391c74b06baef27e7007d84a5c55e09d0b"
+      ref: bc2b724649ddb064838877f33f9af388ad189e01
+      resolved-ref: bc2b724649ddb064838877f33f9af388ad189e01
       url: "https://github.com/NeoLabs-Systems/neolabs-flutter.git"
     source: git
     version: "0.1.0"
