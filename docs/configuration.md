@@ -75,7 +75,6 @@ Exposing the server: see [Reach it from other devices](getting-started.md#networ
 | `NEOAGENT_RELEASE_CHANNEL` | `stable` | `stable` or `beta`; change it with `neoagent channel` |
 | `NEOAGENT_DEPLOYMENT_MODE` | `self_hosted` | `managed` turns off in-app updates |
 | `NEOAGENT_HOME` | `~/.neoagent` | Runtime root. Set it in the shell before installing; the background service keeps it |
-| `NEOAGENT_SOURCE_DIR` | `~/NeoAgent` | Where `neoagent update` moves an old package-style install |
 
 ## 🧠 Model providers
 

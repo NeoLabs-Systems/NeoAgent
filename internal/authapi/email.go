@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/NeoLabs-Systems/neoagent/internal/accounts"
+	"github.com/NeoLabs-Systems/neolabs-go/authpages"
 	"github.com/NeoLabs-Systems/neolabs-go/httpx"
+	"github.com/NeoLabs-Systems/neolabs-go/userid"
 )
 
 const forgotMinimumLatency = 350 * time.Millisecond
@@ -15,7 +17,7 @@ const forgotMinimumLatency = 350 * time.Millisecond
 func (a *API) emailConfirm(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimSpace(r.URL.Query().Get("token"))
 	if token == "" {
-		sendEmailConfirmationPage(w, false, "Confirmation link missing", "Open the full confirmation link from your NeoAgent email.")
+		authpages.Confirmation(w, mailBrand, false, "Confirmation link missing", "Open the full confirmation link from your NeoAgent email.")
 		return
 	}
 	res, err := a.Users.ConsumeEmailToken(r.Context(), a.Tokens, token)
@@ -24,7 +26,7 @@ func (a *API) emailConfirm(w http.ResponseWriter, r *http.Request) {
 		if msg == "" {
 			msg = "This confirmation link is invalid or expired."
 		}
-		sendEmailConfirmationPage(w, false, "Could not confirm email", msg)
+		authpages.Confirmation(w, mailBrand, false, "Could not confirm email", msg)
 		return
 	}
 	if res.Type == accounts.TokenEmailChange {
@@ -32,7 +34,7 @@ func (a *API) emailConfirm(w http.ResponseWriter, r *http.Request) {
 			return a.sendEmailChangedNotice(ctx, res.Username, res.PreviousEmail, res.Email)
 		})
 	}
-	sendEmailConfirmationPage(w, true, "Email confirmed", "Your NeoAgent email is confirmed. You can return to the app and sign in.")
+	authpages.Confirmation(w, mailBrand, true, "Email confirmed", "Your NeoAgent email is confirmed. You can return to the app and sign in.")
 }
 
 // passwordForgot always answers the same way after the same minimum time, so
@@ -58,7 +60,7 @@ func (a *API) passwordForgot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user != nil && user.Email != "" {
-		token, _, err := a.Tokens.Create(ctx, user.UserID, accounts.TokenPasswordReset, user.Email, a.tokenTTL())
+		token, _, err := a.Tokens.Create(ctx, userid.FromInt(user.UserID), accounts.TokenPasswordReset, user.Email, a.tokenTTL())
 		if err == nil {
 			err = a.sendPasswordResetEmail(ctx, user.Username, user.Email, token)
 		}
@@ -76,10 +78,10 @@ func (a *API) tokenTTL() time.Duration {
 func (a *API) passwordResetPage(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimSpace(r.URL.Query().Get("token"))
 	if token == "" {
-		sendPasswordResetPage(w, "", "Open the full password reset link from your NeoAgent email.", false)
+		writeResetPage(w, "", "Open the full password reset link from your NeoAgent email.", false)
 		return
 	}
-	sendPasswordResetPage(w, token, "", false)
+	writeResetPage(w, token, "", false)
 }
 
 // formOrJSON reads the reset form, which a browser posts url-encoded.
@@ -109,11 +111,11 @@ func (a *API) passwordResetSubmit(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimSpace(b.str("token"))
 	password, confirm := b.str("password"), b.str("confirmPassword")
 	if token == "" {
-		sendPasswordResetPage(w, token, "Open the full password reset link from your NeoAgent email.", false)
+		writeResetPage(w, token, "Open the full password reset link from your NeoAgent email.", false)
 		return
 	}
 	if password != confirm {
-		sendPasswordResetPage(w, token, "Passwords do not match.", false)
+		writeResetPage(w, token, "Passwords do not match.", false)
 		return
 	}
 	res, err := a.Users.ConsumePasswordReset(r.Context(), a.Tokens, a.ResetLimiter, token, password)
@@ -126,7 +128,7 @@ func (a *API) passwordResetSubmit(w http.ResponseWriter, r *http.Request) {
 			a.Log.Error("password reset failed", "error", err)
 			msg = "This password reset link is invalid or expired."
 		}
-		sendPasswordResetPage(w, token, msg, false)
+		writeResetPage(w, token, msg, false)
 		return
 	}
 	if _, err := a.Records.RevokeAll(r.Context(), res.UserID, ""); err != nil {
@@ -135,7 +137,7 @@ func (a *API) passwordResetSubmit(w http.ResponseWriter, r *http.Request) {
 	a.async("password changed notice", func(ctx context.Context) error {
 		return a.sendPasswordChangedNotice(ctx, res.Username, res.Email)
 	})
-	sendPasswordResetPage(w, "", "", true)
+	writeResetPage(w, "", "", true)
 }
 
 // accountEmail changes the account's email, with a confirmation round trip
@@ -184,7 +186,7 @@ func (a *API) accountEmail(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, 503, "Service email is not configured for account confirmation")
 			return
 		}
-		token, _, err := a.Tokens.Create(ctx, uid, accounts.TokenEmailChange, email, a.tokenTTL())
+		token, _, err := a.Tokens.Create(ctx, userid.FromInt(uid), accounts.TokenEmailChange, email, a.tokenTTL())
 		if err == nil {
 			err = a.sendEmailChangeConfirmation(ctx, user.Username, email, token)
 		}
@@ -206,4 +208,11 @@ func (a *API) accountEmail(w http.ResponseWriter, r *http.Request) {
 		return a.sendEmailChangedNotice(ctx, user.Username, previous, email)
 	})
 	a.accountPayload(w, r)
+}
+
+// mailBrand names the product on the pages account emails link to.
+const mailBrand = "NeoAgent"
+
+func writeResetPage(w http.ResponseWriter, token, errText string, success bool) {
+	authpages.PasswordReset(w, mailBrand, "/api/auth/password/reset", token, errText, success)
 }

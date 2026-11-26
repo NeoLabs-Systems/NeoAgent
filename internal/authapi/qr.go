@@ -10,6 +10,7 @@ import (
 	"github.com/NeoLabs-Systems/neolabs-go/httpx"
 	"github.com/NeoLabs-Systems/neolabs-go/qrlogin"
 	"github.com/NeoLabs-Systems/neolabs-go/sessionx"
+	"github.com/NeoLabs-Systems/neolabs-go/userid"
 )
 
 // baseURL is how clients reach this server: PUBLIC_URL when configured,
@@ -122,7 +123,12 @@ func (a *API) qrClaim(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err)
 		return
 	}
-	user, err := a.Users.ByID(ctx, claimed.UserID)
+	approver, err := claimed.UserID.Int64()
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	user, err := a.Users.ByID(ctx, approver)
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -186,7 +192,7 @@ func (a *API) qrApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess := sessionx.FromContext(r.Context())
-	c, err := a.QR.Approve(r.Context(), id, secret, a.sessionUserID(r), sessionx.HashID(a.Cfg.SessionSecret, sess.ID()), b["approvalMetadata"])
+	c, err := a.QR.Approve(r.Context(), id, secret, userid.FromInt(a.sessionUserID(r)), sessionx.HashID(a.Cfg.SessionSecret, sess.ID()), b["approvalMetadata"])
 	if err != nil {
 		a.fail(w, err)
 		return

@@ -16,7 +16,7 @@
   <a href="https://github.com/NeoLabs-Systems/NeoAgent/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/NeoLabs-Systems/NeoAgent?style=flat-square&label=release&color=111827"></a>
   <a href="LICENSE"><img alt="AGPL-3.0 license" src="https://img.shields.io/badge/license-AGPL--3.0-a855f7?style=flat-square"></a>
   <a href="docs/docker.md"><img alt="Docker image" src="https://img.shields.io/badge/docker-ghcr.io-2496ed?style=flat-square&logo=docker&logoColor=white"></a>
-  <a href="https://nodejs.org"><img alt="Node.js 20.19 or newer" src="https://img.shields.io/badge/node-20.19%2B-5fa04e?style=flat-square&logo=nodedotjs&logoColor=white"></a>
+  <a href="go.mod"><img alt="Written in Go" src="https://img.shields.io/badge/built_with-Go-00add8?style=flat-square&logo=go&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -71,7 +71,7 @@ https://github.com/user-attachments/assets/ba50e0a5-1846-4738-9720-3fbf732d3659
 | --- | --- | --- |
 | 🖥️ **Desktop app** | macOS, Windows, Linux. Installs and runs the server for you, no terminal. | [Download](https://github.com/NeoLabs-Systems/NeoAgent/releases/latest) |
 | 🐳 **Docker** | Home servers, NAS boxes and VPS. | [Guide](docs/docker.md) |
-| 📜 **Script** | Linux or macOS with Git and Node.js 20.19+. | [Guide](docs/getting-started.md) |
+| 📜 **Script** | macOS, or Linux x86_64. Needs `curl`. | [Guide](docs/getting-started.md) |
 
 **Docker**
 

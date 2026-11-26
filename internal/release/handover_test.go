@@ -80,7 +80,8 @@ process.stdout.write(String(r.status) + '\n' + r.stderr);
 	}
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
-		if raw, err := os.ReadFile(marker); err == nil {
+		// The shell creates the marker before it writes to it.
+		if raw, err := os.ReadFile(marker); err == nil && len(raw) > 0 {
 			if strings.TrimSpace(string(raw)) != "stable" {
 				t.Fatalf("channel %q", raw)
 			}

@@ -60,7 +60,7 @@ var helpReference = []helpGroup{
 	}},
 	{"Updates", []helpEntry{
 		{"update [stable|beta]", "Update, optionally switching channel; rolls back if it fails"},
-		{"update --notes", "Show what's new without updating"},
+		{"update --notes (or --check)", "See whether a newer version is ready, without updating"},
 		{"channel [stable|beta]", "Show or switch the release channel"},
 		{"version", "Print the installed version"},
 		{"rebuild-web", "Rebuild the bundled Flutter web client"},

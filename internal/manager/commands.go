@@ -21,7 +21,7 @@ func (a *App) commands() []cli.Command {
 		{Name: "doctor", Usage: "doctor", Summary: "Find problems and offer to fix them", Run: a.cmdDoctor},
 		{Name: "repair", Aliases: []string{"fix"}, Usage: "repair", Summary: "Back up, check and restart everything", Run: a.cmdRepair},
 		{Name: "logs", Usage: "logs", Summary: "Watch what NeoAgent is doing", Run: a.cmdLogs},
-		{Name: "update", Usage: "update [stable|beta] [--notes]", Summary: "Get the latest version (your data is kept)", Run: a.cmdUpdate},
+		{Name: "update", Usage: "update [stable|beta] [--notes|--check] [--json]", Summary: "Get the latest version (your data is kept)", Run: a.cmdUpdate},
 		{Name: "channel", Usage: "channel [stable|beta]", Summary: "Show or switch the update channel", Run: a.cmdChannel},
 		{Name: "env", Usage: "env [list|get|set|unset]", Summary: "Read and change settings in the .env file", Run: a.cmdEnv},
 		{Name: "admin", Usage: "admin [list|grant|revoke] <user>", Summary: "Manage who can open the Admin tab", Run: a.cmdAdmin},

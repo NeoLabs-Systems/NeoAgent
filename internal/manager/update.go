@@ -96,11 +96,20 @@ func (a *App) cmdUpdate(ctx context.Context, args []string) error {
 	if v := strings.ToLower(strings.TrimSpace(os.Getenv("NEOAGENT_CONTAINER_IMAGE"))); v == "1" || v == "true" {
 		return errors.New("This NeoAgent runs from a container image. Update it by pulling the new image: docker compose pull && docker compose up -d")
 	}
-	notesOnly := cli.HasFlag(args, "--notes")
+	const usage = "Usage: neoagent update [stable|beta] [--notes|--check] [--json]"
+	// A mistyped flag must never fall through to a real update.
+	notesOnly := false
 	requested := ""
-	if pos := cli.Positionals(args); len(pos) > 0 {
-		if requested = release.ParseChannel(pos[0]); requested == "" {
-			return usageError("Usage: neoagent update [stable|beta] [--notes]")
+	for _, arg := range args {
+		switch arg {
+		case "--notes", "--check":
+			notesOnly = true
+		case "--json", "--details":
+		default:
+			if requested != "" || release.ParseChannel(arg) == "" {
+				return usageError(usage)
+			}
+			requested = release.ParseChannel(arg)
 		}
 	}
 	channel := a.channel()

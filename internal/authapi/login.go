@@ -12,6 +12,7 @@ import (
 	"github.com/NeoLabs-Systems/neolabs-go/lockout"
 	"github.com/NeoLabs-Systems/neolabs-go/passhash"
 	"github.com/NeoLabs-Systems/neolabs-go/pwpolicy"
+	"github.com/NeoLabs-Systems/neolabs-go/userid"
 	"github.com/NeoLabs-Systems/neolabs-go/webauthnx"
 )
 
@@ -131,7 +132,7 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if confirmationRequired {
-		token, _, err := a.Tokens.Create(ctx, id, accounts.TokenSignupConfirmation, email, a.tokenTTL())
+		token, _, err := a.Tokens.Create(ctx, userid.FromInt(id), accounts.TokenSignupConfirmation, email, a.tokenTTL())
 		if err == nil {
 			err = a.sendSignupConfirmation(ctx, username, email, token)
 		}

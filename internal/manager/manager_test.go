@@ -478,3 +478,13 @@ func TestInstallRuntimeDoesNotReplaceActive(t *testing.T) {
 		t.Fatalf("active binary = %q, %v", data, err)
 	}
 }
+
+func TestUpdateRefusesUnknownArgumentsBeforeDoingAnything(t *testing.T) {
+	a := newTestApp(t)
+	for _, args := range [][]string{{"--dry-run"}, {"--chek"}, {"nightly"}, {"beta", "stable"}} {
+		err := a.cmdUpdate(context.Background(), args)
+		if err == nil || !strings.HasPrefix(err.Error(), "Usage:") {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+}

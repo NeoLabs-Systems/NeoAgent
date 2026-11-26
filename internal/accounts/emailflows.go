@@ -37,6 +37,10 @@ func (r *Repo) ConsumeEmailToken(ctx context.Context, tk servicemail.Tokens, tok
 	if row == nil {
 		return nil, fail(400, "Email confirmation link is invalid or expired", "")
 	}
+	userID, err := row.UserID.Int64()
+	if err != nil {
+		return nil, err
+	}
 	tx, err := r.DB.W.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -72,7 +76,7 @@ func (r *Repo) ConsumeEmailToken(ctx context.Context, tk servicemail.Tokens, tok
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return &Confirmed{Type: row.Type, Email: row.Email, PreviousEmail: row.CurrentEmail.String, UserID: row.UserID, Username: row.Username}, nil
+	return &Confirmed{Type: row.Type, Email: row.Email, PreviousEmail: row.CurrentEmail.String, UserID: userID, Username: row.Username}, nil
 }
 
 // Reset is the account whose password was reset.
@@ -99,6 +103,10 @@ func (r *Repo) ConsumePasswordReset(ctx context.Context, tk servicemail.Tokens, 
 	if row == nil {
 		limiter.Register(key)
 		return nil, invalidResetLink()
+	}
+	userID, err := row.UserID.Int64()
+	if err != nil {
+		return nil, err
 	}
 	if err := ValidateNewPassword(password, pwpolicy.Context{Username: row.Username, Email: row.CurrentEmail.String}); err != nil {
 		return nil, err
@@ -132,7 +140,7 @@ func (r *Repo) ConsumePasswordReset(ctx context.Context, tk servicemail.Tokens, 
 		return nil, err
 	}
 	limiter.Reset(key)
-	return &Reset{UserID: row.UserID, Username: row.Username, Email: row.CurrentEmail.String}, nil
+	return &Reset{UserID: userID, Username: row.Username, Email: row.CurrentEmail.String}, nil
 }
 
 // ForPasswordReset finds the account a reset request names (username or email,

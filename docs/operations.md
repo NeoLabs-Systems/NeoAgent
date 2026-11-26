@@ -38,7 +38,7 @@ Desktop app installs have no `neoagent` command; use **Settings › System** to 
 | --- | --- |
 | `neoagent channel` | Show the current channel |
 | `neoagent channel stable` · `beta` | Switch channel |
-| `neoagent update --notes` | Show what a waiting update changes, without installing it |
+| `neoagent update --notes` (or `--check`) | Say whether a newer version is ready, without installing it |
 | `neoagent update` | Update to the latest version on the current channel |
 | `neoagent update beta` | Switch channel and update in one step |
 
@@ -48,18 +48,18 @@ Desktop app installs have no `neoagent` command; use **Settings › System** to 
 `neoagent update` runs these steps:
 
 1. Backs up settings, database and agent data.
-2. Downloads the new version from GitHub.
-3. Reinstalls dependencies and rebuilds the bundled app.
+2. Downloads the signed runtime from GitHub and verifies it.
+3. Installs it beside the previous version.
 4. Restarts NeoAgent and checks it answers with the new version.
 
 If any step after the download fails, it puts the previous version back and restarts that instead.
 
 - **From the app.** **Admin › Server › Updates** installs updates and switches channel; it is disabled when `NEOAGENT_DEPLOYMENT_MODE=managed`.
-- **Old package installs.** `update` backs up, then moves a non-Git install to a checkout at `~/NeoAgent` (or `NEOAGENT_SOURCE_DIR`). Needs Git and npm.
+- **Unknown options are refused.** A mistyped flag never starts an update.
 
-### 🚚 Move an old install by hand
+### 🚚 Move a Node.js install
 
-Back up first, then run the repository installer; it keeps existing runtime data and skips onboarding.
+Updating from the Node.js version hands over to the binary by itself on macOS and Linux. To do it by hand, back up first, then run the repository installer; it keeps existing runtime data.
 
 ```bash
 neoagent stop
@@ -69,7 +69,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/NeoLabs-Systems/NeoAgent/mai
 neoagent doctor
 ```
 
-- **Source directory.** Keep the default `~/NeoAgent` unless it holds something else.
 - **Custom runtime root.** If `NEOAGENT_HOME` points elsewhere, archive that directory instead of `~/.neoagent`.
 
 ## 💾 Backups
@@ -102,14 +101,12 @@ neoagent repair    # "fix" works too
 ```
 
 1. Stops NeoAgent and backs up your data.
-2. In a Git checkout, discards local edits to NeoAgent's own source files.
-3. Reinstalls dependencies and rebuilds the bundled app.
-4. Prepares the cloud computer and repairs damaged disks.
-5. Registers the background service again and starts it.
+2. Checks that the installed runtime package is complete.
+3. Prepares the cloud computer and repairs damaged disks.
+4. Registers the background service again and starts it.
 
 :::warning Not a backup
-- **Keep your own backups.** `repair` keeps settings, accounts and data, but it is no substitute for a backup.
-- **Save source edits first.** Commit or copy any changes to NeoAgent's source before running it.
+**Keep your own backups.** `repair` keeps settings, accounts and data, but it is no substitute for a backup.
 :::
 
 For setup problems:
