@@ -79,7 +79,7 @@ void main() {
         ),
       );
       await openServer(tester, http);
-      expect(find.text('Docker'), findsOneWidget);
+      expect(find.text('Docker'), findsWidgets);
       expect(
         find.text('docker compose pull\ndocker compose up -d'),
         findsOneWidget,

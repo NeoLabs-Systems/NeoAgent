@@ -306,7 +306,8 @@ class _AdvancedModelSettingsState extends State<_AdvancedModelSettings> {
                           ),
                         ),
                       ),
-                      _SettingsCardList(
+                      NeoSettingsCard(
+                        palette: _palette,
                         children: <Widget>[
                           for (final (kind, label, description) in _tasks)
                             _SettingsRow(

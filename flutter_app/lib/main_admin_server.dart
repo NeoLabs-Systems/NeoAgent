@@ -89,7 +89,7 @@ class _AdminServerTab extends StatefulWidget {
   const _AdminServerTab({required this.controller, required this.updates});
 
   final NeoAgentController controller;
-  final _AdminUpdateWatcher updates;
+  final NeoUpdateController updates;
 
   @override
   State<_AdminServerTab> createState() => _AdminServerTabState();
@@ -178,7 +178,7 @@ class _AdminServerTabState extends State<_AdminServerTab> {
                     ('Version', info.version),
                     (
                       appStrings.releaseChannel,
-                      _adminChannelLabel(info.releaseChannel),
+                      _adminUpdateStrings().channel(info.releaseChannel),
                     ),
                     ('Branch', info.gitBranch),
                     ('Commit', info.shortSha),
@@ -193,7 +193,14 @@ class _AdminServerTabState extends State<_AdminServerTab> {
           ),
         ),
         if (info != null) ...<Widget>[
-          _AdminUpdateCard(watcher: widget.updates),
+          _SectionHighlight(
+            title: appStrings.updates,
+            child: NeoUpdateSettings(
+              palette: _palette,
+              controller: widget.updates,
+              strings: _adminUpdateStrings(),
+            ),
+          ),
           _AdminOpsHealthCard(checks: _checks),
           if (info.environment.isNotEmpty)
             _SectionCard(

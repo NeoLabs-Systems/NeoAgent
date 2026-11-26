@@ -38,7 +38,15 @@ import 'package:neolabs_flutter/neolabs_flutter.dart'
         NeoCredentialFields,
         NeoCredentialField,
         NeoForgotPasswordDialog,
-        NeoQrPolling;
+        NeoQrPolling,
+        NeoSettingsCard,
+        NeoSettingsGroup,
+        NeoSettingsRow,
+        NeoUpdateApi,
+        NeoUpdateBanner,
+        NeoUpdateController,
+        NeoUpdateSettings,
+        NeoUpdateStrings;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;

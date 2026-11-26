@@ -312,7 +312,7 @@ class AdminPanel extends StatefulWidget {
 class _AdminPanelState extends State<AdminPanel> {
   final TextEditingController _search = TextEditingController();
   _AdminTab _tab = _AdminTab.users;
-  late final _AdminUpdateWatcher _updates = _AdminUpdateWatcher(
+  late final NeoUpdateController _updates = _adminUpdateController(
     widget.controller.backendClient,
     widget.controller.backendUrl,
   );
@@ -370,7 +370,12 @@ class _AdminPanelState extends State<AdminPanel> {
           },
         ),
         const SizedBox(height: 14),
-        _AdminUpdateBanner(watcher: _updates),
+        NeoUpdateBanner(
+          palette: _palette,
+          controller: _updates,
+          strings: _adminUpdateStrings(),
+          onReload: canReloadPage ? reloadPage : null,
+        ),
         if (query.isNotEmpty)
           _AdminSearchResults(
             results: results,

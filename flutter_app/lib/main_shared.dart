@@ -2542,28 +2542,19 @@ class _SectionFocus extends InheritedWidget {
   bool updateShouldNotify(_SectionFocus oldWidget) => title != oldWidget.title;
 }
 
-/// A titled card: an uppercase heading with an optional trailing control and
-/// description, then the body. When the enclosing [_SectionFocus] names its
-/// [title], it scrolls itself into view and outlines itself briefly so the
-/// eye lands on it.
-class _SectionCard extends StatefulWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.description,
-    this.trailing,
-  });
+/// Reveals its child when the enclosing [_SectionFocus] names [title]: it
+/// scrolls into view and is outlined briefly so the eye lands on it.
+class _SectionHighlight extends StatefulWidget {
+  const _SectionHighlight({required this.title, required this.child});
 
   final String title;
-  final String? description;
-  final Widget? trailing;
   final Widget child;
 
   @override
-  State<_SectionCard> createState() => _SectionCardState();
+  State<_SectionHighlight> createState() => _SectionHighlightState();
 }
 
-class _SectionCardState extends State<_SectionCard> {
+class _SectionHighlightState extends State<_SectionHighlight> {
   bool _handled = false;
   bool _highlight = false;
   Timer? _settle;
@@ -2606,8 +2597,6 @@ class _SectionCardState extends State<_SectionCard> {
 
   @override
   Widget build(BuildContext context) {
-    final description = widget.description;
-    final trailing = widget.trailing;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
       decoration: BoxDecoration(
@@ -2617,6 +2606,32 @@ class _SectionCardState extends State<_SectionCard> {
           width: 2,
         ),
       ),
+      child: widget.child,
+    );
+  }
+}
+
+/// A titled card: an uppercase heading with an optional trailing control and
+/// description, then the body.
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.child,
+    this.description,
+    this.trailing,
+  });
+
+  final String title;
+  final String? description;
+  final Widget? trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final description = this.description;
+    final trailing = this.trailing;
+    return _SectionHighlight(
+      title: title,
       child: SizedBox(
         width: double.infinity,
         child: Card(
@@ -2627,7 +2642,7 @@ class _SectionCardState extends State<_SectionCard> {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    Expanded(child: _SectionTitle(widget.title)),
+                    Expanded(child: _SectionTitle(title)),
                     if (trailing != null) ...<Widget>[
                       const SizedBox(width: 10),
                       trailing,
@@ -2642,7 +2657,7 @@ class _SectionCardState extends State<_SectionCard> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                widget.child,
+                child,
               ],
             ),
           ),

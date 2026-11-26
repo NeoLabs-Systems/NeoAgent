@@ -10,7 +10,7 @@ dependencies:
   neolabs_flutter:
     git:
       url: https://github.com/NeoLabs-Systems/neolabs-flutter.git
-      ref: 7d87ed0cadb21a38d4c0b73b03b27c9892b5af33
+      ref: 633320a4291ebe42c29ffef65fee0cff8e371516
   flutter:
     sdk: flutter
   flutter_localizations:
