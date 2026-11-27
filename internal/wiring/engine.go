@@ -42,6 +42,7 @@ import (
 	"github.com/NeoLabs-Systems/neoagent/internal/socialvideo"
 	"github.com/NeoLabs-Systems/neoagent/internal/sockets"
 	"github.com/NeoLabs-Systems/neoagent/internal/tasks"
+	"github.com/NeoLabs-Systems/neoagent/internal/tasks/jsv"
 	"github.com/NeoLabs-Systems/neoagent/internal/timeline"
 	"github.com/NeoLabs-Systems/neoagent/internal/webshares"
 	"github.com/NeoLabs-Systems/neoagent/internal/workspace"
@@ -533,6 +534,12 @@ func (s engineSources) api(e *agent.Engine, socket *socketServices) *agent.API {
 	})
 }
 
+// taskResult is a run's answer in the form the task runtime reads.
+func taskResult(result agent.Result) *jsv.Object {
+	return jsv.NewObject().Set("content", result.Content).Set("status", result.Status).Set("runId", result.RunID).
+		Set("totalTokens", result.TotalTokens).Set("iterations", result.Iterations)
+}
+
 // ── Scheduled tasks ─────────────────────────────────────────────────────────
 
 func (l *engineLink) RunTask(ctx context.Context, req tasks.RunRequest) (tasks.RunResult, error) {
@@ -571,8 +578,7 @@ func (l *engineLink) RunTask(ctx context.Context, req tasks.RunRequest) (tasks.R
 	if result.Status == "failed" {
 		return tasks.RunResult{RunID: result.RunID}, errors.New(orDefault(result.Error, "The task run failed."))
 	}
-	return tasks.RunResult{RunID: result.RunID, Result: map[string]any{"content": result.Content, "status": result.Status, "runId": result.RunID,
-		"totalTokens": result.TotalTokens, "iterations": result.Iterations}}, nil
+	return tasks.RunResult{RunID: result.RunID, Result: taskResult(result)}, nil
 }
 
 func orDefault(s, fallback string) string {

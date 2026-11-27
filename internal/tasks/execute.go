@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -310,10 +311,17 @@ func (r *Runtime) deliverTaskResultIfNeeded(ctx context.Context, userID int64, a
 	if delivery == nil || delivery.NotifyTarget == nil || r.cfg.Messaging == nil {
 		return nil
 	}
-	if delivery.NoResponse || delivery.FinalDelivered || len(delivery.Sent) > 0 {
+	// FinalDelivered is no reason to skip: the engine sets it when the answer
+	// reached the app, which is not the task's target.
+	if delivery.NoResponse || len(delivery.Sent) > 0 {
 		return nil
 	}
-	text := strings.TrimSpace(stringifyResult(result))
+	// A message the run sent with send_message was held until now: its
+	// attachment goes with the answer, its text only when there is no answer.
+	text, media := strings.TrimSpace(stringifyResult(result)), ""
+	if staged := delivery.Staged; staged != nil && strings.TrimSpace(staged.Content) != "" {
+		text, media = cmp.Or(text, strings.TrimSpace(staged.Content)), staged.MediaPath
+	}
 	if text == "" {
 		return nil
 	}
@@ -327,12 +335,13 @@ func (r *Runtime) deliverTaskResultIfNeeded(ctx context.Context, userID int64, a
 		runID = jsv.Text(o.Val("runId"))
 	}
 	if _, err := r.cfg.Messaging.Send(ctx, SendRequest{
-		UserID:  userID,
-		AgentID: agentID,
-		Target:  *delivery.NotifyTarget,
-		Message: formatted,
-		RunID:   runID,
-		TaskID:  taskID,
+		UserID:    userID,
+		AgentID:   agentID,
+		Target:    *delivery.NotifyTarget,
+		Message:   formatted,
+		MediaPath: media,
+		RunID:     runID,
+		TaskID:    taskID,
 	}); err != nil {
 		return fmt.Errorf("%w: %v", errDeliveryFailed, err)
 	}

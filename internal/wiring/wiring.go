@@ -411,6 +411,7 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		return nil, err
 	}
 	inbound.workspaces = workspaces
+	taskMessaging.sender = toolMessaging{m: msgMgr, mem: memMgr, db: d.DB, artifacts: &artifacts.Store{DB: d.DB, Root: artifactsDir}, workspaces: workspaces}
 	app.computer = newComputer(d, emitter, &artifacts.Store{DB: d.DB, Root: artifactsDir}, workspaces, runPauser{link})
 	batch2.bindComputer(app.computer.Manager)
 	batch1.broker.SetBrowsers(credentialBrowsers{app.computer.Manager})

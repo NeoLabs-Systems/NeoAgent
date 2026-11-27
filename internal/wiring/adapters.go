@@ -285,6 +285,8 @@ type taskMessagingAdapter struct {
 	db           *dbx.DB
 	integrations *integrations.Manager
 	shared       *sharedmessaging.Store
+	// sender sends as the agent's own tools do, so the message is stored.
+	sender toolMessaging
 }
 
 func (a *taskMessagingAdapter) IsRefusedSharedRecipient(int64, string, tasks.Target) bool {
@@ -309,7 +311,11 @@ func (a *taskMessagingAdapter) Send(ctx context.Context, req tasks.SendRequest) 
 	if a.mgr == nil {
 		return nil, nil
 	}
-	return a.mgr.SendMessage(ctx, req.UserID, req.AgentID, req.Target.Platform, req.Target.To, req.Message, req.MediaPath)
+	result, err := a.sender.Send(ctx, req.UserID, req.AgentID, req.Target.Platform, req.Target.To, req.Message, req.MediaPath, req.RunID, true)
+	if err == nil && result["success"] == false {
+		err = fmt.Errorf("%v", result["error"])
+	}
+	return result, err
 }
 
 type mobileSyncEventsAdapter struct {

@@ -121,9 +121,7 @@ type SendRequest struct {
 	Target    Target
 	Message   string
 	MediaPath string
-	// RunID, when set, is the run whose ledger must record the message (channel
-	// "messaging", purpose "final", slot "task_result", metadata platform and
-	// taskId) so a retry of the step can never send it twice.
+	// RunID is the run that produced the message; the stored message names it.
 	RunID  string
 	TaskID int64
 }
