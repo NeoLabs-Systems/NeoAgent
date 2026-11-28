@@ -121,7 +121,7 @@ func buildToolBackend(s toolSources) *handlers.Backend {
 		d.Memory = toolMemory{m: s.Memory}
 	}
 	if s.Messaging != nil {
-		d.Messaging = toolMessaging{m: s.Messaging, mem: s.Memory, db: s.DB, artifacts: s.Artifacts, workspaces: s.Workspaces}
+		d.Messaging = toolMessaging{m: s.Messaging, mem: s.Memory, db: s.DB}
 	}
 	if s.Tasks != nil {
 		d.Tasks = toolTasks{r: s.Tasks}
@@ -476,33 +476,34 @@ func (t toolMemory) APIKeyNames(userID int64) ([]string, error) {
 
 // toolMessaging is the messaging manager.
 type toolMessaging struct {
-	m          *messaging.Manager
-	mem        *memory.Manager
-	db         *dbx.DB
+	m   *messaging.Manager
+	mem *memory.Manager
+	db  *dbx.DB
+}
+
+// messageMedia resolves message attachments to the user's own artifacts and
+// workspace files (resolveUserFileReference of the Node manager).
+type messageMedia struct {
 	artifacts  *artifacts.Store
 	workspaces *workspace.Manager
 }
 
-func (t toolMessaging) Send(ctx context.Context, userID int64, agentID, platform, to, content, mediaRef, runID string, persist bool) (dyn.Map, error) {
-	mediaPath := ""
-	if mediaRef != "" {
-		var store handlers.Artifacts
-		if t.artifacts != nil {
-			store = toolArtifacts{s: t.artifacts}
-		}
-		var ws handlers.Workspace
-		if t.workspaces != nil {
-			ws = &handlers.ComputerWorkspace{Resolve: resolverOf(t.workspaces)}
-		}
-		resolved, err := handlers.ResolveUserFile(ctx, store, ws, userID, mediaRef, "Message attachment")
-		if err != nil {
-			return nil, err
-		}
-		mediaPath = resolved
+func (f messageMedia) Resolve(ctx context.Context, userID int64, reference string) (string, error) {
+	var store handlers.Artifacts
+	if f.artifacts != nil {
+		store = toolArtifacts{s: f.artifacts}
 	}
+	var ws handlers.Workspace
+	if f.workspaces != nil {
+		ws = &handlers.ComputerWorkspace{Resolve: resolverOf(f.workspaces)}
+	}
+	return handlers.ResolveUserFile(ctx, store, ws, userID, reference, "Message attachment")
+}
+
+func (t toolMessaging) Send(ctx context.Context, userID int64, agentID, platform, to, content, mediaRef, runID string, persist bool) (dyn.Map, error) {
 	result, err := t.m.SendAgentMessage(ctx, messaging.AgentSend{
 		UserID: userID, AgentID: agentID, Platform: platform, To: to, Content: content,
-		MediaPath: mediaPath, MediaReference: mediaRef, RunID: runID,
+		MediaReference: mediaRef, RunID: runID,
 	})
 	if err != nil {
 		var se *messaging.SendError

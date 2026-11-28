@@ -57,6 +57,9 @@ type ManagerConfig struct {
 	LegacyWhatsAppDir string
 	Log               *slog.Logger
 	UserID            func(*http.Request) (int64, bool)
+	// ResolveMedia turns a named attachment into the user's own host file;
+	// without it attachments are refused.
+	ResolveMedia MediaResolver
 }
 
 type connKey struct {
@@ -355,13 +358,19 @@ func (m *Manager) LogoutPlatform(ctx context.Context, userID int64, agentID, pla
 }
 
 // SendMessage sends a message through an active platform connection.
-func (m *Manager) SendMessage(ctx context.Context, userID int64, agentID, platform, to, content, mediaPath string) (SendResult, error) {
+// mediaReference names the attachment as the user did (an owned artifact or a
+// workspace path); it is resolved before any platform sees it.
+func (m *Manager) SendMessage(ctx context.Context, userID int64, agentID, platform, to, content, mediaReference string) (SendResult, error) {
 	agentID = m.resolveAgent(ctx, userID, agentID)
 	m.mu.Lock()
 	mc := m.conns[connKey{userID: userID, agentID: agentID, platform: platform}]
 	m.mu.Unlock()
 	if mc == nil || mc.platform == nil {
 		return SendResult{}, fmt.Errorf("%s is not connected", platform)
+	}
+	mediaPath, err := m.resolveMedia(ctx, userID, mediaReference)
+	if err != nil {
+		return SendResult{}, err
 	}
 	formatted := NormalizeOutgoingMessage(platform, content, false)
 	return mc.platform.SendMessage(ctx, to, formatted, SendOptions{MediaPath: mediaPath})

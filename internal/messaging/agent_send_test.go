@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -65,7 +66,12 @@ func agentToolsManager(t *testing.T, p *toolPlatform) (*Manager, *dbx.DB, *emitt
 		}
 	}
 	e := &emitted{}
-	m := NewManager(ManagerConfig{DB: db, Emitter: e})
+	m := NewManager(ManagerConfig{DB: db, Emitter: e, ResolveMedia: func(_ context.Context, userID int64, ref string) (string, error) {
+		if userID != 1 || ref != "a.png" {
+			return "", errors.New("Message attachment does not exist.")
+		}
+		return "/resolved/a.png", nil
+	}})
 	m.conns[connKey{userID: 1, agentID: "main", platform: "whatsapp"}] = &managedConn{platform: p}
 	return m, db, e
 }
@@ -74,9 +80,12 @@ func TestSendAgentMessageStoresAndSplits(t *testing.T) {
 	p := &toolPlatform{}
 	m, db, e := agentToolsManager(t, p)
 	ctx := context.Background()
-	got, err := m.SendAgentMessage(ctx, AgentSend{UserID: 1, Platform: "whatsapp", To: "491@s.whatsapp.net", Content: "hello", RunID: "r1", MediaPath: "/tmp/a.png", MediaReference: "a.png"})
+	got, err := m.SendAgentMessage(ctx, AgentSend{UserID: 1, Platform: "whatsapp", To: "491@s.whatsapp.net", Content: "hello", RunID: "r1", MediaReference: "a.png"})
 	if err != nil || got["success"] != true {
 		t.Fatalf("%v %v", got, err)
+	}
+	if len(p.sent) != 1 || p.sent[0] != "491@s.whatsapp.net|hello|/resolved/a.png" {
+		t.Fatalf("platform got %q", p.sent)
 	}
 	var content, media, run string
 	if err := db.R.QueryRow(`SELECT content, media_path, run_id FROM messages WHERE platform_chat_id = ?`, "491@s.whatsapp.net").Scan(&content, &media, &run); err != nil {
@@ -140,5 +149,33 @@ func TestOwnerReactionsAndConversations(t *testing.T) {
 	_ = db.R.QueryRow(`SELECT title FROM conversations WHERE id = ?`, id).Scan(&title)
 	if title != "whatsapp — 999@s.whatsapp.net" {
 		t.Fatalf("title %q", title)
+	}
+}
+
+func TestSendsRefuseUnresolvedAttachments(t *testing.T) {
+	p := &toolPlatform{}
+	m, _, _ := agentToolsManager(t, p)
+	ctx := context.Background()
+	if _, err := m.SendMessage(ctx, 1, "", "whatsapp", "x", "hi", "/etc/passwd"); err == nil {
+		t.Fatal("SendMessage accepted an unresolved attachment")
+	}
+	_, err := m.SendAgentMessage(ctx, AgentSend{UserID: 1, Platform: "whatsapp", To: "x", Content: "hi", MediaReference: "../../etc/passwd"})
+	if se, ok := err.(*SendError); !ok || se.Ambiguous {
+		t.Fatalf("SendAgentMessage: %v", err)
+	}
+	if _, err := m.SendMessage(ctx, 1, "", "whatsapp", "x", "hi", "a.png"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.sent) != 1 || p.sent[0] != "x|hi|/resolved/a.png" {
+		t.Fatalf("platform got %q", p.sent)
+	}
+	// Without a resolver nothing is attached at all.
+	bare := NewManager(ManagerConfig{})
+	bare.conns[connKey{userID: 1, agentID: "main", platform: "whatsapp"}] = &managedConn{platform: p}
+	if _, err := bare.SendMessage(ctx, 1, "", "whatsapp", "x", "hi", "a.png"); err == nil {
+		t.Fatal("attachment sent without a resolver")
+	}
+	if _, err := bare.SendMessage(ctx, 1, "", "whatsapp", "x", "plain", ""); err != nil {
+		t.Fatal(err)
 	}
 }

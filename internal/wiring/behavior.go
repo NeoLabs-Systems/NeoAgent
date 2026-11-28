@@ -74,7 +74,7 @@ func (b behaviorSender) Send(ctx context.Context, out behavior.Outgoing) (behavi
 		return behavior.Sent{}, errors.New("messaging is not running")
 	}
 	result, err := mgr.SendAgentMessage(ctx, messaging.AgentSend{UserID: out.UserID, AgentID: out.AgentID, Platform: out.Platform, To: out.ChatID,
-		Content: out.Content, MediaPath: out.MediaPath, RunID: out.RunID, DeliveryKind: out.Kind, Metadata: out.Metadata})
+		Content: out.Content, MediaReference: out.MediaPath, RunID: out.RunID, DeliveryKind: out.Kind, Metadata: out.Metadata})
 	if err != nil {
 		return behavior.Sent{}, err
 	}

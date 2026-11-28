@@ -17,12 +17,13 @@ type AgentSend struct {
 	AgentID      string
 	Platform, To string
 	Content      string
-	// MediaPath is the resolved host file to attach; MediaReference is what
-	// the agent named, stored with the message.
-	MediaPath, MediaReference string
-	RunID                     string
-	DeliveryKind              string
-	Metadata                  map[string]any
+	// MediaReference is the attachment as the agent named it (an owned
+	// artifact or a workspace path); it is resolved before sending and stored
+	// with the message.
+	MediaReference string
+	RunID          string
+	DeliveryKind   string
+	Metadata       map[string]any
 }
 
 // SendError is a delivery failure; Ambiguous means earlier parts of the
@@ -46,15 +47,20 @@ func (m *Manager) SendAgentMessage(ctx context.Context, s AgentSend) (map[string
 	if mc == nil || mc.platform == nil {
 		return nil, fmt.Errorf("Platform %s not connected", s.Platform)
 	}
+	mediaPath, err := m.resolveMedia(ctx, s.UserID, s.MediaReference)
+	if err != nil {
+		// Nothing reached the chat, so the send can be fixed and retried.
+		return nil, &SendError{Msg: err.Error()}
+	}
 	normalized := NormalizeOutgoingMessage(s.Platform, s.Content, false)
-	if s.MediaPath == "" && strings.ToUpper(normalized) == "[NO RESPONSE]" {
+	if mediaPath == "" && strings.ToUpper(normalized) == "[NO RESPONSE]" {
 		return map[string]any{"success": true, "suppressed": true}, nil
 	}
 	var first *SendResult
 	for i, part := range SplitToMessageLimit(s.Platform, normalized) {
 		opts := SendOptions{}
 		if i == 0 {
-			opts.MediaPath = s.MediaPath
+			opts.MediaPath = mediaPath
 		}
 		res, err := mc.platform.SendMessage(ctx, s.To, part, opts)
 		if err != nil {

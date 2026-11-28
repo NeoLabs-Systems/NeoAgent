@@ -252,6 +252,10 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 
 	app.mcp = mcpMgr
 
+	workspaces, err := workspace.New(filepath.Join(agentDataDir, "workspaces"), false)
+	if err != nil {
+		return nil, err
+	}
 	var msgMgr *messaging.Manager
 	media := inboundMedia{&artifacts.Store{DB: d.DB, Root: artifactsDir}}
 	inbound := &inboundHandler{link: link, db: d.DB, store: &messaging.Store{DB: d.DB, Agents: agentScopeAdapter{r: agents}},
@@ -267,6 +271,7 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 		OnEvent:           func(name string, event map[string]any) { taskRt.HandleEvent("messaging", name, event) },
 		LegacyWhatsAppDir: filepath.Join(d.Cfg.Paths.DataDir, "whatsapp-auth"),
 		Log:               d.Log,
+		ResolveMedia:      messageMedia{artifacts: &artifacts.Store{DB: d.DB, Root: artifactsDir}, workspaces: workspaces}.Resolve,
 	})
 	app.messaging = msgMgr
 	sharedStore := &sharedmessaging.Store{DB: d.DB, Box: localBox}
@@ -406,12 +411,8 @@ func Build(ctx context.Context, d Deps) (*App, error) {
 
 	skillsDir := filepath.Join(agentDataDir, "skills")
 	_ = os.MkdirAll(skillsDir, 0o700)
-	workspaces, err := workspace.New(filepath.Join(agentDataDir, "workspaces"), false)
-	if err != nil {
-		return nil, err
-	}
 	inbound.workspaces = workspaces
-	taskMessaging.sender = toolMessaging{m: msgMgr, mem: memMgr, db: d.DB, artifacts: &artifacts.Store{DB: d.DB, Root: artifactsDir}, workspaces: workspaces}
+	taskMessaging.sender = toolMessaging{m: msgMgr, mem: memMgr, db: d.DB}
 	app.computer = newComputer(d, emitter, &artifacts.Store{DB: d.DB, Root: artifactsDir}, workspaces, runPauser{link})
 	batch2.bindComputer(app.computer.Manager)
 	batch1.broker.SetBrowsers(credentialBrowsers{app.computer.Manager})

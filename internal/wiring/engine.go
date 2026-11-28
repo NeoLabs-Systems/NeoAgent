@@ -313,7 +313,7 @@ func toObject(v any) map[string]any {
 
 func (m agentMessaging) Send(ctx context.Context, req agent.SendRequest) (agent.SendResult, error) {
 	result, err := m.mgr.SendAgentMessage(ctx, messaging.AgentSend{UserID: req.UserID, AgentID: req.AgentID, Platform: req.Platform, To: req.ChatID,
-		Content: req.Content, MediaPath: req.MediaPath, RunID: req.RunID, DeliveryKind: req.Kind, Metadata: toObject(req.Metadata)})
+		Content: req.Content, MediaReference: req.MediaPath, RunID: req.RunID, DeliveryKind: req.Kind, Metadata: toObject(req.Metadata)})
 	if err != nil {
 		var se *messaging.SendError
 		if errors.As(err, &se) {
